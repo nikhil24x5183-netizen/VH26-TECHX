@@ -93,7 +93,8 @@ export default function App() {
       setMessages((prev) => [...prev, aiMsg]);
       setLastContext({
         last_question: text,
-        last_machine: selectedMachine || (data.citations?.[0]?.machine_name) || ""
+        last_machine: selectedMachine || data.context_machine || (data.citations?.[0]?.machine_name) || "",
+        last_error_code: data.extracted_error || null
       });
 
     } catch (err) {

@@ -1,11 +1,12 @@
 """
 Advanced RAG Engine for MaintAI.
 Implements:
-1. Exact Error Code Indexing & Priority Retrieval
-2. Machine / Model Metadata Isolation
-3. Relevance Threshold & Garbage Chunk Rejection
-4. Strict LLM Grounding & Refusal Guardrails
-5. Clean Markdown Output Formatting
+1. Conversational Intent Layer (Greeting, Thanks, Help, Capabilities, Mixed Queries)
+2. Exact Error Code Indexing & Priority Retrieval
+3. Machine / Model Metadata Isolation
+4. Relevance Threshold & Garbage Chunk Rejection
+5. Strict LLM Grounding & Refusal Guardrails
+6. Multi-Turn Context Resolution & Follow-Up Tracking
 """
 
 import os
@@ -39,6 +40,72 @@ STOPWORDS = {
     "or", "on", "it", "with", "from", "at", "by", "can", "help", "please", "device",
     "doesnt", "does", "if", "that", "that's", "alarm", "code", "error", "fault", "meaning"
 }
+
+
+class IntentClassifier:
+    """Classifies user intent before RAG retrieval."""
+
+    GREETING_PATTERNS = [
+        r'^(hello|hi|hii|hiii|hey|heyy|good\s+morning|good\s+afternoon|good\s+evening)\b',
+        r'^(are\s+you\s+there|anyone\s+there)\??$'
+    ]
+    THANKS_PATTERNS = [
+        r'^(thanks|thank\s+you|thx|thankyou|thanks\s+a\s+lot|many\s+thanks)\b'
+    ]
+    HELP_PATTERNS = [
+        r'^(help|sos|assistance|i\s+need\s+help)$'
+    ]
+    CAPABILITIES_PATTERNS = [
+        r'^(who\s+are\s+you|what\s+can\s+you\s+do|what\s+are\s+your\s+features|features|capabilities)\??$'
+    ]
+
+    @classmethod
+    def classify(cls, text: str) -> Dict[str, Any]:
+        text_clean = text.strip().lower()
+        extracted_codes = extract_error_codes(text)
+        has_codes = len(extracted_codes) > 0
+
+        # Technical keywords indicating RAG intent
+        tech_words = [
+            "error", "fault", "alarm", "manual", "page", "temperature", "pressure",
+            "voltage", "cable", "motor", "spindle", "pump", "loto", "coolant", "fix",
+            "repair", "troubleshoot", "why", "check", "g120", "c15", "plc", "s7",
+            "kuka", "robodrill", "overheating", "overload", "f30001", "e101", "e301"
+        ]
+        has_tech = any(w in text_clean for w in tech_words) or has_codes or len(text_clean.split()) > 4
+
+        is_greeting = any(re.search(pat, text_clean) for pat in cls.GREETING_PATTERNS)
+        is_thanks = any(re.search(pat, text_clean) for pat in cls.THANKS_PATTERNS)
+        is_help = any(re.search(pat, text_clean) for pat in cls.HELP_PATTERNS)
+        is_cap = any(re.search(pat, text_clean) for pat in cls.CAPABILITIES_PATTERNS)
+
+        if is_greeting and has_tech:
+            return {
+                "intent": "MIXED_GREETING_RAG",
+                "greeting_prefix": "Hi! 👋 I can help with that. Let's check the manual for your query.\n\n"
+            }
+        elif is_thanks and not has_tech:
+            return {
+                "intent": "THANKS",
+                "response": "You're welcome! Let me know if you need help with anything else."
+            }
+        elif is_greeting and not has_tech:
+            return {
+                "intent": "GREETING",
+                "response": "Hello! I'm MaintAI, your industrial troubleshooting copilot. 👋 Tell me the machine, error code, or symptom you're dealing with."
+            }
+        elif is_help and not has_tech:
+            return {
+                "intent": "HELP",
+                "response": "I can help you troubleshoot industrial machines using verified manual evidence.\n\nYou can:\n• Enter an error code (e.g., F30001, E101)\n• Describe a machine problem or symptom\n• Search a machine manual\n• Upload a new OEM manual\n• Scan an error code or photo\n\nWhat machine or issue would you like to troubleshoot?"
+            }
+        elif is_cap and not has_tech:
+            return {
+                "intent": "CAPABILITIES",
+                "response": "I'm MaintAI — an AI troubleshooting copilot grounded in official machine manuals.\n\nI can:\n✓ Find error-code definitions & fault meanings\n✓ Troubleshoot mechanical and electrical symptoms\n✓ Search technical manuals & cite exact page numbers\n✓ Detect ambiguous error codes across machines\n✓ Refuse unsupported diagnoses to prevent hallucinations\n\nTell me what machine you're working on today."
+            }
+
+        return {"intent": "TECHNICAL_RAG"}
 
 
 class VectorStore:
@@ -235,8 +302,24 @@ class RAGEngine:
         previous_context: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
-        Main RAG pipeline meeting strict correctness, relevance cutoff, refusal, and citation requirements.
+        Main query processing pipeline featuring Conversational Intent Classification & RAG.
         """
+        # Step 1: Conversational Intent Detection (GREETING, THANKS, HELP, CAPABILITIES)
+        intent_info = IntentClassifier.classify(question)
+        if intent_info["intent"] in ["GREETING", "THANKS", "HELP", "CAPABILITIES"]:
+            return {
+                "answer": intent_info["response"],
+                "citations": [],
+                "ambiguity": None,
+                "insufficient_info": False,
+                "confidence_score": 1.0,
+                "confidence_label": "Conversational",
+                "extracted_error": None,
+                "is_conversational": True
+            }
+
+        greeting_prefix = intent_info.get("greeting_prefix", "")
+
         if not self.store.chunks:
             return {
                 "answer": "No machine manuals uploaded yet. Upload a PDF manual to begin.",
@@ -252,9 +335,10 @@ class RAGEngine:
         extracted_codes = extract_error_codes(question)
         main_error_code = extracted_codes[0] if extracted_codes else None
 
-        # Requirement #17: Follow-up Context Resolution
+        # Requirement #9 / #17: Follow-up Context Resolution
         inferred_machine = selected_machine
         search_query = question
+
         if previous_context:
             prev_m = previous_context.get("last_machine")
             prev_code = previous_context.get("last_error_code")
@@ -263,11 +347,12 @@ class RAGEngine:
             if not main_error_code and prev_code:
                 main_error_code = prev_code
                 extracted_codes.append(prev_code)
+                search_query = f"{prev_m or ''} {prev_code} {question}"
 
         if not inferred_machine or inferred_machine.lower() == "all":
             inferred_machine = self.auto_detect_machine(question)
 
-        # Requirement #2 & #5: Priority Search with Machine Isolation
+        # Priority RAG Search
         retrieved_results = self.store.priority_search(
             query=search_query,
             extracted_codes=extracted_codes,
@@ -275,8 +360,6 @@ class RAGEngine:
             top_k=5
         )
 
-        # Requirement #3 & #4: Relevance Cutoff Threshold & Garbage Rejection
-        # For error code queries, if no top chunk matched the exact code or scored >= 0.25, refuse.
         if not retrieved_results:
             return self._build_refusal_response(question, main_error_code)
 
@@ -284,14 +367,13 @@ class RAGEngine:
         top_score = top_result["score"]
         top_chunk = top_result["chunk"]
 
-        # Strict Relevance Threshold: if query is an error code (e.g. F30001) but top chunk score < 0.35 and didn't match code, refuse.
         if extracted_codes and not top_result["exact_matched"] and top_score < 0.35:
             return self._build_refusal_response(question, main_error_code)
 
         if top_score < 0.20:
             return self._build_refusal_response(question, main_error_code)
 
-        # Requirement #3: Check for Cross-Document Ambiguity if machine not locked
+        # Cross-Document Ambiguity Check
         if not inferred_machine or inferred_machine.lower() == "all":
             ambiguity_info = self._check_ambiguity(extracted_codes, retrieved_results)
             if ambiguity_info:
@@ -328,12 +410,14 @@ class RAGEngine:
         conf_score = round(min(0.99, max(0.40, top_score)), 2)
         conf_label = "High Confidence" if conf_score >= 0.70 else "Medium Confidence"
 
-        # Requirement #9: Strictly Grounded LLM / Synthesizer Prompting
         effective_key = api_key or os.environ.get("GEMINI_API_KEY")
         if effective_key and HAS_GEMINI:
             answer = self._generate_gemini_answer(question, citations, effective_key)
         else:
             answer = self._synthesize_grounded_answer(question, citations, main_error_code)
+
+        if greeting_prefix:
+            answer = greeting_prefix + answer
 
         return {
             "answer": answer,
@@ -343,6 +427,7 @@ class RAGEngine:
             "confidence_score": conf_score,
             "confidence_label": conf_label,
             "extracted_error": main_error_code,
+            "context_machine": inferred_machine or top_chunk["machine_name"],
             "audit_trail": {
                 "user_query": question,
                 "extracted_code": main_error_code,
@@ -355,10 +440,9 @@ class RAGEngine:
         }
 
     def _build_refusal_response(self, question: str, main_error_code: Optional[str]) -> Dict[str, Any]:
-        """Requirement #3 & #11: Explicit Refusal Guardrail."""
         code_str = f" for error code '{main_error_code}'" if main_error_code else ""
         return {
-            "answer": f"INSUFFICIENT EVIDENCE: I couldn't find a relevant explanation{code_str} in the available manufacturer manuals. Please select the specific machine model or provide additional fault details.",
+            "answer": f"I couldn't find enough information{code_str} in the available manuals. If you specify the exact machine model or error code, I can narrow it down.",
             "citations": [],
             "ambiguity": None,
             "insufficient_info": True,
@@ -441,10 +525,9 @@ class RAGEngine:
         snippet = primary["snippet"]
         f_name = primary["file_name"]
 
-        # Parse meaning and checks from snippet
         lines = [l.strip() for l in snippet.split("\n") if l.strip()]
         meaning = lines[0] if lines else f"Diagnostic fault condition reported for {m_name}."
-        
+
         causes = []
         checks = []
         in_causes = False
