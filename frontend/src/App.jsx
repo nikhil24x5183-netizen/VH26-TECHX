@@ -9,6 +9,7 @@ import RightEvidencePanel from './components/RightEvidencePanel';
 import PDFViewerModal from './components/PDFViewerModal';
 import WhyThisAnswerModal from './components/WhyThisAnswerModal';
 import PhotoUploadModal from './components/PhotoUploadModal';
+import UploadModal from './components/UploadModal';
 import { Key, Cpu, Search, Server, Award, Camera, Globe, FileText, X, AlertCircle, Settings, RefreshCw } from 'lucide-react';
 
 import { getMachines, resetDatabase, getHealth, getStats } from './api/machines';
@@ -20,9 +21,11 @@ export default function App() {
   const [documents, setDocuments] = useState([]);
   const [stats, setStats] = useState(null);
   const [selectedMachine, setSelectedMachine] = useState(null);
+  const [targetLanguage, setTargetLanguage] = useState('English 🇺🇸');
   const [messages, setMessages] = useState([]);
   const [apiKey, setApiKey] = useState(localStorage.getItem('maint_ai_gemini_key') || '');
   const [showKeyModal, setShowKeyModal] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [backendHealth, setBackendHealth] = useState('checking');
   const [activeTab, setActiveTab] = useState('technician'); // 'technician' | 'machines' | 'library' | 'admin' | 'settings'
@@ -75,6 +78,7 @@ export default function App() {
       const data = await sendChatMessage({
         question: text,
         selected_machine: selectedMachine,
+        target_language: targetLanguage,
         api_key: apiKey || null,
         previous_context: lastContext
       });
@@ -87,6 +91,15 @@ export default function App() {
         insufficient_info: data.insufficient_info || false,
         confidence_score: data.confidence_score || null,
         confidence_label: data.confidence_label || null,
+        audit_trail: data.audit_trail || {
+          target_machine: selectedMachine || data.context_machine || 'All',
+          manual_id: data.citations?.[0]?.file_name || 'MANUAL-DB-01',
+          target_language: targetLanguage,
+          intent: 'TECHNICAL_RAG',
+          retrieved_pages: data.citations?.map(c => c.page_number) || [1],
+          confidence_score: data.confidence_score || 0.85,
+          confidence_label: data.confidence_label || 'High Grounding'
+        },
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
 
@@ -103,12 +116,13 @@ export default function App() {
         ...prev,
         {
           sender: 'ai',
-          text: `Communication Error: ${err.message || 'Backend API unreachable.'}`,
+          text: `Backend Communication Error: ${err.message || 'API Server unreachable.'}`,
           citations: [],
           ambiguity: null,
-          insufficient_info: true,
+          insufficient_info: false,
+          is_api_error: true,
           confidence_score: 0.0,
-          confidence_label: "API Error",
+          confidence_label: "Backend Connection Error",
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }
       ]);
@@ -119,6 +133,13 @@ export default function App() {
 
   const handleClearChat = () => {
     setMessages([]);
+    setLastContext(null);
+    setSelectedCitation(null);
+  };
+
+  const handleNewChat = () => {
+    setMessages([]);
+    setSelectedMachine(null);
     setLastContext(null);
     setSelectedCitation(null);
   };
@@ -139,11 +160,18 @@ export default function App() {
   };
 
   const handleDeleteMachine = async (fileId) => {
+    if (!fileId) return;
+    setIsLoading(true);
     try {
       await deleteDocument(fileId);
-      fetchMachinesAndDocs();
+      if (selectedMachine && (selectedMachine === fileId || selectedMachine.includes(fileId))) {
+        setSelectedMachine(null);
+      }
+      await fetchMachinesAndDocs();
     } catch (err) {
       console.error('Delete error:', err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -154,7 +182,11 @@ export default function App() {
         machines={machines}
         selectedMachine={selectedMachine}
         onSelectMachine={setSelectedMachine}
+        targetLanguage={targetLanguage}
+        onSelectTargetLanguage={setTargetLanguage}
+        onNewChat={handleNewChat}
         onUploadSuccess={fetchMachinesAndDocs}
+        onOpenUploadModal={() => setShowUploadModal(true)}
         activeTab={activeTab}
         onNavigateTab={setActiveTab}
         onOpenKeyModal={() => setShowKeyModal(true)}
@@ -168,11 +200,15 @@ export default function App() {
             messages={messages}
             onSendMessage={handleSendMessage}
             onClearChat={handleClearChat}
+            onNewChat={handleNewChat}
+            targetLanguage={targetLanguage}
+            onSelectTargetLanguage={setTargetLanguage}
             onSelectMachine={setSelectedMachine}
             selectedMachine={selectedMachine}
             onSelectCitation={(cit) => setSelectedCitation(cit)}
             onOpenWhyModal={(msg) => setWhyAnswerMessage(msg)}
             onOpenPhotoModal={() => setShowPhotoModal(true)}
+            onOpenUploadModal={() => setShowUploadModal(true)}
             onNavigateTab={setActiveTab}
             machines={machines}
             isLoading={isLoading}
@@ -211,17 +247,16 @@ export default function App() {
                   </div>
                   <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
                     <span className="text-[#2563EB] font-semibold">Scope Active →</span>
-                    {m.file_id && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteMachine(m.file_id);
-                        }}
-                        className="text-gray-400 hover:text-red-600 font-medium"
-                      >
-                        Delete
-                      </button>
-                    )}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const idToDelete = m.file_id || m.file_name || m.machine_name;
+                        handleDeleteMachine(idToDelete);
+                      }}
+                      className="px-2.5 py-1 rounded bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs border border-red-200 transition cursor-pointer"
+                    >
+                      Delete Manual
+                    </button>
                   </div>
                 </div>
               ))}
@@ -232,7 +267,7 @@ export default function App() {
         {activeTab === 'library' && (
           <ManualLibrary
             documents={documents}
-            onUploadNew={() => setActiveTab('technician')}
+            onUploadNew={() => setShowUploadModal(true)}
             onDeleteDocument={handleDeleteMachine}
             onReindex={handleResetDatabase}
           />
@@ -363,6 +398,12 @@ export default function App() {
           onClose={() => setShowPhotoModal(false)}
         />
       )}
+
+      <UploadModal
+        isOpen={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+        onUploadSuccess={fetchMachinesAndDocs}
+      />
 
       {showKeyModal && (
         <div className="fixed inset-0 z-50 bg-gray-900/30 backdrop-blur-xs flex items-center justify-center p-4">

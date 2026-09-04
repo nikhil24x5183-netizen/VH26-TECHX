@@ -1,5 +1,6 @@
 import os
 import uuid
+import sys
 from typing import Optional
 from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Depends
 from pydantic import BaseModel
@@ -7,8 +8,9 @@ from pydantic import BaseModel
 router = APIRouter(tags=["Documents"])
 
 def get_services():
-    from main import pdf_processor, rag_engine, MANUALS_DIR
-    return pdf_processor, rag_engine, MANUALS_DIR
+    main_mod = sys.modules.get('__main__') or sys.modules.get('main')
+    return main_mod.pdf_processor, main_mod.rag_engine, main_mod.MANUALS_DIR
+
 
 @router.get("/documents")
 @router.get("/manuals")
@@ -143,10 +145,26 @@ async def upload_document(
         raise HTTPException(status_code=500, detail=f"Failed to ingest manual: {str(e)}")
 
 @router.delete("/documents/{document_id}")
+@router.delete("/manuals/{document_id}")
 def delete_document(document_id: str):
-    _, rag_engine, _ = get_services()
+    _, rag_engine, MANUALS_DIR = get_services()
     rag_engine.remove_file(document_id)
-    return {"message": f"Document {document_id} removed from index."}
+
+    # Physical file cleanup from disk
+    if os.path.exists(MANUALS_DIR):
+        doc_clean = document_id.strip().lower()
+        for f in os.listdir(MANUALS_DIR):
+            f_lower = f.lower()
+            if doc_clean in f_lower or f_lower in doc_clean:
+                try:
+                    os.remove(os.path.join(MANUALS_DIR, f))
+                except Exception as e:
+                    print(f"Notice: Failed to remove file {f}: {e}")
+
+    return {
+        "message": f"Document {document_id} removed from index.",
+        "machines": rag_engine.get_machines()
+    }
 
 from fastapi.responses import FileResponse
 

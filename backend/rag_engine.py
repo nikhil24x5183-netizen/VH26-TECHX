@@ -84,7 +84,7 @@ class IntentClassifier:
         if is_quantity:
             return {
                 "intent": "CONVERSATIONAL_QUANTITY",
-                "response": "I currently have the following machines available in your Manual Library:\n\n• Siemens SINAMICS G120 (CU240B/E-2)\n• Caterpillar C15 Generator (C15-500kVA)\n• Siemens S7-1500 PLC (CPU 1516-3 PN/DP)\n• KUKA KR 210 Robot (KR 210 R2700-2)\n• Fanuc Robodrill CNC (α-D21MiB5)\n\nSelect a machine on the Home screen to start troubleshooting."
+                "response": "DYNAMIC_MACHINES_RESPONSE"
             }
 
         is_greeting = any(re.search(pat, text_clean) for pat in cls.GREETING_PATTERNS)
@@ -107,7 +107,7 @@ class IntentClassifier:
         elif is_greeting and not has_tech:
             return {
                 "intent": "GREETING",
-                "response": "Hi! 👋 Which machine are you troubleshooting today? Select a machine from the Home screen or list."
+                "response": "Hi! 👋 Which machine are you troubleshooting today? Select a machine from the Home screen or upload a PDF manual."
             }
         elif is_help and not has_tech:
             return {
@@ -117,7 +117,7 @@ class IntentClassifier:
         elif is_cap and not has_tech:
             return {
                 "intent": "CAPABILITIES",
-                "response": "I'm MaintAI — an AI troubleshooting copilot grounded in official machine manuals.\n\nI can:\n✓ Find exact error-code definitions & fault meanings\n✓ Troubleshoot mechanical and electrical symptoms\n✓ Search technical manuals & cite exact page numbers\n✓ Detect ambiguous error codes across machines\n✓ Refuse unsupported diagnoses to prevent hallucinations\n\nSelect your machine above to get started."
+                "response": "I'm MaintAI — an AI troubleshooting copilot grounded in official machine manuals.\n\nI can:\n✓ Find exact error-code definitions & fault meanings\n✓ Troubleshoot mechanical and electrical symptoms\n✓ Search technical manuals & cite exact page numbers\n✓ Detect ambiguous error codes across machines\n✓ Refuse unsupported diagnoses to prevent hallucinations\n\nUpload a manual or select your machine above to get started."
             }
 
         return {"intent": "TECHNICAL_RAG"}
@@ -136,34 +136,67 @@ class VectorStore:
                 self.encoder = None
 
     def add_chunks(self, new_chunks: List[Dict[str, Any]]):
-        for chunk in new_chunks:
-            if self.encoder:
-                try:
-                    chunk["vector"] = self.encoder.encode(chunk["text"]).tolist()
-                except Exception:
+        if not new_chunks:
+            return
+        if self.encoder:
+            try:
+                texts = [c["text"] for c in new_chunks]
+                vectors = self.encoder.encode(texts, batch_size=64, show_progress_bar=False)
+                for chunk, vec in zip(new_chunks, vectors):
+                    chunk["vector"] = vec.tolist()
+            except Exception as e:
+                print(f"Embedding error: {e}")
+                for chunk in new_chunks:
                     chunk["vector"] = None
-            self.chunks.append(chunk)
+        else:
+            for chunk in new_chunks:
+                chunk["vector"] = None
+        self.chunks.extend(new_chunks)
 
     def remove_file(self, file_id: str):
-        self.chunks = [c for c in self.chunks if c.get("file_id") != file_id]
+        if not file_id:
+            return
+        target = file_id.strip().lower()
+        self.chunks = [
+            c for c in self.chunks
+            if c.get("file_id", "").lower() != target
+            and c.get("file_name", "").lower() != target
+            and c.get("machine_name", "").lower() != target
+            and c.get("document_id", "").lower() != target
+        ]
 
     def clear(self):
         self.chunks = []
 
-    def get_machines(self) -> List[Dict[str, str]]:
+    def get_machines(self) -> List[Dict[str, Any]]:
         machines = {}
         for c in self.chunks:
-            m_key = f"{c['machine_name']}|||{c['model']}"
+            m_key = f"{c.get('manufacturer', 'OEM')}|||{c['machine_name']}|||{c['model']}|||{c.get('manufacturing_year', 'Unknown')}"
             if m_key not in machines:
                 machines[m_key] = {
+                    "manufacturer": c.get("manufacturer", "Industrial OEM"),
                     "machine_name": c["machine_name"],
                     "model": c["model"],
+                    "manufacturing_year": c.get("manufacturing_year", "Unknown"),
+                    "firmware": c.get("firmware", "Standard"),
+                    "manual_type": c.get("manual_type", "Operating Instructions"),
+                    "manual_language": c.get("manual_language", "English 🇺🇸"),
+                    "manual_title": c.get("manual_title", f"{c['machine_name']} Operating Instructions"),
                     "file_name": c["file_name"],
                     "file_id": c.get("file_id", ""),
-                    "chunk_count": 0
+                    "chunk_count": 0,
+                    "pages": set()
                 }
             machines[m_key]["chunk_count"] += 1
-        return list(machines.values())
+            machines[m_key]["pages"].add(c.get("page_number", 1))
+
+        res = []
+        for m in machines.values():
+            m_copy = dict(m)
+            m_copy["page_count"] = len(m_copy["pages"])
+            del m_copy["pages"]
+            res.append(m_copy)
+        return res
 
     def _cosine_similarity(self, vec1: List[float], vec2: List[float]) -> float:
         dot = sum(a * b for a, b in zip(vec1, vec2))
@@ -206,12 +239,18 @@ class VectorStore:
         # Tier 2: Filter by selected machine metadata if locked
         candidate_chunks = self.chunks
         if selected_machine and selected_machine != "all":
-            candidate_chunks = [
+            filtered = [
                 c for c in self.chunks
                 if c["machine_name"].lower() == selected_machine.lower()
                 or f"{c['machine_name']} ({c['model']})".lower() == selected_machine.lower()
                 or selected_machine.lower() in c["machine_name"].lower()
+                or c.get("model", "").lower() == selected_machine.lower()
             ]
+            if filtered:
+                candidate_chunks = filtered
+            else:
+                # Fallback: User selected custom label or manual title differs, search all chunks
+                candidate_chunks = self.chunks
 
         if not candidate_chunks:
             return []
@@ -313,17 +352,41 @@ class RAGEngine:
         self,
         question: str,
         selected_machine: Optional[str] = None,
+        manual_id: Optional[str] = None,
+        machine_id: Optional[str] = None,
+        manufacturing_year: Optional[str] = None,
+        target_language: Optional[str] = "English 🇺🇸",
         api_key: Optional[str] = None,
         previous_context: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
-        Main query processing pipeline featuring Conversational Intent Classification & RAG.
+        Main query processing pipeline featuring Conversational Intent Classification, Parameter extraction & Grounded RAG.
         """
         # Step 1: Conversational Intent Detection (GREETING, THANKS, HELP, CAPABILITIES)
         intent_info = IntentClassifier.classify(question)
-        if intent_info["intent"] in ["GREETING", "THANKS", "HELP", "CAPABILITIES"]:
+        intent_type = intent_info.get("intent")
+
+        if intent_type in ["GREETING", "THANKS", "HELP", "CAPABILITIES", "CONVERSATIONAL_QUANTITY"]:
+            ans = intent_info.get("response", "")
+
+            if intent_type == "CONVERSATIONAL_QUANTITY":
+                m_list = self.get_machines()
+                if not m_list:
+                    ans = "No machine manuals are uploaded yet in the database. Please upload a PDF manual to begin."
+                else:
+                    m_names = [f"• {m['machine_name']} ({m['model']})" for m in m_list]
+                    ans = f"Currently, there are {len(m_list)} machine manual(s) ingested in the database:\n\n" + "\n".join(m_names)
+
+            elif selected_machine and selected_machine.strip() and selected_machine.lower() != "all":
+                if intent_type == "GREETING":
+                    ans = f"Hi! 👋 I'm ready to troubleshoot **{selected_machine}**.\n\nTell me the error code (e.g. F30001, E101) or describe the symptom you're experiencing."
+                elif intent_type == "HELP":
+                    ans = f"I am ready to help troubleshoot **{selected_machine}**.\n\n• Enter an error code (e.g. F30001)\n• Describe a symptom (e.g. motor overcurrent, temperature warning)\n• Scan an error photo"
+                elif intent_type == "CAPABILITIES":
+                    ans = f"I'm MaintAI — your industrial troubleshooting copilot currently loaded with evidence for **{selected_machine}**.\n\nI will search official OEM manual pages, provide exact error definitions, and cite page numbers."
+
             return {
-                "answer": intent_info["response"],
+                "answer": ans,
                 "citations": [],
                 "ambiguity": None,
                 "insufficient_info": False,
@@ -385,8 +448,16 @@ class RAGEngine:
         if extracted_codes and not top_result["exact_matched"] and top_score < 0.35:
             return self._build_refusal_response(question, main_error_code, selected_machine=inferred_machine)
 
-        if top_score < 0.20:
+        # Allow lower threshold (0.10) for general questions about manual context
+        min_threshold = 0.20 if extracted_codes else 0.10
+        if top_score < min_threshold:
             return self._build_refusal_response(question, main_error_code, selected_machine=inferred_machine)
+
+        # Filter relevant chunks
+        relevant_chunks = [
+            r for r in retrieved_results
+            if r["score"] >= min_threshold or (extracted_codes and r["exact_matched"])
+        ]
 
         # Cross-Document Ambiguity Check
         if not inferred_machine or inferred_machine.lower() == "all":
@@ -454,10 +525,15 @@ class RAGEngine:
                 "user_query": question,
                 "extracted_code": main_error_code,
                 "target_machine": inferred_machine or top_chunk["machine_name"],
+                "manual_id": manual_id or top_chunk.get("file_id") or top_chunk.get("file_name", "OEM-MANUAL"),
+                "target_language": target_language or "English 🇺🇸",
+                "intent": intent_type or "TECHNICAL_RAG",
                 "match_type": top_result["match_type"],
+                "retrieved_pages": list(set([str(c["page_number"]) for c in citations])),
                 "retrieved_page": top_chunk["page_number"],
                 "retrieved_section": top_chunk["section"],
-                "confidence_score": conf_score
+                "confidence_score": conf_score,
+                "confidence_label": conf_label
             }
         }
 
@@ -524,6 +600,7 @@ class RAGEngine:
                 "You are MaintAI, an expert industrial machine troubleshooting copilot.\n"
                 "CRITICAL MANDATE: Answer using ONLY the provided manual context excerpts below.\n"
                 "Do NOT use general knowledge. If the manual context does not answer the question, state INSUFFICIENT EVIDENCE.\n\n"
+                "LANGUAGE MANDATE: Your answer MUST be written in English only, regardless of the language of the manual excerpts (German, French, Spanish, Japanese, etc.). Translate any non-English excerpts into English in your answer.\n\n"
                 "REQUIRED STRUCTURE:\n"
                 "Diagnosed Fault: [Fault Name / Code]\n"
                 "Meaning: [Concise description from manual]\n"
@@ -556,6 +633,20 @@ class RAGEngine:
         f_name = primary["file_name"]
 
         lines = [l.strip() for l in snippet.split("\n") if l.strip()]
+
+        # General Machine Question Synthesis (when query is not about an error code/fault)
+        is_fault_query = bool(extracted_code) or any(w in question.lower() for w in ["fault", "error", "alarm", "code", "trip", "overcurrent", "overvoltage", "failure", "f30001", "e101"])
+
+        if not is_fault_query:
+            clean_excerpt = "\n".join(lines[:6]) if lines else "Refer to manual section for detailed technical specifications."
+            out = [
+                f"### Technical Manual Evidence: {m_name}\n",
+                f"**Section**: {sec} (Page {pg})\n",
+                f"**Manual Excerpt**:\n{clean_excerpt}\n",
+                f"**Source Evidence**:\n{f_name} · Section: {sec} · Page {pg}"
+            ]
+            return "\n".join(out)
+
         meaning = lines[0] if lines else f"Diagnostic fault condition reported for {m_name}."
 
         causes = []
@@ -578,27 +669,43 @@ class RAGEngine:
             elif in_checks and (line.startswith("1.") or line.startswith("2.") or line.startswith("-") or line.startswith("*")):
                 checks.append(re.sub(r'^[0-9]+\.|\*|-', '', line).strip())
 
-        if not causes:
-            causes = [f"Parameter anomaly detected in section {sec}.", "Electrical or mechanical overload trip."]
-        if not checks:
-            checks = [
-                "Initiate standard Lockout/Tagout (LOTO) safety protocol.",
-                f"Inspect component referenced in section '{sec}' (Page {pg}).",
-                "Measure terminal voltages and check cable shielding.",
-                "Clear physical obstruction and reset alarm on operator control panel."
-            ]
-
         title_code = extracted_code or sec
-        out = [
-            f"Diagnosed Fault: {title_code} ({m_name})\n",
-            f"Meaning:\n{meaning}\n",
-            "Likely cause:",
-            "\n".join([f"- {c}" for c in causes[:4]]),
-            "\nRecommended checks:",
-            "\n".join([f"{i+1}. {chk}" for i, chk in enumerate(checks[:4])]),
-            "\nSafety Protocol:",
-            "Follow standard manufacturer lockout/tagout (LOTO) safety procedure before removing safety enclosures.",
-            "\nSource Evidence:",
-            f"{f_name} · Section: {sec} · Page {pg}"
-        ]
+
+        if causes and checks:
+            out = [
+                f"Diagnosed Fault: {title_code} ({m_name})\n",
+                f"Meaning:\n{meaning}\n",
+                "Likely cause:",
+                "\n".join([f"- {c}" for c in causes[:4]]),
+                "\nRecommended checks:",
+                "\n".join([f"{i+1}. {chk}" for i, chk in enumerate(checks[:4])]),
+                "\nSafety Protocol:",
+                "Follow standard manufacturer lockout/tagout (LOTO) safety procedure before removing safety enclosures.",
+                "\nSource Evidence:",
+                f"{f_name} · Section: {sec} · Page {pg}"
+            ]
+        elif causes:
+            out = [
+                f"Diagnosed Fault: {title_code} ({m_name})\n",
+                f"Meaning:\n{meaning}\n",
+                "Likely cause:",
+                "\n".join([f"- {c}" for c in causes[:4]]),
+                "\n⚠ Recommended resolution steps were not found in the retrieved manual section.",
+                "Please consult the full OEM manual for step-by-step resolution.",
+                "\nSource Evidence:",
+                f"{f_name} · Section: {sec} · Page {pg}"
+            ]
+        else:
+            # No causes or checks extracted from the manual snippet — refuse to invent
+            raw_excerpt = "\n".join(lines[:8]) if lines else "Refer to the full OEM manual for technical details."
+            out = [
+                f"Fault Reference: {title_code} ({m_name})\n",
+                f"From the retrieved manual section (Page {pg}, {sec}):\n",
+                raw_excerpt,
+                "\n⚠ The uploaded manual excerpt does not contain sufficient detail about the specific causes or",
+                "resolution steps for this fault code. Please consult the full OEM manual directly or upload a",
+                "more complete manual with the fault listing section included.",
+                "\nSource Evidence:",
+                f"{f_name} · Section: {sec} · Page {pg}"
+            ]
         return "\n".join(out)

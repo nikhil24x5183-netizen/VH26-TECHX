@@ -1,10 +1,11 @@
 from fastapi import APIRouter
+import sys
 
 router = APIRouter(tags=["Machines & Statistics"])
 
 def get_rag_services():
-    from main import rag_engine, SAMPLE_DIR, MANUALS_DIR, _index_directory
-    return rag_engine, SAMPLE_DIR, MANUALS_DIR, _index_directory
+    main_mod = sys.modules.get('__main__') or sys.modules.get('main')
+    return main_mod.rag_engine, main_mod.SAMPLE_DIR, main_mod.MANUALS_DIR, main_mod._index_directory
 
 @router.get("/machines")
 def list_machines():
@@ -37,11 +38,17 @@ def get_system_stats():
 
 @router.post("/reset")
 def reset_database():
+    import os
     rag_engine, SAMPLE_DIR, MANUALS_DIR, _index_directory = get_rag_services()
     rag_engine.clear()
-    _index_directory(SAMPLE_DIR)
-    _index_directory(MANUALS_DIR)
+    if os.path.exists(MANUALS_DIR):
+        for f in os.listdir(MANUALS_DIR):
+            if f.endswith(".pdf"):
+                try:
+                    os.remove(os.path.join(MANUALS_DIR, f))
+                except Exception:
+                    pass
     return {
-        "message": "Database reset and real OEM manuals re-indexed.",
+        "message": "Database reset successfully. Vector store cleared.",
         "machines": rag_engine.get_machines()
     }

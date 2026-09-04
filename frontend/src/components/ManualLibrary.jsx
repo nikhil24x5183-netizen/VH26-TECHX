@@ -109,7 +109,7 @@ export default function ManualLibrary({ documents, onUploadNew, onDeleteDocument
                         <span>View</span>
                       </a>
                       <button
-                        onClick={() => onDeleteDocument(doc.document_id)}
+                        onClick={() => onDeleteDocument(doc.document_id || doc.file_name || doc.machine_name)}
                         className="p-1.5 rounded-md bg-white border border-[#E2E8F0] hover:bg-red-50 hover:border-red-200 text-gray-400 hover:text-red-600 transition cursor-pointer"
                         title="Delete Manual"
                       >

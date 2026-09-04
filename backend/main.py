@@ -75,19 +75,17 @@ def _index_directory(directory_path: str):
 
 @app.on_event("startup")
 def initialize_app():
-    """Pre-indexes authentic OEM sample manuals & uploaded manuals on startup."""
+    """Indexes uploaded manuals in MANUALS_DIR on startup (starts empty if no PDFs in MANUALS_DIR)."""
     try:
-        generate_all_samples(SAMPLE_DIR)
-        _index_directory(SAMPLE_DIR)
         _index_directory(MANUALS_DIR)
 
-        # Requirement #14: Purge bad records where machine is TEST or model is C15
+        # Purge bad records where machine is TEST or model is C15
         rag_engine.store.chunks = [
             c for c in rag_engine.store.chunks
             if c.get("machine_name") != "TEST" and c.get("model") != "C15"
         ]
 
-        print("MaintAI API Server Ready: Authentic OEM & uploaded manuals indexed cleanly.")
+        print("MaintAI API Server Ready: Dynamic database initialization complete.")
     except Exception as e:
         print(f"Error during startup initialization: {e}")
 
@@ -111,7 +109,24 @@ def health_check():
         "status": "online",
         "system": "MaintAI Industrial Copilot Engine",
         "indexed_machines_count": len(rag_engine.get_machines()),
-        "total_chunks": len(rag_engine.store.chunks)
+        "total_chunks": len(rag_engine.store.chunks),
+        "rag_engine_id": id(rag_engine),
+        "rag_store_id": id(rag_engine.store),
+    }
+
+
+@app.get("/api/debug")
+def debug_check():
+    from routers.machines import get_rag_services
+    re_from_router, _, _, _ = get_rag_services()
+    return {
+        "main_rag_engine_id": id(rag_engine),
+        "router_rag_engine_id": id(re_from_router),
+        "same_object": id(rag_engine) == id(re_from_router),
+        "main_chunks": len(rag_engine.store.chunks),
+        "router_chunks": len(re_from_router.store.chunks),
+        "main_machines": len(rag_engine.get_machines()),
+        "router_machines": len(re_from_router.get_machines()),
     }
 
 

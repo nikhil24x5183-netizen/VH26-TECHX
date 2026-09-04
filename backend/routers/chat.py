@@ -1,4 +1,5 @@
 import uuid
+import sys
 from typing import Optional, Dict, Any, List
 from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel
@@ -6,12 +7,17 @@ from pydantic import BaseModel
 router = APIRouter(tags=["Troubleshooting Chat"])
 
 def get_rag_engine():
-    from main import rag_engine, feedback_db
-    return rag_engine, feedback_db
+    main_mod = sys.modules.get('__main__') or sys.modules.get('main')
+    return main_mod.rag_engine, main_mod.feedback_db
+
 
 class ChatRequest(BaseModel):
     question: str
     selected_machine: Optional[str] = None
+    manual_id: Optional[str] = None
+    machine_id: Optional[str] = None
+    manufacturing_year: Optional[str] = None
+    target_language: Optional[str] = "English"
     api_key: Optional[str] = None
     previous_context: Optional[Dict[str, Any]] = None
 
@@ -36,13 +42,23 @@ def chat(req: ChatRequest, x_api_key: Optional[str] = Header(None, alias="X-API-
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
 
     api_key_to_use = req.api_key or x_api_key
-    result = rag_engine.query(
-        question=req.question.strip(),
-        selected_machine=req.selected_machine,
-        api_key=api_key_to_use,
-        previous_context=req.previous_context
-    )
-    return result
+    try:
+        result = rag_engine.query(
+            question=req.question.strip(),
+            selected_machine=req.selected_machine,
+            manual_id=req.manual_id,
+            machine_id=req.machine_id,
+            manufacturing_year=req.manufacturing_year,
+            target_language=req.target_language or "English 🇺🇸",
+            api_key=api_key_to_use,
+            previous_context=req.previous_context
+        )
+        return result
+    except Exception as e:
+        import traceback
+        print(f"Error processing RAG query '{req.question}': {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Backend Processing Error: {str(e)}")
 
 @router.post("/chat/clarify")
 def clarify_ambiguity(req: ClarifyRequest):

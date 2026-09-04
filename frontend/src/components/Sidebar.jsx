@@ -6,7 +6,11 @@ export default function Sidebar({
   machines,
   selectedMachine,
   onSelectMachine,
+  targetLanguage = 'English 🇺🇸',
+  onSelectTargetLanguage,
+  onNewChat,
   onUploadSuccess,
+  onOpenUploadModal,
   activeTab,
   onNavigateTab,
   onOpenKeyModal,
@@ -99,12 +103,43 @@ export default function Sidebar({
           </div>
         </div>
         <button
-          onClick={() => setShowUploadModal(true)}
+          onClick={onOpenUploadModal || (() => setShowUploadModal(true))}
           className="p-1.5 rounded-lg bg-[#2563EB] hover:bg-blue-700 text-white transition cursor-pointer"
           title="Upload OEM Manual PDF"
         >
           <Plus size={16} />
         </button>
+      </div>
+
+      {/* New Chat & Language Controls */}
+      <div className="p-3 border-b border-gray-100 space-y-2">
+        <button
+          onClick={onNewChat}
+          className="w-full py-2 px-3 rounded-lg bg-blue-50 hover:bg-blue-100 text-[#2563EB] font-bold text-xs flex items-center justify-center space-x-2 transition cursor-pointer border border-blue-200"
+        >
+          <Plus size={15} />
+          <span>+ New Chat</span>
+        </button>
+
+        {onSelectTargetLanguage && (
+          <div className="pt-1">
+            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+              Answer Output Language
+            </label>
+            <select
+              value={targetLanguage}
+              onChange={(e) => onSelectTargetLanguage(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-md px-2 py-1 text-xs text-slate-800 font-medium outline-none focus:border-blue-500 cursor-pointer"
+            >
+              <option value="English 🇺🇸">English 🇺🇸</option>
+              <option value="Hindi 🇮🇳">Hindi 🇮🇳</option>
+              <option value="German 🇩🇪">German 🇩🇪</option>
+              <option value="French 🇫🇷">French 🇫🇷</option>
+              <option value="Spanish 🇪🇸">Spanish 🇪🇸</option>
+              <option value="Japanese 🇯🇵">Japanese 🇯🇵</option>
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Main Minimal Navigation */}

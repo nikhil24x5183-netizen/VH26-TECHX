@@ -1,48 +1,51 @@
-import React, { useState } from 'react';
-import { Cpu, CheckCircle, ArrowRight, Layers, Calendar, Wrench, Sparkles, Building2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Building2, ArrowRight, PlusCircle, Layers, CheckCircle2 } from 'lucide-react';
 
-export default function MachineSelectorCard({ onSelectMachine, machines = [] }) {
-  const [manufacturer, setManufacturer] = useState('Siemens');
-  const [machineName, setMachineName] = useState('SINAMICS G120');
-  const [model, setModel] = useState('CU240B/E-2');
-  const [year, setYear] = useState('2021');
-  const [firmware, setFirmware] = useState('');
-  const [manualType, setManualType] = useState('Operating Instructions');
+export default function MachineSelectorCard({ onSelectMachine, machines = [], onOpenUploadModal }) {
+  const [selectedIdx, setSelectedIdx] = useState(0);
 
-  const presetMachines = [
-    { manufacturer: 'Siemens', machine: 'SINAMICS G120', model: 'CU240B/E-2', year: '2021', icon: '⚡' },
-    { manufacturer: 'Caterpillar', machine: 'Caterpillar C15 Generator', model: 'C15-500kVA', year: '2020', icon: '🔋' },
-    { manufacturer: 'Siemens', machine: 'Siemens S7-1500 PLC', model: 'CPU 1516-3 PN/DP', year: '2022', icon: '⚙️' },
-    { manufacturer: 'KUKA Systems', machine: 'KUKA KR 210 Robot', model: 'KR 210 R2700-2', year: '2023', icon: '🤖' },
-    { manufacturer: 'Fanuc Automation', machine: 'Fanuc Robodrill CNC', model: 'α-D21MiB5', year: '2021', icon: '🛠️' }
-  ];
+  useEffect(() => {
+    if (machines.length > 0) {
+      setSelectedIdx(0);
+    }
+  }, [machines]);
 
-  const handlePresetClick = (preset) => {
-    setManufacturer(preset.manufacturer);
-    setMachineName(preset.machine);
-    setModel(preset.model);
-    setYear(preset.year);
-    onSelectMachine({
-      manufacturer: preset.manufacturer,
-      machine_name: preset.machine,
-      model: preset.model,
-      manufacturing_year: preset.year,
-      firmware: firmware || 'Standard',
-      manual_type: manualType
-    });
-  };
+  if (!machines || machines.length === 0) {
+    return (
+      <div className="max-w-xl mx-auto w-full bg-white border border-[#E2E8F0] rounded-2xl p-8 shadow-sm text-center space-y-5">
+        <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 mx-auto flex items-center justify-center font-bold">
+          <Building2 size={28} />
+        </div>
+        <div className="space-y-2">
+          <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-bold uppercase tracking-wider">
+            <span>NO MACHINES AVAILABLE</span>
+          </div>
+          <h2 className="text-xl font-bold text-[#0F172A] tracking-tight">No Machine Manuals Uploaded Yet</h2>
+          <p className="text-xs text-[#64748B] max-w-md mx-auto leading-relaxed font-medium">
+            No machine manuals have been uploaded yet. Please upload an OEM PDF manual to index equipment specs, error codes, and verified troubleshooting procedures.
+          </p>
+        </div>
+        <div className="pt-2">
+          <button
+            type="button"
+            onClick={onOpenUploadModal}
+            className="px-5 py-3 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white font-semibold text-xs uppercase tracking-wider inline-flex items-center space-x-2 transition cursor-pointer shadow-xs"
+          >
+            <PlusCircle size={16} />
+            <span>+ Upload Machine Manual</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const currentMachine = machines[selectedIdx] || machines[0];
 
   const handleSubmit = (e) => {
     e?.preventDefault();
-    if (!machineName) return;
-    onSelectMachine({
-      manufacturer: manufacturer || 'Industrial OEM',
-      machine_name: machineName,
-      model: model || 'Standard',
-      manufacturing_year: year || '2021',
-      firmware: firmware || 'Standard',
-      manual_type: manualType
-    });
+    if (currentMachine) {
+      onSelectMachine(currentMachine);
+    }
   };
 
   return (
@@ -51,153 +54,109 @@ export default function MachineSelectorCard({ onSelectMachine, machines = [] }) 
         <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#2563EB] flex items-center justify-center font-bold shrink-0">
           <Building2 size={22} />
         </div>
-        <div>
-          <h2 className="text-lg font-bold text-[#0F172A] tracking-tight">Which machine are you troubleshooting?</h2>
+        <div className="flex-1">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-[#0F172A] tracking-tight">Which machine are you troubleshooting?</h2>
+            <span className="text-xs font-semibold text-[#2563EB] bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-100">
+              {machines.length} OEM {machines.length === 1 ? 'Manual' : 'Manuals'} Ingested
+            </span>
+          </div>
           <p className="text-xs text-[#64748B] mt-0.5 font-medium">
-            Select your machine specifications first to load verified OEM manual evidence.
+            Select your machine scope from indexed database manuals to retrieve verified troubleshooting evidence.
           </p>
         </div>
       </div>
 
-      {/* Preset Quick Selection */}
-      <div className="space-y-2">
+      {/* Dynamic Ingested Machine Cards */}
+      <div className="space-y-2.5">
         <span className="text-[11px] font-semibold uppercase text-[#64748B] tracking-wider block">
-          Quick Select Ingested OEM Machines:
+          Ingested OEM Machines (Database Source of Truth):
         </span>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-          {presetMachines.map((p, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => handlePresetClick(p)}
-              className="p-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] hover:bg-blue-50/50 hover:border-[#2563EB] transition-all text-left flex items-center justify-between cursor-pointer group"
-            >
-              <div className="flex items-center space-x-2.5 truncate">
-                <span className="text-lg">{p.icon}</span>
-                <div className="truncate">
-                  <div className="text-xs font-bold text-[#0F172A] group-hover:text-[#2563EB] truncate">{p.machine}</div>
-                  <div className="text-[11px] text-[#64748B] font-mono">{p.model} · {p.year}</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {machines.map((m, idx) => {
+            const isSelected = selectedIdx === idx;
+            return (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => {
+                  setSelectedIdx(idx);
+                  onSelectMachine(m);
+                }}
+                className={`p-3.5 rounded-xl border text-left flex items-start justify-between cursor-pointer transition-all ${
+                  isSelected
+                    ? 'border-[#2563EB] bg-blue-50/60 ring-2 ring-blue-100 shadow-2xs'
+                    : 'border-[#E2E8F0] bg-[#F8FAFC] hover:bg-white hover:border-[#2563EB]'
+                }`}
+              >
+                <div className="space-y-1 truncate pr-2">
+                  <div className="flex items-center space-x-1.5 truncate">
+                    <span className="text-xs font-bold text-[#0F172A] truncate">{m.machine_name}</span>
+                    {m.manual_language && (
+                      <span className="text-[10px] bg-white border border-[#E2E8F0] px-1.5 py-0.2 rounded shrink-0 font-medium">
+                        {m.manual_language}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-[#64748B] font-mono">
+                    {m.manufacturer} · {m.model}
+                  </div>
+                  <div className="text-[10px] text-[#2563EB] font-medium flex items-center">
+                    <Layers size={10} className="mr-1" /> Year: {m.manufacturing_year || '2021'} · {m.chunk_count || 1} Chunks
+                  </div>
                 </div>
-              </div>
-              <ArrowRight size={14} className="text-[#2563EB] opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-1" />
-            </button>
-          ))}
+                <div className="shrink-0 mt-0.5">
+                  {isSelected ? (
+                    <CheckCircle2 size={18} className="text-[#2563EB]" />
+                  ) : (
+                    <ArrowRight size={14} className="text-[#64748B]" />
+                  )}
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      <div className="relative flex py-1 items-center">
-        <div className="flex-grow border-t border-[#E2E8F0]"></div>
-        <span className="flex-shrink mx-4 text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">OR CUSTOM SPECIFICATION</span>
-        <div className="flex-grow border-t border-[#E2E8F0]"></div>
-      </div>
-
-      {/* Detailed Form */}
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-          <div>
-            <label className="block text-xs font-semibold text-[#0F172A] mb-1">
-              Manufacturer <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={manufacturer}
-              onChange={(e) => setManufacturer(e.target.value)}
-              className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg px-3 py-2 text-xs font-medium text-[#0F172A] outline-none focus:border-[#2563EB]"
-            >
-              <option value="Siemens">Siemens</option>
-              <option value="Caterpillar">Caterpillar</option>
-              <option value="KUKA Systems">KUKA Systems</option>
-              <option value="Fanuc Automation">Fanuc Automation</option>
-              <option value="ABB">ABB</option>
-              <option value="Atlas Copco">Atlas Copco</option>
-              <option value="Schneider Electric">Schneider Electric</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-[#0F172A] mb-1">
-              Machine / Product <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. SINAMICS G120"
-              value={machineName}
-              onChange={(e) => setMachineName(e.target.value)}
-              className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg px-3 py-2 text-xs font-medium text-[#0F172A] outline-none focus:border-[#2563EB]"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-[#0F172A] mb-1">
-              Model Code <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. CU240B/E-2"
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg px-3 py-2 text-xs font-medium text-[#0F172A] outline-none focus:border-[#2563EB]"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-[#0F172A] mb-1">
-              Manufacturing Year <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={year}
-              onChange={(e) => setYear(e.target.value)}
-              className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg px-3 py-2 text-xs font-medium text-[#0F172A] outline-none focus:border-[#2563EB]"
-            >
-              <option value="2024">2024</option>
-              <option value="2023">2023</option>
-              <option value="2022">2022</option>
-              <option value="2021">2021</option>
-              <option value="2020">2020</option>
-              <option value="2019">2019</option>
-              <option value="2018">2018</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-[#0F172A] mb-1">
-              Firmware / Revision <span className="text-[#64748B] font-normal">(Optional)</span>
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. FW v4.7 / Rev 2021"
-              value={firmware}
-              onChange={(e) => setFirmware(e.target.value)}
-              className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg px-3 py-2 text-xs font-medium text-[#0F172A] outline-none focus:border-[#2563EB]"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-[#0F172A] mb-1">
-              Manual Type
-            </label>
-            <select
-              value={manualType}
-              onChange={(e) => setManualType(e.target.value)}
-              className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg px-3 py-2 text-xs font-medium text-[#0F172A] outline-none focus:border-[#2563EB]"
-            >
-              <option value="Operating Instructions">Operating Instructions</option>
-              <option value="Maintenance Manual">Maintenance Manual</option>
-              <option value="Safety Instructions">Safety Instructions</option>
-              <option value="Technical Manual">Technical Manual</option>
-            </select>
-          </div>
+      {/* Selector Dropdown & Action */}
+      <form onSubmit={handleSubmit} className="space-y-4 pt-2 border-t border-[#F1F5F9]">
+        <div>
+          <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+            Active Machine Scope Selection <span className="text-red-500">*</span>
+          </label>
+          <select
+            value={selectedIdx}
+            onChange={(e) => {
+              const idx = parseInt(e.target.value, 10);
+              setSelectedIdx(idx);
+            }}
+            className="w-full bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg px-3 py-2.5 text-xs font-medium text-[#0F172A] outline-none focus:border-[#2563EB]"
+          >
+            {machines.map((m, idx) => (
+              <option key={idx} value={idx}>
+                {m.manufacturer} - {m.machine_name} ({m.model}) [{m.manufacturing_year || '2021'}]
+              </option>
+            ))}
+          </select>
         </div>
 
-        <div className="pt-2">
+        <div className="flex items-center space-x-3 pt-1">
           <button
             type="submit"
-            className="w-full py-3 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white font-semibold text-xs uppercase tracking-wider flex items-center justify-center space-x-2 transition cursor-pointer shadow-xs"
+            className="flex-1 py-3 rounded-xl bg-[#2563EB] hover:bg-blue-700 text-white font-semibold text-xs uppercase tracking-wider flex items-center justify-center space-x-2 transition cursor-pointer shadow-xs"
           >
             <span>CONTINUE TO TROUBLESHOOTING</span>
             <ArrowRight size={15} />
           </button>
+          {onOpenUploadModal && (
+            <button
+              type="button"
+              onClick={onOpenUploadModal}
+              className="py-3 px-4 rounded-xl bg-[#F8FAFC] hover:bg-gray-100 border border-[#E2E8F0] text-[#0F172A] font-semibold text-xs transition cursor-pointer shrink-0"
+            >
+              + Upload Manual
+            </button>
+          )}
         </div>
       </form>
     </div>

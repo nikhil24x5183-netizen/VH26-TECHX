@@ -20,3 +20,10 @@ export async function deleteDocument(documentId) {
     method: 'DELETE'
   });
 }
+
+export async function detectMetadata(formData) {
+  return await request('/documents/detect-metadata', {
+    method: 'POST',
+    body: formData
+  });
+}

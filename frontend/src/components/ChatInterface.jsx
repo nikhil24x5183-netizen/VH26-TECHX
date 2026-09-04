@@ -1,17 +1,22 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Trash2, Camera, Mic, FileText, CheckCircle, AlertTriangle, HelpCircle, RefreshCw, Sparkles, Building2 } from 'lucide-react';
+import { Send, Bot, User, Trash2, Camera, Mic, FileText, CheckCircle, AlertTriangle, HelpCircle, RefreshCw, Sparkles, Building2, Plus } from 'lucide-react';
 import AmbiguityCard from './AmbiguityCard';
 import MachineSelectorCard from './MachineSelectorCard';
+import RAGDiagnosticsPanel from './RAGDiagnosticsPanel';
 
 export default function ChatInterface({
   messages,
   onSendMessage,
   onClearChat,
+  onNewChat,
+  targetLanguage = 'English 🇺🇸',
+  onSelectTargetLanguage,
   onSelectMachine,
   selectedMachine,
   onSelectCitation,
   onOpenWhyModal,
   onOpenPhotoModal,
+  onOpenUploadModal,
   onNavigateTab,
   machines = [],
   isLoading
@@ -144,8 +149,33 @@ export default function ChatInterface({
           </div>
         </div>
 
-        {/* Change Machine CTA & Clear Chat */}
+        {/* Header Actions: New Chat, Change Machine, Language Selector, Clear */}
         <div className="flex items-center space-x-2 shrink-0">
+          <button
+            onClick={onNewChat}
+            className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center space-x-1.5 transition cursor-pointer shadow-xs"
+            title="Start new clean chat session"
+          >
+            <Plus size={14} />
+            <span>+ New Chat</span>
+          </button>
+
+          {onSelectTargetLanguage && (
+            <select
+              value={targetLanguage}
+              onChange={(e) => onSelectTargetLanguage(e.target.value)}
+              className="bg-white border border-[#E2E8F0] rounded-lg px-2.5 py-1.5 text-xs text-[#0F172A] font-semibold outline-none focus:border-[#2563EB] cursor-pointer"
+              title="Target Output Language"
+            >
+              <option value="English 🇺🇸">English 🇺🇸</option>
+              <option value="Hindi 🇮🇳">Hindi 🇮🇳</option>
+              <option value="German 🇩🇪">German 🇩🇪</option>
+              <option value="French 🇫🇷">French 🇫🇷</option>
+              <option value="Spanish 🇪🇸">Spanish 🇪🇸</option>
+              <option value="Japanese 🇯🇵">Japanese 🇯🇵</option>
+            </select>
+          )}
+
           <button
             onClick={() => onSelectMachine(null)}
             className="px-3 py-1.5 rounded-lg border border-[#E2E8F0] bg-white hover:bg-gray-50 text-[#2563EB] font-semibold text-xs transition cursor-pointer"
@@ -155,7 +185,7 @@ export default function ChatInterface({
           <button
             onClick={onClearChat}
             className="p-2 rounded-lg border border-[#E2E8F0] bg-white hover:bg-gray-50 text-[#64748B] hover:text-red-600 transition cursor-pointer"
-            title="Clear Chat"
+            title="Clear Chat Messages"
           >
             <Trash2 size={15} />
           </button>
@@ -169,9 +199,10 @@ export default function ChatInterface({
           <div className="py-4">
             <MachineSelectorCard
               onSelectMachine={(spec) => {
-                onSelectMachine(spec.machine_name);
+                onSelectMachine(typeof spec === 'string' ? spec : spec.machine_name);
               }}
               machines={machines}
+              onOpenUploadModal={onOpenUploadModal}
             />
           </div>
         ) : messages.length === 0 ? (
@@ -232,6 +263,11 @@ export default function ChatInterface({
                     ? 'bg-white border border-[#E2E8F0] text-[#0F172A] p-4 rounded-tl-xs shadow-2xs font-medium whitespace-pre-wrap'
                     : 'bg-white border border-[#E2E8F0] text-[#0F172A] rounded-tl-xs p-5 space-y-4 shadow-2xs'
                 }`}>
+                  {/* User Bubble Message Text */}
+                  {isUser && (
+                    <div className="whitespace-pre-wrap break-words text-white font-medium">{msg.text}</div>
+                  )}
+
                   {/* Conversational Bot Bubble */}
                   {!isUser && isConversational && (
                     <div>{msg.text}</div>
@@ -254,8 +290,22 @@ export default function ChatInterface({
                         </button>
                       </div>
 
+                      {/* Backend API Connection Error Card */}
+                      {msg.is_api_error && (
+                        <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-900 space-y-2 text-xs">
+                          <div className="font-bold text-red-700 flex items-center space-x-2 text-sm">
+                            <AlertTriangle size={17} className="text-red-600" />
+                            <span>Backend API Error</span>
+                          </div>
+                          <p className="text-red-800 font-mono text-[11px] bg-red-100/70 p-2 rounded border border-red-200">{msg.text}</p>
+                          <p className="text-slate-600 text-[11px]">
+                            Something went wrong while processing your request on the server. Please try again or check server logs.
+                          </p>
+                        </div>
+                      )}
+
                       {/* Insufficient Evidence Prompt */}
-                      {msg.insufficient_info && (
+                      {msg.insufficient_info && !msg.is_api_error && (
                         <div className="p-3.5 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-900 space-y-2.5 text-xs">
                           <div className="font-bold text-amber-900 flex items-center space-x-1.5">
                             <HelpCircle size={16} className="text-amber-700" />
@@ -379,6 +429,11 @@ export default function ChatInterface({
                             ))}
                           </div>
                         </div>
+                      )}
+
+                      {/* Developer RAG Diagnostics Panel */}
+                      {msg.audit_trail && (
+                        <RAGDiagnosticsPanel diagnostics={msg.audit_trail} />
                       )}
                     </>
                   )}

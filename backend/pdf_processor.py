@@ -204,12 +204,32 @@ class PDFProcessor:
         return True
 
     def extract_pages(self, filepath: str) -> List[Dict[str, Any]]:
-        """Extracts page-by-page content preserving page numbers and section headers."""
+        """Extracts page-by-page content preserving page numbers and section headers.
+        Falls back to OCR via pytesseract for image-only pages."""
         pages = []
+        has_ocr = False
+        try:
+            import pytesseract
+            from PIL import Image
+            import io
+            has_ocr = True
+        except ImportError:
+            pass
+
         if HAS_FITZ:
             doc = fitz.open(filepath)
             for i, page in enumerate(doc, start=1):
                 text = page.get_text("text")
+                # OCR fallback for scanned/image-only pages
+                if not text.strip() and has_ocr:
+                    try:
+                        pix = page.get_pixmap(dpi=200)
+                        img_data = pix.tobytes("png")
+                        img = Image.open(io.BytesIO(img_data))
+                        text = pytesseract.image_to_string(img, lang='eng')
+                        print(f"[OCR] Page {i}: extracted {len(text)} chars via Tesseract")
+                    except Exception as ocr_err:
+                        print(f"[OCR] Page {i} OCR failed: {ocr_err}")
                 sections = self._detect_sections(text)
                 pages.append({
                     "page_number": i,
