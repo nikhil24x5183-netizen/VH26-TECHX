@@ -31,12 +31,7 @@ CHUNKS = []
 TOKEN_PATTERN = re.compile(r"\b[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)*\b")
 CODE_REGEX = re.compile(r"\b(E-?\d{1,4}|ERR[-_]?\d{1,4}|F-?\d{1,5}|ALM[-_]?\d{1,4}|ALARM[-_]?\d{1,4}|FAULT[-_]?\d{1,4})\b", re.IGNORECASE)
 
-MACHINE_MAP = {
-    "SINAMICS G120": ["sinamics", "g120", "sinamics g120", "siemens", "cu240b", "cu240e", "cu240b/e-2", "cu240b-2", "cu240e-2"],
-    "ApexCNC UltraMill 500": ["apexcnc", "ultramill", "ultramill 500", "acm-500", "acm500", "machine a"],
-    "ThermaPress Pro 2000": ["thermapress", "thermapress pro", "tpp-2000", "tpp2000", "machine b"],
-    "Equipment": ["equipment", "atl equipment", "lab equipment", "linear voltage regulator", "breadboard"]
-}
+MACHINE_MAP = {}
 
 STOP_WORDS = {
     "what", "does", "mean", "error", "code", "machine", "apexcnc", "ultramill", 
@@ -101,23 +96,14 @@ def register_machine_aliases(machine_name: str):
 
 def rebuild_indexes():
     global KB_DATA, BM25_INDEX, CHUNKS
-    base_chunks = []
-    reg = {"code_index": {}, "ambiguous_codes": {}, "machines": ["ApexCNC UltraMill 500", "ThermaPress Pro 2000"]}
-
-    if DATA_PATH.exists():
-        with open(DATA_PATH, "r", encoding="utf-8") as f:
-            base_kb = json.load(f)
-            base_chunks = base_kb.get("chunks", [])
-            reg = base_kb.get("registry", reg)
-
     custom_data = load_custom_manuals()
     custom_chunks = custom_data.get("chunks", [])
 
-    CHUNKS = list(base_chunks) + list(custom_chunks)
+    CHUNKS = list(custom_chunks)
 
-    code_index = dict(reg.get("code_index", {}))
-    ambiguous_codes = dict(reg.get("ambiguous_codes", {}))
-    machines_set = set(reg.get("machines", []))
+    code_index = {}
+    ambiguous_codes = {}
+    machines_set = set()
 
     for c in custom_chunks:
         m_name = c["machine_name"]
@@ -131,9 +117,11 @@ def rebuild_indexes():
             elif code not in code_index:
                 code_index[code] = [m_name]
 
-    reg["machines"] = sorted(list(machines_set))
-    reg["code_index"] = code_index
-    reg["ambiguous_codes"] = ambiguous_codes
+    reg = {
+        "machines": sorted(list(machines_set)),
+        "code_index": code_index,
+        "ambiguous_codes": ambiguous_codes
+    }
     KB_DATA = {"chunks": CHUNKS, "registry": reg}
 
     corpus_tokens = []
@@ -428,36 +416,7 @@ def get_registered_machines() -> List[Dict[str, Any]]:
     kb, _, chunks = get_kb()
     custom_data = load_custom_manuals()
 
-    builtin_machines = [
-        {
-            "id": "siemens_g120",
-            "manufacturer": "Siemens",
-            "machine_name": "SINAMICS G120",
-            "model": "CU240B/E-2",
-            "manufacturing_year": "2021",
-            "firmware": "FW v4.7 SP13",
-            "manual_count": 3,
-            "status": "Ready",
-            "status_label": "Evidence Ready",
-            "manuals": [
-                "SINAMICS G120 Operating Instructions",
-                "SINAMICS G120 Troubleshooting & Alarms Manual",
-                "SINAMICS G120 Parameter & Maintenance Manual"
-            ],
-            "error_codes": ["F30001", "F07800", "F07900", "F30002"],
-            "sample_queries": [
-                "F30001",
-                "Drive is not starting",
-                "Motor is overheating",
-                "What is this machine used for?",
-                "What voltage does it use?",
-                "How do I perform maintenance?"
-            ],
-            "description": "Modular variable-speed frequency inverter for industrial AC induction motor drives."
-        }
-    ]
-
-    machine_map = {m["machine_name"].lower(): m for m in builtin_machines}
+    machine_map = {}
     for m in custom_data.get("manuals", []):
         m_name = m.get("machine", "Custom Equipment")
         key = m_name.lower()
@@ -473,15 +432,19 @@ def get_registered_machines() -> List[Dict[str, Any]]:
                 "id": f"custom_{re.sub(r'[^a-zA-Z0-9]', '', m_name)[:8]}",
                 "manufacturer": m.get("brand") or "Custom OEM",
                 "machine_name": m_name,
-                "model": m.get("model_no") or "N/A",
-                "manufacturing_year": m.get("year_of_manufacture") or "N/A",
+                "model": m.get("model_no") or "Standard",
+                "manufacturing_year": m.get("year_of_manufacture") or "Current",
                 "firmware": "Verified Upload",
                 "manual_count": 1,
                 "status": "Ready",
                 "status_label": "Evidence Ready",
                 "manuals": [m.get("name", f"{m_name} Manual")],
                 "error_codes": m.get("codes", []),
-                "sample_queries": [f"{m_name} operation", "Error diagnosis", "Maintenance instructions"],
+                "sample_queries": [
+                    f"What does error {m.get('codes')[0]} mean?" if m.get("codes") else f"{m_name} operation",
+                    f"{m_name} troubleshooting",
+                    "Maintenance instructions"
+                ],
                 "description": f"Custom uploaded equipment with {m.get('pages', 1)} indexed pages."
             }
             machine_map[key] = new_m
@@ -496,44 +459,20 @@ def list_machines():
 def list_manuals():
     get_kb()
     custom_data = load_custom_manuals()
-    manuals = [
-        {
-            "name": "SINAMICS G120 Operating Instructions",
-            "machine": "SINAMICS G120",
-            "brand": "Siemens",
-            "model_no": "CU240B/E-2",
-            "year_of_manufacture": "2021",
-            "type": "Built-in",
-            "pages": 112,
-            "chunks": 7,
-            "codes": ["F30001", "F07800", "F07900", "F30002"]
-        },
-        {
-            "name": "SINAMICS G120 Troubleshooting & Alarms Manual",
-            "machine": "SINAMICS G120",
-            "brand": "Siemens",
-            "model_no": "CU240B/E-2",
-            "year_of_manufacture": "2021",
-            "type": "Built-in",
-            "pages": 84,
-            "chunks": 7,
-            "codes": ["F30001", "F07800", "F07900", "F30002"]
-        },
-        {
-            "name": "SINAMICS G120 Parameter & Maintenance Manual",
-            "machine": "SINAMICS G120",
-            "brand": "Siemens",
-            "model_no": "CU240B/E-2",
-            "year_of_manufacture": "2021",
-            "type": "Built-in",
-            "pages": 96,
-            "chunks": 7,
-            "codes": ["P1120", "P1082", "P1300"]
-        }
-    ]
-    for m in custom_data.get("manuals", []):
-        manuals.append(m)
+    manuals = list(custom_data.get("manuals", []))
     return {"manuals": manuals, "total_manuals": len(manuals)}
+
+@app.post("/api/manuals/delete")
+def delete_manual(req: Dict[str, str]):
+    m_name = req.get("machine_name")
+    if not m_name:
+        raise HTTPException(status_code=400, detail="Machine name is required for deletion.")
+    custom_store = load_custom_manuals()
+    custom_store["chunks"] = [c for c in custom_store.get("chunks", []) if c.get("machine_name", "").lower() != m_name.lower()]
+    custom_store["manuals"] = [m for m in custom_store.get("manuals", []) if m.get("machine", "").lower() != m_name.lower()]
+    save_custom_manuals(custom_store)
+    rebuild_indexes()
+    return {"status": "success", "message": f"Machine '{m_name}' deleted successfully."}
 
 @app.post("/api/session/clear")
 def clear_session(req: Dict[str, str]):
@@ -922,27 +861,25 @@ def process_query(req: QueryRequest):
                     "verification_score": 1.0
                 })
 
+        causes = [f"{m}: Check OEM technical manual for {effective_code} specifications." for m in candidate_machines]
+        msg_items = [f"{i+1}. **{m}**: Technical entry for code {effective_code}" for i, m in enumerate(candidate_machines)]
         return {
             "insufficient_info": False,
             "status": "AMBIGUOUS_DISCLOSED",
             "machine_name": "Multiple Machines",
             "error_code": effective_code,
             "error_meaning": f"Ambiguous Error Code: Defined differently across {len(candidate_machines)} machines.",
-            "probable_causes": [
-                "ApexCNC UltraMill 500: Spindle bearing mechanical seizure, contaminated motor windings, excessive feed rate, or failed IGBT inverter module.",
-                "ThermaPress Pro 2000: Type-K thermocouple lead disconnection, fractured probe sheath, loose TB4-12 terminal, or welded solid-state relay."
-            ],
+            "probable_causes": causes,
             "corrective_actions": [
-                "Specify your machine: 'ApexCNC UltraMill 500' or 'ThermaPress Pro 2000' to view machine-specific corrective actions."
+                f"Specify your machine: {', '.join(candidate_machines)} to view machine-specific corrective actions."
             ],
             "citations": citations,
             "confidence_score": 1.0,
             "verification_passed": True,
             "message": (
                 f"Error code '{effective_code}' exists in MULTIPLE machine manuals with distinct technical meanings:\n\n"
-                f"1. **ApexCNC UltraMill 500 (Model ACM-500)**: Spindle Drive Inverter Overcurrent Failure (Section 4.2, Page 6)\n"
-                f"2. **ThermaPress Pro 2000 (Model TPP-2000)**: Platen Temperature Sensor Circuit Open / Thermal Runaway Lockout (Section 3.1, Page 5)\n\n"
-                f"Please select your active machine to view machine-specific corrective actions."
+                + "\n".join(msg_items) +
+                f"\n\nPlease select your active machine to view machine-specific corrective actions."
             )
         }
 
@@ -1378,39 +1315,15 @@ def process_query(req: QueryRequest):
             ]
         }
 
-    brand_resolved = top_chunk.get("brand") or (
-        "Siemens" if "SINAMICS" in top_chunk["machine_name"] else
-        "Apex CNC Dynamics" if "ApexCNC" in top_chunk["machine_name"] else
-        "ThermaPress Industrial" if "ThermaPress" in top_chunk["machine_name"] else
-        "STEM / Tinkering Labs" if "Equipment" in top_chunk["machine_name"] else "Company Equipment"
-    )
-    model_no_resolved = top_chunk.get("model_no") or (
-        "CU240B/E-2" if "SINAMICS" in top_chunk["machine_name"] else
-        "ACM-500" if "ApexCNC" in top_chunk["machine_name"] else
-        "TPP-2000" if "ThermaPress" in top_chunk["machine_name"] else
-        "ATL-100" if "Equipment" in top_chunk["machine_name"] else "N/A"
-    )
-    year_resolved = top_chunk.get("year_of_manufacture") or (
-        "2021" if "SINAMICS" in top_chunk["machine_name"] else
-        "2023" if "ApexCNC" in top_chunk["machine_name"] else
-        "2022" if "ThermaPress" in top_chunk["machine_name"] else
-        "2021" if "Equipment" in top_chunk["machine_name"] else "N/A"
-    )
-    if "apexcnc" in top_chunk["machine_name"].lower():
-        full_machine_display = "ApexCNC UltraMill 500"
-    elif "thermapress" in top_chunk["machine_name"].lower():
-        full_machine_display = "ThermaPress Pro 2000"
-    elif "sinamics" in top_chunk["machine_name"].lower():
-        full_machine_display = "Siemens SINAMICS G120"
-    elif "equipment" in top_chunk["machine_name"].lower():
-        full_machine_display = "Equipment"
+    brand_resolved = top_chunk.get("brand") or "Company Equipment"
+    model_no_resolved = top_chunk.get("model_no") or "Standard"
+    year_resolved = top_chunk.get("year_of_manufacture") or "Current"
+    clean_brand = re.sub(r"[^a-zA-Z0-9]", "", brand_resolved).lower() if brand_resolved else ""
+    clean_mach = re.sub(r"[^a-zA-Z0-9]", "", top_chunk["machine_name"]).lower()
+    if clean_brand and clean_brand not in clean_mach and clean_mach not in clean_brand:
+        full_machine_display = f"{brand_resolved} {top_chunk['machine_name']}"
     else:
-        clean_brand = re.sub(r"[^a-zA-Z0-9]", "", brand_resolved).lower() if brand_resolved else ""
-        clean_mach = re.sub(r"[^a-zA-Z0-9]", "", top_chunk["machine_name"]).lower()
-        if clean_brand and clean_brand not in clean_mach and clean_mach not in clean_brand:
-            full_machine_display = f"{brand_resolved} {top_chunk['machine_name']}"
-        else:
-            full_machine_display = top_chunk["machine_name"]
+        full_machine_display = top_chunk["machine_name"]
 
     # Common citation
     citation = {

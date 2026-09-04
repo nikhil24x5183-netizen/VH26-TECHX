@@ -422,6 +422,33 @@
             </div>
           `;
 
+          // Save to localStorage for persistence across serverless recycles
+          try {
+            const newMachineRecord = {
+              id: `custom_${data.machine_name.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8)}`,
+              manufacturer: data.brand || 'Custom OEM',
+              machine_name: data.machine_name,
+              model: data.model_no || 'Standard',
+              manufacturing_year: data.year_of_manufacture || 'Current',
+              firmware: 'Verified Upload',
+              manual_count: 1,
+              status: 'Ready',
+              status_label: 'Evidence Ready',
+              manuals: [data.manual_name || `${data.machine_name} Manual`],
+              error_codes: data.detected_codes || [],
+              sample_queries: data.sample_queries || [`${data.machine_name} troubleshooting`],
+              description: `OEM Technical Manual with ${data.total_pages || 1} pages and ${data.chunks_count || 1} indexed sections.`
+            };
+            let saved = [];
+            try { saved = JSON.parse(localStorage.getItem('user_uploaded_machines') || '[]'); } catch(e) { saved = []; }
+            saved = saved.filter(m => m.machine_name.toLowerCase() !== data.machine_name.toLowerCase());
+            saved.push(newMachineRecord);
+            localStorage.setItem('user_uploaded_machines', JSON.stringify(saved));
+            localStorage.setItem('chunks_' + data.machine_name, JSON.stringify(data));
+          } catch(e) {
+            console.warn('LocalStorage save error:', e);
+          }
+
           // Refresh the inventory
           fetchManualsInventory();
         } else {
@@ -446,33 +473,63 @@
       const badge = document.getElementById('inventory-badge');
       const headerCount = document.getElementById('header-manual-count');
       try {
-        const res = await fetch('/api/manuals');
-        if (!res.ok) throw new Error('Failed to load manuals');
-        const data = await res.json();
-        
-        badge.innerText = `${data.total_manuals} Machines Registered`;
-        headerCount.innerText = `${data.total_manuals} Registered`;
+        let backendManuals = [];
+        try {
+          const res = await fetch('/api/manuals');
+          if (res.ok) {
+            const data = await res.json();
+            backendManuals = data.manuals || [];
+          }
+        } catch(e) {
+          console.warn('Backend manuals warning:', e);
+        }
 
-        if (!data.manuals || data.manuals.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6" class="py-6 text-center text-slate-400">No manuals registered yet.</td></tr>';
+        // Merge with localStorage
+        let localMachines = [];
+        try {
+          localMachines = JSON.parse(localStorage.getItem('user_uploaded_machines') || '[]');
+        } catch(e) { localMachines = []; }
+
+        const manualMap = new Map();
+        for (const lm of localMachines) {
+          manualMap.set(lm.machine_name.toLowerCase(), {
+            brand: lm.manufacturer || 'Standard OEM',
+            machine: lm.machine_name,
+            model_no: lm.model || 'Standard',
+            year_of_manufacture: lm.manufacturing_year || 'Current',
+            type: 'Custom Upload',
+            pages: 1,
+            chunks: 1,
+            codes: lm.error_codes || []
+          });
+        }
+        for (const bm of backendManuals) {
+          manualMap.set(bm.machine.toLowerCase(), bm);
+        }
+
+        const combinedList = Array.from(manualMap.values());
+        badge.innerText = `${combinedList.length} Machines Registered`;
+        headerCount.innerText = `${combinedList.length} Registered`;
+
+        if (combinedList.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-slate-400 font-medium">No manuals registered yet. Upload an OEM technical manual above to start troubleshooting.</td></tr>';
           return;
         }
 
-        tbody.innerHTML = data.manuals.map(m => {
+        tbody.innerHTML = combinedList.map(m => {
           const brand = m.brand || 'Standard OEM';
           const modelNo = m.model_no || 'N/A';
           const year = m.year_of_manufacture || 'N/A';
-          const isBuiltIn = m.type === 'Built-in';
           const codes = m.codes || [];
 
           return `
             <tr class="hover:bg-violet-50/30 transition">
               <td class="py-3.5 px-3.5">
                 <div class="font-extrabold text-slate-950 flex items-center gap-1.5">
-                  <span class="w-2 h-2 rounded-full ${isBuiltIn ? 'bg-violet-600' : 'bg-emerald-600'}"></span>
+                  <span class="w-2 h-2 rounded-full bg-emerald-600"></span>
                   <span>${escapeHtml(brand)}</span>
                 </div>
-                <span class="text-[10px] text-slate-500 font-medium">${isBuiltIn ? 'Factory Base Manual' : 'Company Added'}</span>
+                <span class="text-[10px] text-slate-500 font-medium">Verified OEM Upload</span>
               </td>
               <td class="py-3.5 px-3.5">
                 <div class="font-extrabold text-slate-800">${escapeHtml(m.machine)}</div>
@@ -496,10 +553,13 @@
                   ${codes.length === 0 ? '<span class="text-slate-400 text-[10px] font-medium">General Guide</span>' : ''}
                 </div>
               </td>
-              <td class="py-3.5 px-3.5 text-right">
-                <a href="/?machine=${encodeURIComponent(m.machine)}" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-slate-900 hover:bg-violet-600 text-white text-xs font-extrabold transition shadow-xs">
+              <td class="py-3.5 px-3.5 text-right space-x-1.5">
+                <a href="/?machine=${encodeURIComponent(m.machine)}" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-slate-900 hover:bg-violet-600 text-white text-xs font-extrabold transition shadow-xs">
                   <span>Troubleshoot</span> <span>→</span>
                 </a>
+                <button type="button" onclick="deleteManualFromAdmin('${escapeHtml(m.machine)}')" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-extrabold border border-rose-200 transition" title="Delete Machine">
+                  <span>🗑️</span>
+                </button>
               </td>
             </tr>
           `;
@@ -507,6 +567,29 @@
 
       } catch (err) {
         tbody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-rose-600">Error loading inventory: ${escapeHtml(err.message)}</td></tr>`;
+      }
+    }
+
+    async function deleteManualFromAdmin(machineName) {
+      if (!confirm(`Are you sure you want to delete "${machineName}"? This will remove all its indexed technical manuals.`)) {
+        return;
+      }
+      try {
+        let saved = [];
+        try { saved = JSON.parse(localStorage.getItem('user_uploaded_machines') || '[]'); } catch(e) { saved = []; }
+        saved = saved.filter(m => m.machine_name.toLowerCase() !== machineName.toLowerCase());
+        localStorage.setItem('user_uploaded_machines', JSON.stringify(saved));
+        localStorage.removeItem('chunks_' + machineName);
+
+        await fetch('/api/manuals/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ machine_name: machineName })
+        }).catch(err => console.warn('Backend delete warning:', err));
+
+        fetchManualsInventory();
+      } catch(err) {
+        alert('Could not delete manual: ' + err.message);
       }
     }
 

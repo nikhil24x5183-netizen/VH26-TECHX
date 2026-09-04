@@ -100,14 +100,19 @@
       </div>
 
       <!-- UPLOAD NEW MACHINE MANUAL CALLOUT -->
-      <div class="w-full max-w-xl p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-xs text-center flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div id="upload-manual-callout" class="w-full max-w-xl p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-xs text-center flex flex-col sm:flex-row items-center justify-between gap-3">
         <div class="text-left">
-          <h4 class="text-xs font-bold text-slate-900">Need to troubleshoot unlisted machinery?</h4>
-          <p class="text-[11px] text-slate-500 font-medium">Upload new OEM PDF or text manuals in the Admin Studio.</p>
+          <h4 class="text-xs font-bold text-slate-900">Need to troubleshoot a new machine?</h4>
+          <p class="text-[11px] text-slate-500 font-medium">Upload its OEM manual (PDF or text) to index its codes and technical specs.</p>
         </div>
-        <a href="/admin" class="shrink-0 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-xs transition flex items-center space-x-1.5">
-          <span>📤 Upload New Machine Manual</span>
-        </a>
+        <div class="flex items-center space-x-2 shrink-0">
+          <button type="button" onclick="openUploadModal()" class="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition flex items-center space-x-1.5">
+            <span>📤 Upload Manual</span>
+          </button>
+          <a href="/admin" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs border border-slate-200 transition" title="Admin Ingestion Studio">
+            <span>⚙️ Admin</span>
+          </a>
+        </div>
       </div>
     </div>
 
@@ -123,13 +128,13 @@
             ✓
           </div>
           <div class="truncate text-xs font-medium text-slate-700">
-            <span class="font-extrabold text-slate-900" id="locked-mfg-name">Siemens</span>
+            <span class="font-extrabold text-slate-900" id="locked-mfg-name">OEM</span>
             <span class="mx-1 text-slate-300">|</span>
-            <span class="font-bold text-blue-700" id="locked-mach-name">SINAMICS G120</span>
+            <span class="font-bold text-blue-700" id="locked-mach-name">Machine</span>
             <span class="mx-1 text-slate-300">|</span>
-            <span class="text-slate-600" id="locked-model-year">CU240B/E-2 (2021)</span>
+            <span class="text-slate-600" id="locked-model-year">Model (Year)</span>
             <span class="mx-1 text-slate-300">|</span>
-            <span class="text-slate-500" id="locked-manual-count">3 Manuals</span>
+            <span class="text-slate-500" id="locked-manual-count">1 Manual</span>
             <span class="mx-1 text-slate-300">|</span>
             <span class="px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-bold text-[10px] border border-emerald-200">Evidence Ready</span>
           </div>
@@ -194,6 +199,78 @@
   </main>
 
   <!-- ================================================================= -->
+  <!-- MODAL: UPLOAD & INDEX OEM MANUAL DIRECTLY ON STEP 1               -->
+  <!-- ================================================================= -->
+  <div id="upload-modal" class="hidden fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full p-5 sm:p-6 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-black text-sm border border-blue-100">
+            📤
+          </div>
+          <div>
+            <h3 class="font-black text-sm sm:text-base text-slate-900">Upload OEM Technical Manual</h3>
+            <p class="text-[11px] text-slate-500 font-medium">Index technical documentation to troubleshoot this machine</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeUploadModal()" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 flex items-center justify-center text-xs font-bold transition">
+          ✕
+        </button>
+      </div>
+
+      <form id="index-upload-form" onsubmit="handleIndexUploadSubmit(event)" class="space-y-3.5">
+        <!-- File Picker -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">OEM Manual File (.pdf, .txt, .md) <span class="text-rose-500">*</span></label>
+          <div id="file-dropzone" onclick="document.getElementById('manual-file-input').click()"
+               class="p-4 border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-xl bg-slate-50 hover:bg-blue-50/40 text-center cursor-pointer transition flex flex-col items-center justify-center">
+            <span class="text-2xl mb-1">📄</span>
+            <span id="dropzone-label" class="text-xs font-bold text-slate-700">Click to choose or drag & drop OEM manual</span>
+            <span id="dropzone-sub" class="text-[10px] text-slate-400 mt-0.5">Supports PDF (client-extracted via PDF.js) and Plain Text</span>
+            <input type="file" id="manual-file-input" accept=".pdf,.txt,.md" class="hidden" onchange="handleFileChosen(this)" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2.5">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Manufacturer / Brand <span class="text-rose-500">*</span></label>
+            <input type="text" id="modal-brand" required placeholder="e.g. Siemens, KUKA, Haas"
+                   class="w-full px-3 py-2 bg-slate-50 border border-slate-300 focus:border-blue-600 focus:bg-white rounded-lg text-xs font-medium text-slate-900 outline-none transition" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Machine Name <span class="text-rose-500">*</span></label>
+            <input type="text" id="modal-machine" required placeholder="e.g. SINAMICS G120"
+                   class="w-full px-3 py-2 bg-slate-50 border border-slate-300 focus:border-blue-600 focus:bg-white rounded-lg text-xs font-medium text-slate-900 outline-none transition" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Model / Controller Number</label>
+            <input type="text" id="modal-model" placeholder="e.g. CU240B/E-2"
+                   class="w-full px-3 py-2 bg-slate-50 border border-slate-300 focus:border-blue-600 focus:bg-white rounded-lg text-xs font-medium text-slate-900 outline-none transition" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Manufacturing Year</label>
+            <input type="text" id="modal-year" placeholder="e.g. 2021"
+                   class="w-full px-3 py-2 bg-slate-50 border border-slate-300 focus:border-blue-600 focus:bg-white rounded-lg text-xs font-medium text-slate-900 outline-none transition" />
+          </div>
+        </div>
+
+        <!-- Status / Progress Box -->
+        <div id="modal-upload-status" class="hidden text-xs rounded-xl p-3"></div>
+
+        <div class="pt-2 border-t border-slate-100 flex items-center justify-end space-x-2">
+          <button type="button" onclick="closeUploadModal()" class="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition">
+            Cancel
+          </button>
+          <button type="submit" id="modal-upload-btn" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-600/30 transition flex items-center space-x-1.5">
+            <span>🚀</span>
+            <span>Index Manual & Troubleshoot</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================================================================= -->
   <!-- JAVASCRIPT: STRICT CONTEXT FLOW ENGINE                           -->
   <!-- ================================================================= -->
   <script>
@@ -202,65 +279,79 @@
     let registeredMachines = [];
     let sessionId = 'session_' + Math.random().toString(36).substring(2, 9);
     let isSubmitting = false;
+    let selectedUploadFile = null;
 
     // Load indexed machines on boot
     async function loadMachines() {
+      let backendMachines = [];
       try {
         const res = await fetch('/api/machines');
         if (res.ok) {
           const data = await res.json();
-          registeredMachines = data.machines || [];
-          renderMachineCards();
-        } else {
-          fallbackMachines();
+          backendMachines = data.machines || [];
         }
       } catch (err) {
-        console.warn('Using built-in machines catalog:', err);
-        fallbackMachines();
+        console.warn('Backend machines fetch warning:', err);
       }
+
+      // Merge with browser localStorage
+      let localMachines = [];
+      try {
+        localMachines = JSON.parse(localStorage.getItem('user_uploaded_machines') || '[]');
+      } catch(e) {
+        localMachines = [];
+      }
+
+      const mergedMap = new Map();
+      for (const m of localMachines) {
+        if (m && m.machine_name) mergedMap.set(m.machine_name.toLowerCase(), m);
+      }
+      for (const m of backendMachines) {
+        if (m && m.machine_name) mergedMap.set(m.machine_name.toLowerCase(), m);
+      }
+
+      registeredMachines = Array.from(mergedMap.values());
+      renderMachineCards();
     }
 
     function fallbackMachines() {
-      registeredMachines = [
-        {
-          id: "siemens_g120",
-          manufacturer: "Siemens",
-          machine_name: "SINAMICS G120",
-          model: "CU240B/E-2",
-          manufacturing_year: "2021",
-          firmware: "FW v4.7 SP13",
-          manual_count: 3,
-          status: "Ready",
-          status_label: "Evidence Ready",
-          manuals: [
-            "SINAMICS G120 Operating Instructions",
-            "SINAMICS G120 Troubleshooting & Alarms Manual",
-            "SINAMICS G120 Parameter & Maintenance Manual"
-          ],
-          error_codes: ["F30001", "F07800", "F07900", "F30002"],
-          sample_queries: [
-            "F30001",
-            "Drive is not starting",
-            "Motor is overheating",
-            "What is this machine used for?",
-            "What voltage does it use?",
-            "How do I perform maintenance?"
-          ],
-          description: "Modular variable-speed frequency inverter for industrial AC induction motor drives."
-        }
-      ];
+      let localMachines = [];
+      try {
+        localMachines = JSON.parse(localStorage.getItem('user_uploaded_machines') || '[]');
+      } catch(e) { localMachines = []; }
+      registeredMachines = localMachines;
       renderMachineCards();
     }
 
     // Render Machine Selection Cards Grid
     function renderMachineCards() {
       const grid = document.getElementById('machine-cards-grid');
+      const bottomCallout = document.getElementById('upload-manual-callout');
       if (!grid) return;
 
       if (!registeredMachines || registeredMachines.length === 0) {
-        grid.innerHTML = '<div class="col-span-full py-8 text-center text-slate-500 text-xs">No OEM manuals indexed yet. Please upload a manual in the Admin Portal.</div>';
+        if (bottomCallout) bottomCallout.classList.add('hidden');
+        grid.innerHTML = `
+          <div class="col-span-full max-w-xl mx-auto w-full p-8 sm:p-10 rounded-3xl bg-white border-2 border-dashed border-blue-200 shadow-xs text-center flex flex-col items-center justify-center space-y-4">
+            <div class="w-16 h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-3xl font-black border border-blue-100 shadow-xs">
+              📂
+            </div>
+            <div class="space-y-1">
+              <h3 class="text-lg sm:text-xl font-black text-slate-900 tracking-tight">No OEM Manuals Uploaded Yet</h3>
+              <p class="text-xs sm:text-sm text-slate-500 max-w-md mx-auto leading-relaxed font-medium">
+                Upload an OEM machine manual (PDF or text file) to begin troubleshooting. The system will index error codes, technical schematics, and corrective actions for your machine.
+              </p>
+            </div>
+            <button type="button" onclick="openUploadModal()" class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm shadow-md shadow-blue-600/30 transition flex items-center space-x-2">
+              <span>📤</span>
+              <span>Upload OEM Manual (PDF / Text)</span>
+            </button>
+          </div>
+        `;
         return;
       }
+
+      if (bottomCallout) bottomCallout.classList.remove('hidden');
 
       grid.innerHTML = registeredMachines.map(m => {
         const manualsList = (m.manuals || []).slice(0, 3).map(man => 
@@ -269,14 +360,21 @@
 
         return `
           <div onclick="selectMachine('${escapeHtml(m.machine_name)}')"
-               class="group p-4 sm:p-5 rounded-2xl bg-white hover:bg-blue-50/40 border-2 border-slate-200 hover:border-blue-600 transition-all duration-200 shadow-xs hover:shadow-md cursor-pointer flex flex-col justify-between space-y-3.5">
+               class="group p-4 sm:p-5 rounded-2xl bg-white hover:bg-blue-50/40 border-2 border-slate-200 hover:border-blue-600 transition-all duration-200 shadow-xs hover:shadow-md cursor-pointer flex flex-col justify-between space-y-3.5 relative">
             <div>
               <div class="flex items-center justify-between w-full mb-2">
                 <span class="text-xs font-black uppercase tracking-wider text-slate-500">${escapeHtml(m.manufacturer || 'OEM')}</span>
-                <span class="inline-flex items-center space-x-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                  <span>${escapeHtml(m.status_label || 'Evidence Ready')}</span>
-                </span>
+                <div class="flex items-center space-x-2">
+                  <span class="inline-flex items-center space-x-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    <span>${escapeHtml(m.status_label || 'Evidence Ready')}</span>
+                  </span>
+                  <button type="button" onclick="deleteMachine('${escapeHtml(m.machine_name)}', event)" 
+                          class="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition" 
+                          title="Delete Machine">
+                    🗑️
+                  </button>
+                </div>
               </div>
               <h3 class="text-base font-black text-slate-900 group-hover:text-blue-600 transition tracking-tight">
                 ${escapeHtml(m.machine_name)}
@@ -303,6 +401,218 @@
           </div>
         `;
       }).join('');
+    }
+
+    // UPLOAD MODAL CONTROLS
+    function openUploadModal() {
+      document.getElementById('upload-modal').classList.remove('hidden');
+      document.getElementById('modal-upload-status').classList.add('hidden');
+      document.getElementById('index-upload-form').reset();
+      selectedUploadFile = null;
+      document.getElementById('dropzone-label').innerText = 'Click to choose or drag & drop OEM manual';
+      document.getElementById('dropzone-sub').innerText = 'Supports PDF (client-extracted via PDF.js) and Plain Text';
+    }
+
+    function closeUploadModal() {
+      document.getElementById('upload-modal').classList.add('hidden');
+    }
+
+    function handleFileChosen(input) {
+      if (input.files && input.files[0]) {
+        selectedUploadFile = input.files[0];
+        document.getElementById('dropzone-label').innerText = `Selected: ${selectedUploadFile.name} (${(selectedUploadFile.size / 1024).toFixed(1)} KB)`;
+        document.getElementById('dropzone-sub').innerText = 'File ready to process.';
+
+        // Try to infer machine name if empty
+        const machInput = document.getElementById('modal-machine');
+        const brandInput = document.getElementById('modal-brand');
+        if (!machInput.value.trim()) {
+          let clean = selectedUploadFile.name.replace(/\.[^/.]+$/, "").replace(/[\-_]/g, " ");
+          if (/g120|sinamics/i.test(clean)) {
+            brandInput.value = brandInput.value || 'Siemens';
+            machInput.value = 'SINAMICS G120';
+          } else if (/kuka|kr/i.test(clean)) {
+            brandInput.value = brandInput.value || 'KUKA Robotics';
+            machInput.value = clean;
+          } else {
+            machInput.value = clean.split(' ').slice(0, 3).join(' ');
+          }
+        }
+      }
+    }
+
+    // CLIENT-SIDE INGESTION & SUBMISSION
+    async function handleIndexUploadSubmit(e) {
+      e.preventDefault();
+      if (!selectedUploadFile) {
+        alert('Please choose an OEM manual file first.');
+        return;
+      }
+
+      const brand = document.getElementById('modal-brand').value.trim();
+      const machine = document.getElementById('modal-machine').value.trim();
+      const model = document.getElementById('modal-model').value.trim() || 'Standard';
+      const year = document.getElementById('modal-year').value.trim() || 'Current';
+
+      const statusBox = document.getElementById('modal-upload-status');
+      const submitBtn = document.getElementById('modal-upload-btn');
+      statusBox.classList.remove('hidden');
+      statusBox.className = 'text-xs rounded-xl p-3 bg-blue-50 border border-blue-200 text-blue-900 space-y-1.5';
+      statusBox.innerHTML = `
+        <div class="flex items-center space-x-2 font-bold">
+          <div class="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          <span>Processing Technical Manual...</span>
+        </div>
+        <p class="text-[11px] text-blue-700">Reading content and extracting technical diagnostic sections...</p>
+      `;
+      submitBtn.disabled = true;
+
+      try {
+        let uploadPayload;
+        const fname = selectedUploadFile.name;
+        const isPdf = fname.toLowerCase().endsWith('.pdf');
+
+        if (isPdf) {
+          if (typeof pdfjsLib === 'undefined') {
+            throw new Error('PDF.js library is loading. Please retry in a moment.');
+          }
+          const buffer = await selectedUploadFile.arrayBuffer();
+          const loadingTask = pdfjsLib.getDocument({ data: buffer });
+          const pdfDoc = await loadingTask.promise;
+          const extractedPages = [];
+          let totalChars = 0;
+
+          for (let i = 1; i <= pdfDoc.numPages; i++) {
+            statusBox.innerHTML = `
+              <div class="flex items-center space-x-2 font-bold">
+                <div class="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                <span>Scanning technical manual...</span>
+              </div>
+              <p class="text-[11px] text-blue-700">Scanning page ${i} of ${pdfDoc.numPages} (${brand} - ${machine})...</p>
+            `;
+            const page = await pdfDoc.getPage(i);
+            const textContent = await page.getTextContent();
+            const pageText = textContent.items.map(item => item.str).join(' ');
+            totalChars += pageText.trim().length;
+            if (pageText.trim()) {
+              extractedPages.push({ page_num: i, text: pageText.trim() });
+            }
+          }
+
+          if (totalChars < 20 || extractedPages.length === 0) {
+            throw new Error('No selectable text found in this PDF. Please upload a text-searchable PDF or text document.');
+          }
+
+          uploadPayload = {
+            filename: fname,
+            machine_name: machine,
+            brand: brand,
+            model_no: model,
+            year_of_manufacture: year,
+            pages: extractedPages
+          };
+        } else {
+          const rawText = await selectedUploadFile.text();
+          uploadPayload = {
+            filename: fname,
+            machine_name: machine,
+            brand: brand,
+            model_no: model,
+            year_of_manufacture: year,
+            text: rawText
+          };
+        }
+
+        statusBox.innerHTML = `
+          <div class="flex items-center space-x-2 font-bold">
+            <div class="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <span>Building search indices...</span>
+          </div>
+          <p class="text-[11px] text-blue-700">Generating BM25 index and mapping alarm codes...</p>
+        `;
+
+        const res = await fetch('/api/upload/text', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(uploadPayload)
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || `Server returned ${res.status}`);
+        }
+
+        const data = await res.json();
+
+        // Save into localStorage so it survives serverless recycles
+        const newMachineRecord = {
+          id: `custom_${machine.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8)}`,
+          manufacturer: brand,
+          machine_name: machine,
+          model: model,
+          manufacturing_year: year,
+          firmware: 'Verified Upload',
+          manual_count: 1,
+          status: 'Ready',
+          status_label: 'Evidence Ready',
+          manuals: [data.manual_name || `${machine} Manual`],
+          error_codes: data.detected_codes || [],
+          sample_queries: data.sample_queries || [`${machine} troubleshooting`],
+          description: `OEM Technical Manual with ${data.total_pages || 1} pages and ${data.chunks_count || 1} indexed sections.`
+        };
+
+        let saved = [];
+        try {
+          saved = JSON.parse(localStorage.getItem('user_uploaded_machines') || '[]');
+        } catch(e) { saved = []; }
+        saved = saved.filter(m => m.machine_name.toLowerCase() !== machine.toLowerCase());
+        saved.push(newMachineRecord);
+        localStorage.setItem('user_uploaded_machines', JSON.stringify(saved));
+        localStorage.setItem('chunks_' + machine, JSON.stringify(data));
+
+        closeUploadModal();
+        await loadMachines();
+        selectMachine(machine);
+
+      } catch (err) {
+        statusBox.className = 'text-xs rounded-xl p-3 bg-rose-50 border border-rose-200 text-rose-900 space-y-1';
+        statusBox.innerHTML = `<strong>Error:</strong> ${escapeHtml(err.message)}`;
+      } finally {
+        submitBtn.disabled = false;
+      }
+    }
+
+    // DELETE MACHINE FUNCTIONALITY
+    async function deleteMachine(machineName, e) {
+      if (e) e.stopPropagation();
+      if (!confirm(`Are you sure you want to delete "${machineName}" and remove all its indexed technical manuals?`)) {
+        return;
+      }
+
+      try {
+        let saved = [];
+        try {
+          saved = JSON.parse(localStorage.getItem('user_uploaded_machines') || '[]');
+        } catch(e) { saved = []; }
+        saved = saved.filter(m => m.machine_name.toLowerCase() !== machineName.toLowerCase());
+        localStorage.setItem('user_uploaded_machines', JSON.stringify(saved));
+        localStorage.removeItem('chunks_' + machineName);
+
+        // Delete from backend
+        await fetch('/api/manuals/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ machine_name: machineName })
+        }).catch(err => console.warn('Backend delete sync warning:', err));
+
+        if (activeMachine && activeMachine.machine_name.toLowerCase() === machineName.toLowerCase()) {
+          changeMachine();
+        }
+
+        loadMachines();
+      } catch (err) {
+        alert('Could not delete machine: ' + err.message);
+      }
     }
 
     // STEP 1 -> STEP 2: User Selects One Machine
@@ -450,10 +760,28 @@
       document.getElementById('query-status-indicator').innerText = 'Searching OEM Manuals...';
 
       try {
+        let customManualPayload = undefined;
+        try {
+          const cached = localStorage.getItem('chunks_' + activeMachine.machine_name);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            customManualPayload = {
+              machine_name: activeMachine.machine_name,
+              manual_name: (activeMachine.manuals && activeMachine.manuals[0]) || `${activeMachine.machine_name} Manual`,
+              total_pages: parsed.total_pages || 1,
+              chunks: parsed.chunks || [],
+              detected_codes: activeMachine.error_codes || parsed.detected_codes || []
+            };
+          }
+        } catch(err) {
+          console.warn('Failed to parse cached chunks:', err);
+        }
+
         const payload = {
           query: q,
           session_id: sessionId,
-          selected_machine: activeMachine.machine_name
+          selected_machine: activeMachine.machine_name,
+          custom_manual: customManualPayload
         };
 
         const res = await fetch('/api/query', {
