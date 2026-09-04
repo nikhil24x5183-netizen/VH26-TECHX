@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Award, CheckCircle, XCircle, RefreshCw, ShieldCheck, FileText, Activity } from 'lucide-react';
+import { runEvaluation as runEvalApi } from '../api/chat';
 
 export default function EvaluationDashboard() {
   const [evalData, setEvalData] = useState(null);
@@ -8,11 +9,8 @@ export default function EvaluationDashboard() {
   const runEvaluation = async () => {
     setRunning(true);
     try {
-      const res = await fetch('/api/evaluation');
-      if (res.ok) {
-        const data = await res.json();
-        setEvalData(data);
-      }
+      const data = await runEvalApi();
+      setEvalData(data);
     } catch (err) {
       console.error("Evaluation error:", err);
     } finally {

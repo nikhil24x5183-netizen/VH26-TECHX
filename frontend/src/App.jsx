@@ -6,10 +6,15 @@ import ManualLibrary from './components/ManualLibrary';
 import AdminDashboard from './components/AdminDashboard';
 import EvaluationDashboard from './components/EvaluationDashboard';
 import LandingDashboard from './components/LandingDashboard';
+import RightEvidencePanel from './components/RightEvidencePanel';
 import PDFViewerModal from './components/PDFViewerModal';
 import WhyThisAnswerModal from './components/WhyThisAnswerModal';
 import PhotoUploadModal from './components/PhotoUploadModal';
-import { Key, Cpu, Search, Network, MessageSquare, ChevronRight, X, FileText, Server, Award, Camera, Mic, Globe } from 'lucide-react';
+import { Key, Cpu, Search, Server, Award, Camera, Globe, FileText, X, AlertCircle } from 'lucide-react';
+
+import { getMachines, resetDatabase, getHealth } from './api/machines';
+import { getDocuments, deleteDocument } from './api/documents';
+import { sendChatMessage } from './api/chat';
 
 export default function App() {
   const [machines, setMachines] = useState([]);
@@ -21,31 +26,25 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [backendHealth, setBackendHealth] = useState('checking');
   const [activeTab, setActiveTab] = useState('technician'); // 'technician' | 'library' | 'admin' | 'evaluation'
-  const [viewMode, setViewMode] = useState('chat'); // 'chat' | 'graph'
   const [searchQuery, setSearchQuery] = useState('');
   const [lastContext, setLastContext] = useState(null);
 
-  // Modals
+  // Evidence Drawer & Modals
+  const [selectedCitation, setSelectedCitation] = useState(null);
   const [pdfPreviewCitation, setPdfPreviewCitation] = useState(null);
   const [whyAnswerMessage, setWhyAnswerMessage] = useState(null);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
-  const [language, setLanguage] = useState('en'); // 'en' | 'hi'
+  const [language, setLanguage] = useState('en');
 
   const fetchMachinesAndDocs = async () => {
     try {
       const [mRes, dRes] = await Promise.all([
-        fetch('/api/machines'),
-        fetch('/api/documents')
+        getMachines(),
+        getDocuments()
       ]);
-      if (mRes.ok) {
-        const data = await mRes.json();
-        setMachines(data.machines || []);
-        setBackendHealth('online');
-      }
-      if (dRes.ok) {
-        const dData = await dRes.json();
-        setDocuments(dData.documents || []);
-      }
+      setMachines(mRes.machines || []);
+      setDocuments(dRes.documents || []);
+      setBackendHealth('online');
     } catch (err) {
       console.error('Failed to fetch machines/docs:', err);
       setBackendHealth('offline');
@@ -73,23 +72,12 @@ export default function App() {
     setIsLoading(true);
 
     try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(apiKey ? { 'X-API-Key': apiKey } : {})
-        },
-        body: JSON.stringify({
-          question: text,
-          selected_machine: selectedMachine,
-          api_key: apiKey || null,
-          previous_context: lastContext
-        })
+      const data = await sendChatMessage({
+        question: text,
+        selected_machine: selectedMachine,
+        api_key: apiKey || null,
+        previous_context: lastContext
       });
-
-      if (!res.ok) throw new Error('API request failed');
-
-      const data = await res.json();
 
       const aiMsg = {
         sender: 'ai',
@@ -107,13 +95,18 @@ export default function App() {
         last_question: text,
         last_machine: selectedMachine || (data.citations?.[0]?.machine_name) || ""
       });
+
+      // Auto-open top citation in Right Evidence Panel
+      if (data.citations && data.citations.length > 0) {
+        setSelectedCitation(data.citations[0]);
+      }
     } catch (err) {
       console.error('Chat error:', err);
       setMessages((prev) => [
         ...prev,
         {
           sender: 'ai',
-          text: 'Communication Error: Backend API unreachable.',
+          text: `Communication Error: ${err.message || 'Backend API unreachable.'}`,
           citations: [],
           ambiguity: null,
           insufficient_info: true,
@@ -130,17 +123,17 @@ export default function App() {
   const handleClearChat = () => {
     setMessages([]);
     setLastContext(null);
+    setSelectedCitation(null);
   };
 
   const handleResetDatabase = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/reset', { method: 'POST' });
-      if (res.ok) {
-        await fetchMachinesAndDocs();
-        setMessages([]);
-        setLastContext(null);
-      }
+      await resetDatabase();
+      await fetchMachinesAndDocs();
+      setMessages([]);
+      setLastContext(null);
+      setSelectedCitation(null);
     } catch (err) {
       console.error('Reset error:', err);
     } finally {
@@ -150,8 +143,8 @@ export default function App() {
 
   const handleDeleteMachine = async (fileId) => {
     try {
-      const res = await fetch(`/api/documents/${fileId}`, { method: 'DELETE' });
-      if (res.ok) fetchMachinesAndDocs();
+      await deleteDocument(fileId);
+      fetchMachinesAndDocs();
     } catch (err) {
       console.error('Delete error:', err);
     }
@@ -161,25 +154,19 @@ export default function App() {
     e.preventDefault();
     if (searchQuery.trim()) {
       setActiveTab('technician');
-      setViewMode('chat');
       handleSendMessage(searchQuery.trim());
       setSearchQuery('');
     }
   };
 
-  const activeMachineObj = machines.find(m => m.machine_name === selectedMachine) || {
-    machine_name: selectedMachine || 'All Machines',
-    model: selectedMachine ? 'Selected Scope' : 'Auto-Detect'
-  };
-
   return (
     <div className="flex flex-col h-screen w-screen bg-[#F7F9FC] text-gray-900 overflow-hidden font-sans select-none">
-      {/* 1. Header Navigation Bar */}
-      <header className="h-14 border-b border-gray-200 bg-white px-6 flex items-center justify-between z-20 shadow-xs">
+      {/* 1. Top Header Navigation Bar */}
+      <header className="h-14 border-b border-gray-200 bg-white px-5 flex items-center justify-between z-20 shadow-2xs">
         {/* Brand & Search */}
-        <div className="flex items-center space-x-6">
-          <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold shadow-xs">
+        <div className="flex items-center space-x-5">
+          <div className="flex items-center space-x-2">
+            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold shadow-2xs">
               <Cpu size={18} />
             </div>
             <span className="font-bold text-base text-gray-900 tracking-tight">MaintAI</span>
@@ -200,11 +187,11 @@ export default function App() {
         </div>
 
         {/* Center Navigation Pages Tabs */}
-        <div className="flex items-center space-x-1 bg-gray-100 p-1 rounded-xl border border-gray-200 text-xs font-semibold text-gray-600">
+        <div className="flex items-center space-x-1 bg-gray-100 p-1 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600">
           <button
             onClick={() => setActiveTab('technician')}
-            className={`px-3.5 py-1.5 rounded-lg flex items-center space-x-1.5 transition-colors ${
-              activeTab === 'technician' ? 'bg-blue-600 text-white shadow-xs' : 'hover:text-gray-900 hover:bg-gray-200/60'
+            className={`px-3 py-1.5 rounded-md flex items-center space-x-1.5 transition-colors ${
+              activeTab === 'technician' ? 'bg-blue-600 text-white shadow-2xs' : 'hover:text-gray-900 hover:bg-gray-200/60'
             }`}
           >
             <Cpu size={14} />
@@ -212,8 +199,8 @@ export default function App() {
           </button>
           <button
             onClick={() => setActiveTab('library')}
-            className={`px-3.5 py-1.5 rounded-lg flex items-center space-x-1.5 transition-colors ${
-              activeTab === 'library' ? 'bg-blue-600 text-white shadow-xs' : 'hover:text-gray-900 hover:bg-gray-200/60'
+            className={`px-3 py-1.5 rounded-md flex items-center space-x-1.5 transition-colors ${
+              activeTab === 'library' ? 'bg-blue-600 text-white shadow-2xs' : 'hover:text-gray-900 hover:bg-gray-200/60'
             }`}
           >
             <FileText size={14} />
@@ -221,8 +208,8 @@ export default function App() {
           </button>
           <button
             onClick={() => setActiveTab('admin')}
-            className={`px-3.5 py-1.5 rounded-lg flex items-center space-x-1.5 transition-colors ${
-              activeTab === 'admin' ? 'bg-blue-600 text-white shadow-xs' : 'hover:text-gray-900 hover:bg-gray-200/60'
+            className={`px-3 py-1.5 rounded-md flex items-center space-x-1.5 transition-colors ${
+              activeTab === 'admin' ? 'bg-blue-600 text-white shadow-2xs' : 'hover:text-gray-900 hover:bg-gray-200/60'
             }`}
           >
             <Server size={14} />
@@ -230,8 +217,8 @@ export default function App() {
           </button>
           <button
             onClick={() => setActiveTab('evaluation')}
-            className={`px-3.5 py-1.5 rounded-lg flex items-center space-x-1.5 transition-colors ${
-              activeTab === 'evaluation' ? 'bg-blue-600 text-white shadow-xs' : 'hover:text-gray-900 hover:bg-gray-200/60'
+            className={`px-3 py-1.5 rounded-md flex items-center space-x-1.5 transition-colors ${
+              activeTab === 'evaluation' ? 'bg-blue-600 text-white shadow-2xs' : 'hover:text-gray-900 hover:bg-gray-200/60'
             }`}
           >
             <Award size={14} />
@@ -241,21 +228,19 @@ export default function App() {
 
         {/* Right Tools & Config */}
         <div className="flex items-center space-x-2">
-          {/* Photo Scanner Button */}
           <button
             onClick={() => setShowPhotoModal(true)}
             className="p-2 rounded-lg bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 text-xs font-medium flex items-center space-x-1 transition-colors"
-            title="Scan Photo of Code"
+            title="Scan Photo OCR"
           >
             <Camera size={15} className="text-blue-600" />
             <span className="hidden sm:inline">OCR</span>
           </button>
 
-          {/* Language Switcher */}
           <button
             onClick={() => setLanguage(l => l === 'en' ? 'hi' : 'en')}
             className="p-2 rounded-lg bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 text-xs font-medium flex items-center space-x-1 transition-colors"
-            title="Toggle Language (English / Hindi)"
+            title="Toggle Language"
           >
             <Globe size={15} className="text-gray-500" />
             <span className="font-mono text-xs uppercase">{language}</span>
@@ -271,13 +256,13 @@ export default function App() {
         </div>
       </header>
 
-      {/* 2. Top Product Landing Overview */}
+      {/* 2. Visual Metrics Landing Dashboard Banner */}
       <LandingDashboard
         onStartChat={() => setActiveTab('technician')}
         onOpenLibrary={() => setActiveTab('library')}
       />
 
-      {/* 3. Main Workspace Pages */}
+      {/* 3. Main Workspace Area (Left Sidebar + Chat Workspace + Right Evidence Panel) */}
       <div className="flex-1 flex overflow-hidden">
         {activeTab === 'technician' && (
           <>
@@ -288,29 +273,28 @@ export default function App() {
               onUploadSuccess={fetchMachinesAndDocs}
               onDeleteMachine={handleDeleteMachine}
               onResetDatabase={handleResetDatabase}
+              activeTab={activeTab}
+              onNavigateTab={setActiveTab}
               isLoading={isLoading}
             />
 
-            {viewMode === 'chat' ? (
-              <ChatInterface
-                messages={messages}
-                onSendMessage={handleSendMessage}
-                onClearChat={handleClearChat}
-                onSelectMachine={setSelectedMachine}
-                selectedMachine={selectedMachine}
-                isLoading={isLoading}
-              />
-            ) : (
-              <KnowledgeGraph
-                machines={machines}
-                onSelectMachine={(mName) => {
-                  setSelectedMachine(mName);
-                  setViewMode('chat');
-                }}
-                onAskError={(errCode) => {
-                  setViewMode('chat');
-                  handleSendMessage(`What is ${errCode}?`);
-                }}
+            <ChatInterface
+              messages={messages}
+              onSendMessage={handleSendMessage}
+              onClearChat={handleClearChat}
+              onSelectMachine={setSelectedMachine}
+              selectedMachine={selectedMachine}
+              onSelectCitation={(cit) => setSelectedCitation(cit)}
+              onUploadModalOpen={() => {}}
+              isLoading={isLoading}
+            />
+
+            {/* Right Evidence Inspector Panel */}
+            {selectedCitation && (
+              <RightEvidencePanel
+                citation={selectedCitation}
+                onClose={() => setSelectedCitation(null)}
+                onOpenPdf={(cit) => setPdfPreviewCitation(cit)}
               />
             )}
           </>
@@ -319,9 +303,7 @@ export default function App() {
         {activeTab === 'library' && (
           <ManualLibrary
             documents={documents}
-            onUploadNew={() => {
-              setActiveTab('technician');
-            }}
+            onUploadNew={() => setActiveTab('technician')}
             onDeleteDocument={handleDeleteMachine}
             onReindex={handleResetDatabase}
           />
@@ -366,39 +348,39 @@ export default function App() {
 
       {/* API Key Modal */}
       {showKeyModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-3xl max-w-sm w-full p-6 shadow-xl relative">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h2 className="text-xs font-extrabold text-slate-900 flex items-center">
+        <div className="fixed inset-0 z-50 bg-gray-900/30 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-gray-200 rounded-xl max-w-sm w-full p-5 shadow-xl relative">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+              <h2 className="text-xs font-bold text-gray-900 flex items-center">
                 <Key size={14} className="mr-1.5 text-blue-600" /> Gemini API Key
               </h2>
-              <button onClick={() => setShowKeyModal(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setShowKeyModal(false)} className="text-gray-400 hover:text-gray-600">
                 <X size={16} />
               </button>
             </div>
 
-            <div className="mt-4 space-y-3">
+            <div className="mt-3 space-y-3">
               <div>
-                <label className="block text-xs font-extrabold text-slate-500 uppercase tracking-wider mb-1.5">API Key</label>
+                <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">API Key</label>
                 <input
                   type="password"
                   placeholder="AIzaSy..."
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 text-xs text-slate-900 font-mono outline-none focus:border-blue-500"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 font-mono outline-none focus:border-blue-600"
                 />
               </div>
 
-              <div className="pt-2 flex items-center justify-end space-x-2">
+              <div className="pt-2 flex items-center justify-end space-x-2 border-t border-gray-100">
                 <button
                   onClick={() => handleSaveApiKey('')}
-                  className="px-4 py-2 rounded-full text-xs font-extrabold text-slate-500 hover:text-red-600"
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:text-red-600"
                 >
                   Clear
                 </button>
                 <button
                   onClick={() => handleSaveApiKey(apiKey)}
-                  className="px-6 py-2.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs uppercase shadow-md shadow-blue-600/30"
+                  className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-2xs"
                 >
                   Save Key
                 </button>
