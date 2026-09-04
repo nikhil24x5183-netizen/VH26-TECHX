@@ -30,25 +30,25 @@ export default function ChatInterface({
   };
 
   const presets = [
-    { label: "E101 ERROR", query: "What is E101?", scope: "Caterpillar C15 Generator" },
-    { label: "OVERHEATING", query: "Why is Caterpillar C15 Generator coolant temperature high?", scope: "Caterpillar C15 Generator" },
-    { label: "AMBIGUITY CHECK", query: "What does E101 mean?", scope: null },
-    { label: "SAFETY REFUSAL", query: "My machine is not working.", scope: null }
+    { label: "E101 Error Code", query: "What is E101?", scope: "Caterpillar C15 Generator" },
+    { label: "Motor Overheating", query: "Why is Caterpillar C15 Generator coolant temperature high?", scope: "Caterpillar C15 Generator" },
+    { label: "Ambiguity Detection", query: "What does E101 mean?", scope: null },
+    { label: "Safety Cutoff", query: "My machine is not working.", scope: null }
   ];
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-slate-50 text-slate-900 overflow-hidden">
+    <div className="flex-1 flex flex-col h-full bg-[#F7F9FC] text-gray-900 overflow-hidden min-w-0">
       {/* Header Bar */}
-      <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shadow-xs">
+      <div className="bg-white border-b border-gray-200 px-6 py-3.5 flex items-center justify-between shadow-2xs">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-md shadow-blue-600/30">
-            <Bot size={22} />
+          <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold shadow-xs">
+            <Bot size={18} />
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h2 className="text-base font-extrabold text-slate-900 tracking-tight">RAG TROUBLESHOOTING ENGINE</h2>
-              <span className="bg-blue-100 text-blue-800 text-xs font-mono font-extrabold px-3 py-1 rounded-full uppercase tracking-wider">
-                {selectedMachine ? `SCOPE: ${selectedMachine}` : 'ALL MACHINES'}
+              <h2 className="text-sm font-bold text-gray-900 tracking-tight">Troubleshooting Assistant</h2>
+              <span className="bg-blue-50 text-blue-700 border border-blue-100 text-[11px] font-semibold px-2.5 py-0.5 rounded-full">
+                {selectedMachine ? `Scope: ${selectedMachine}` : 'Global Scope'}
               </span>
             </div>
           </div>
@@ -56,18 +56,18 @@ export default function ChatInterface({
 
         <button
           onClick={onClearChat}
-          className="py-2 px-4 rounded-full border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-red-600 text-xs font-extrabold flex items-center space-x-1.5 transition shadow-xs"
+          className="py-1.5 px-3 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 hover:text-red-600 text-xs font-medium flex items-center space-x-1.5 transition-colors shadow-2xs"
           title="Clear Conversation"
         >
-          <Trash2 size={14} />
-          <span>CLEAR CHAT</span>
+          <Trash2 size={13} />
+          <span>Clear Chat</span>
         </button>
       </div>
 
       {/* Action Presets Bar */}
-      <div className="bg-slate-100/90 border-b border-slate-200 px-6 py-2.5 flex items-center space-x-2.5 overflow-x-auto">
-        <span className="text-xs font-extrabold uppercase text-slate-500 tracking-wider shrink-0 flex items-center">
-          <Sparkles size={14} className="mr-1 text-blue-600" /> PRESETS:
+      <div className="bg-white/80 border-b border-gray-200 px-6 py-2 flex items-center space-x-2 overflow-x-auto">
+        <span className="text-[11px] font-semibold uppercase text-gray-400 tracking-wider shrink-0 flex items-center mr-1">
+          <Sparkles size={13} className="mr-1 text-blue-600" /> Presets:
         </span>
         {presets.map((p, idx) => (
           <button
@@ -76,7 +76,7 @@ export default function ChatInterface({
               if (p.scope !== undefined) onSelectMachine(p.scope);
               onSendMessage(p.query);
             }}
-            className="shrink-0 px-4 py-1.5 rounded-full bg-white hover:bg-blue-50 border border-slate-200 hover:border-blue-400 text-xs text-slate-800 hover:text-blue-700 font-extrabold transition flex items-center space-x-1.5 shadow-xs uppercase tracking-wider"
+            className="shrink-0 px-3 py-1 rounded-lg bg-white hover:bg-blue-50/60 border border-gray-200 hover:border-blue-300 text-xs text-gray-700 hover:text-blue-700 font-medium transition-colors shadow-2xs"
           >
             <span>{p.label}</span>
           </button>
@@ -84,43 +84,43 @@ export default function ChatInterface({
       </div>
 
       {/* Messages Feed */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-5">
+      <div className="flex-1 overflow-y-auto p-6 space-y-4">
         {messages.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center p-8 text-slate-400">
-            <div className="w-16 h-16 rounded-3xl bg-white border border-slate-200 flex items-center justify-center text-blue-600 mb-4 shadow-md">
-              <Bot size={32} />
+          <div className="h-full flex flex-col items-center justify-center text-center p-8 text-gray-400">
+            <div className="w-12 h-12 rounded-xl bg-white border border-gray-200 flex items-center justify-center text-blue-600 mb-3 shadow-xs">
+              <Bot size={24} />
             </div>
-            <h3 className="text-lg font-extrabold text-slate-900">MaintAI Troubleshooting Assistant</h3>
-            <p className="text-sm font-medium text-slate-500 max-w-sm mt-1.5">
-              Select a preset button above or type your error code question below.
+            <h3 className="text-sm font-semibold text-gray-900">MaintAI Industrial Troubleshooting</h3>
+            <p className="text-xs text-gray-500 max-w-sm mt-1">
+              Select a preset above or type your machine error code or issue below.
             </p>
           </div>
         ) : (
           messages.map((msg, idx) => (
             <div
               key={idx}
-              className={`flex items-start space-x-3.5 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+              className={`flex items-start space-x-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               {msg.sender === 'ai' && (
-                <div className="w-9 h-9 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold shrink-0 mt-0.5 shadow-md shadow-blue-600/30">
-                  <Bot size={18} />
+                <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold shrink-0 mt-0.5 shadow-xs">
+                  <Bot size={15} />
                 </div>
               )}
 
-              <div className={`max-w-2xl rounded-3xl p-5 shadow-xs text-base leading-relaxed ${
+              <div className={`max-w-2xl rounded-xl p-4 text-xs leading-relaxed ${
                 msg.sender === 'user'
-                  ? 'bg-blue-600 text-white font-bold rounded-tr-none'
-                  : 'bg-white border border-slate-200 text-slate-900 rounded-tl-none space-y-4 font-medium'
+                  ? 'bg-gray-100 border border-gray-200 text-gray-900 font-medium rounded-tr-xs'
+                  : 'bg-white border border-gray-200 text-gray-900 rounded-tl-xs space-y-3 shadow-2xs'
               }`}>
                 {/* Header with Confidence Score Badge */}
                 {msg.sender === 'ai' && (
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 text-xs">
-                    <span className="font-extrabold uppercase text-slate-400">AI DIAGNOSTIC RESULT</span>
+                  <div className="flex items-center justify-between border-b border-gray-100 pb-2 text-[11px]">
+                    <span className="font-semibold uppercase text-gray-400">Diagnostic Result</span>
                     {msg.confidence_score ? (
-                      <span className={`px-2.5 py-0.5 rounded-full font-mono text-[11px] font-extrabold flex items-center ${
+                      <span className={`px-2 py-0.5 rounded font-mono text-[11px] font-semibold flex items-center ${
                         msg.confidence_score >= 0.70
-                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                          : 'bg-amber-100 text-amber-800 border border-amber-200'
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : 'bg-amber-50 text-amber-700 border border-amber-200'
                       }`}>
                         <ShieldCheck size={12} className="mr-1" />
                         {Math.round(msg.confidence_score * 100)}% Match ({msg.confidence_label})
@@ -131,14 +131,14 @@ export default function ChatInterface({
 
                 {/* Refusal Alert */}
                 {msg.insufficient_info && (
-                  <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-extrabold flex items-center space-x-2.5">
-                    <ShieldAlert size={18} className="shrink-0 text-rose-600" />
+                  <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center space-x-2">
+                    <ShieldAlert size={16} className="shrink-0 text-rose-600" />
                     <span>SAFETY REFUSAL: Context in manuals is insufficient to answer safely.</span>
                   </div>
                 )}
 
                 {/* Message Content */}
-                <div className="whitespace-pre-wrap text-slate-900 text-base leading-relaxed">
+                <div className="whitespace-pre-wrap text-gray-900 text-xs leading-relaxed font-normal">
                   {msg.text}
                 </div>
 
@@ -155,11 +155,11 @@ export default function ChatInterface({
 
                 {/* Citations */}
                 {msg.citations && msg.citations.length > 0 && (
-                  <div className="pt-3 border-t border-slate-100 space-y-2.5">
-                    <div className="text-xs font-extrabold uppercase tracking-wider text-slate-500 flex items-center">
-                      <BookOpen size={14} className="mr-1.5 text-blue-600" /> MANUAL CITATIONS ({msg.citations.length})
+                  <div className="pt-2.5 border-t border-gray-100 space-y-2">
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 flex items-center">
+                      <BookOpen size={13} className="mr-1.5 text-blue-600" /> Manual Evidence ({msg.citations.length})
                     </div>
-                    <div className="space-y-2.5">
+                    <div className="space-y-2">
                       {msg.citations.map((cit, cIdx) => (
                         <CitationCard key={cIdx} citation={cit} />
                       ))}
@@ -169,8 +169,8 @@ export default function ChatInterface({
               </div>
 
               {msg.sender === 'user' && (
-                <div className="w-9 h-9 rounded-2xl bg-slate-200 text-slate-700 flex items-center justify-center font-bold shrink-0 mt-0.5 shadow-xs">
-                  <User size={18} />
+                <div className="w-7 h-7 rounded-lg bg-gray-200 text-gray-700 flex items-center justify-center font-bold shrink-0 mt-0.5">
+                  <User size={15} />
                 </div>
               )}
             </div>
@@ -180,12 +180,12 @@ export default function ChatInterface({
         {/* Loading Spinner */}
         {isLoading && (
           <div className="flex items-start space-x-3">
-            <div className="w-9 h-9 rounded-2xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-blue-600/30">
-              <Bot size={18} />
+            <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <Bot size={15} />
             </div>
-            <div className="bg-white border border-slate-200 rounded-3xl p-4 text-sm text-slate-700 flex items-center space-x-3 font-mono font-bold shadow-xs">
-              <div className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-ping"></div>
-              <span>Searching vector database & synthesizing...</span>
+            <div className="bg-white border border-gray-200 rounded-xl p-3 text-xs text-gray-600 flex items-center space-x-2 font-medium shadow-2xs">
+              <div className="w-2 h-2 rounded-full bg-blue-600 animate-ping"></div>
+              <span>Searching manual vectors & synthesizing...</span>
             </div>
           </div>
         )}
@@ -194,26 +194,27 @@ export default function ChatInterface({
       </div>
 
       {/* Prominent Form Input Bar */}
-      <div className="p-5 bg-white border-t border-slate-200">
-        <form onSubmit={handleSubmit} className="flex items-center space-x-3">
+      <div className="p-4 bg-white border-t border-gray-200">
+        <form onSubmit={handleSubmit} className="flex items-center space-x-2">
           <input
             type="text"
-            placeholder="Type error code or question (e.g. 'What is E101?')..."
+            placeholder="Ask question or error code (e.g. 'What does E101 mean?')..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
             disabled={isLoading}
-            className="flex-1 bg-blue-50/60 border border-blue-100 rounded-2xl px-5 py-3.5 text-base text-slate-900 font-semibold placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:bg-white transition"
+            className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-xs text-gray-900 font-medium placeholder-gray-400 focus:outline-none focus:border-blue-600 focus:bg-white transition-colors"
           />
           <button
             type="submit"
             disabled={!input.trim() || isLoading}
-            className="px-7 py-3.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs uppercase tracking-wider flex items-center space-x-2 transition disabled:opacity-40 shadow-md shadow-blue-600/30 shrink-0 active:scale-95"
+            className="px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs flex items-center space-x-1.5 transition-colors disabled:opacity-40 shrink-0"
           >
-            <span>ASK QUESTION</span>
-            <Send size={15} />
+            <span>Ask</span>
+            <Send size={13} />
           </button>
         </form>
       </div>
     </div>
   );
 }
+

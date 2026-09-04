@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Upload, Cpu, Trash2, RefreshCw, Plus, FileText, X, AlertCircle } from 'lucide-react';
+import { Upload, Cpu, Trash2, RefreshCw, Plus, FileText, X, AlertCircle, Layers } from 'lucide-react';
 
 export default function Sidebar({
   machines,
@@ -29,6 +29,7 @@ export default function Sidebar({
 
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('manufacturer', machineName.split(' ')[0] || 'Industrial OEM');
     formData.append('machine_name', machineName);
     formData.append('model', model);
 
@@ -54,57 +55,52 @@ export default function Sidebar({
   };
 
   return (
-    <aside className="w-80 bg-white border-r border-slate-200 flex flex-col h-full select-none shadow-xs">
-      {/* App Header */}
-      <div className="p-5 border-b border-slate-200 flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="w-9 h-9 rounded-2xl bg-blue-600 flex items-center justify-center text-white font-bold shadow-md shadow-blue-600/30">
-            <Cpu size={20} />
-          </div>
-          <div>
-            <h1 className="font-extrabold text-base text-slate-900 tracking-tight">MaintAI</h1>
-            <span className="text-[11px] text-blue-600 font-mono font-extrabold tracking-wider uppercase">Troubleshooting</span>
-          </div>
+    <aside className="w-72 bg-white border-r border-gray-200 flex flex-col h-full select-none shrink-0">
+      {/* Scope Title Header */}
+      <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <Layers size={16} className="text-blue-600" />
+          <h2 className="font-semibold text-sm text-gray-900 tracking-tight">Machine Library</h2>
         </div>
         <button
           onClick={() => setShowUploadModal(true)}
-          className="py-2 px-3.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs flex items-center space-x-1.5 transition shadow-md shadow-blue-600/30 active:scale-95"
+          className="py-1.5 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs flex items-center space-x-1 transition-colors"
         >
-          <Plus size={16} />
+          <Plus size={14} />
           <span>Upload</span>
         </button>
       </div>
 
       {/* Scope Selector */}
-      <div className="p-4 bg-slate-50/80 border-b border-slate-200">
-        <label className="block text-xs font-extrabold text-slate-500 uppercase tracking-wider mb-2">
-          TARGET MACHINE SCOPE
+      <div className="p-3.5 bg-gray-50/50 border-b border-gray-200">
+        <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+          TARGET SCOPE
         </label>
         <select
           value={selectedMachine || 'all'}
           onChange={(e) => onSelectMachine(e.target.value === 'all' ? null : e.target.value)}
-          className="w-full bg-white border border-slate-200 text-slate-900 text-sm font-bold rounded-2xl px-4 py-2.5 outline-none cursor-pointer focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+          className="w-full bg-white border border-gray-200 text-gray-900 text-xs font-medium rounded-lg px-3 py-2 outline-none cursor-pointer focus:border-blue-600 focus:ring-1 focus:ring-blue-600 transition-colors"
         >
-          <option value="all">⚡ All Machines Scope</option>
+          <option value="all">All Machines (Global Scope)</option>
           {machines.map((m, idx) => (
             <option key={idx} value={m.machine_name}>
-              ⚙️ {m.machine_name} ({m.model})
+              {m.machine_name} ({m.model})
             </option>
           ))}
         </select>
       </div>
 
       {/* Manuals List */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
-        <div className="flex items-center justify-between px-1 mb-2">
-          <span className="text-xs font-extrabold uppercase text-slate-500 tracking-wider">
-            AVAILABLE MANUALS ({machines.length})
+      <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
+        <div className="flex items-center justify-between px-1 mb-1.5">
+          <span className="text-[11px] font-semibold uppercase text-gray-400 tracking-wider">
+            MANUALS ({machines.length})
           </span>
-          {isLoading && <RefreshCw size={14} className="animate-spin text-blue-600" />}
+          {isLoading && <RefreshCw size={13} className="animate-spin text-blue-600" />}
         </div>
 
         {machines.length === 0 ? (
-          <div className="p-4 text-center border border-dashed border-slate-200 rounded-2xl text-slate-400 text-sm font-medium">
+          <div className="p-4 text-center border border-dashed border-gray-200 rounded-xl text-gray-400 text-xs font-normal">
             No manuals loaded.
           </div>
         ) : (
@@ -114,20 +110,20 @@ export default function Sidebar({
               <div
                 key={idx}
                 onClick={() => onSelectMachine(isSelected ? null : m.machine_name)}
-                className={`group p-3.5 rounded-2xl border transition-all cursor-pointer shadow-xs ${
+                className={`group p-3 rounded-xl border transition-colors cursor-pointer ${
                   isSelected
-                    ? 'bg-blue-50/90 border-blue-500 ring-2 ring-blue-500/20'
-                    : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                    ? 'bg-blue-50/80 border-blue-500 text-blue-900'
+                    : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
                 <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-2.5 truncate">
-                    <FileText size={18} className={isSelected ? 'text-blue-600' : 'text-slate-400'} />
-                    <div className="truncate">
-                      <h3 className={`text-sm font-bold truncate ${isSelected ? 'text-blue-950' : 'text-slate-900'}`}>
+                  <div className="flex items-center space-x-2.5 min-w-0">
+                    <FileText size={16} className={isSelected ? 'text-blue-600' : 'text-gray-400'} />
+                    <div className="min-w-0">
+                      <h3 className={`text-xs font-semibold truncate ${isSelected ? 'text-blue-900' : 'text-gray-900'}`}>
                         {m.machine_name}
                       </h3>
-                      <p className="text-xs text-slate-500 font-mono font-medium">{m.model}</p>
+                      <p className="text-[11px] text-gray-500 truncate">{m.model}</p>
                     </div>
                   </div>
                   {m.file_id && (
@@ -136,16 +132,17 @@ export default function Sidebar({
                         e.stopPropagation();
                         onDeleteMachine(m.file_id);
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-600 text-slate-400 transition"
+                      className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-600 text-gray-400 transition-colors"
+                      title="Delete Manual"
                     >
-                      <Trash2 size={15} />
+                      <Trash2 size={14} />
                     </button>
                   )}
                 </div>
-                <div className="mt-2.5 flex items-center justify-between text-xs text-slate-500 font-mono border-t border-slate-100 pt-2 font-medium">
-                  <span className="truncate max-w-[140px]">{m.file_name}</span>
-                  <span className="bg-slate-100 px-2 py-0.5 rounded-md text-slate-800 font-bold">
-                    {m.chunk_count} chunks
+                <div className="mt-2 flex items-center justify-between text-[11px] text-gray-400 border-t border-gray-100 pt-1.5">
+                  <span className="truncate max-w-[130px] font-mono">{m.file_name}</span>
+                  <span className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-600 font-medium">
+                    {m.chunk_count} ch
                   </span>
                 </div>
               </div>
@@ -155,94 +152,94 @@ export default function Sidebar({
       </div>
 
       {/* Footer Reset */}
-      <div className="p-4 border-t border-slate-200 bg-slate-50/80">
+      <div className="p-3 border-t border-gray-200 bg-gray-50/50">
         <button
           onClick={onResetDatabase}
-          className="w-full py-2.5 px-4 rounded-full border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-extrabold flex items-center justify-center space-x-2 transition shadow-xs"
+          className="w-full py-2 px-3 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 text-xs font-medium flex items-center justify-center space-x-1.5 transition-colors shadow-2xs"
         >
-          <RefreshCw size={14} />
-          <span>RESET SAMPLE DATABASE</span>
+          <RefreshCw size={13} />
+          <span>Reset Sample Manuals</span>
         </button>
       </div>
 
-      {/* Upload Modal (Styled after uploaded modal image: rounded-3xl, big bold header, uppercase labels, soft blue input, pill buttons) */}
+      {/* Upload Modal */}
       {showUploadModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-7 shadow-2xl relative border border-slate-100">
-            <div className="flex items-center justify-between pb-4">
-              <h2 className="text-xl font-extrabold text-slate-900 flex items-center">
-                <span className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mr-2 text-sm font-bold">+</span>
-                Add New Machine Manual
+        <div className="fixed inset-0 z-50 bg-gray-900/30 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl relative border border-gray-200">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+              <h2 className="text-base font-bold text-gray-900 flex items-center">
+                <Upload size={16} className="mr-2 text-blue-600" />
+                Upload Machine Manual
               </h2>
-              <button onClick={() => setShowUploadModal(false)} className="text-slate-400 hover:text-slate-600 text-xl font-bold">
-                <X size={20} />
+              <button onClick={() => setShowUploadModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleUploadSubmit} className="mt-4 space-y-4">
+            <form onSubmit={handleUploadSubmit} className="mt-4 space-y-3.5">
               {uploadError && (
-                <div className="p-3 rounded-2xl bg-red-50 text-red-600 text-xs font-bold flex items-center space-x-2">
-                  <AlertCircle size={16} />
+                <div className="p-3 rounded-lg bg-red-50 text-red-600 text-xs font-medium flex items-center space-x-2 border border-red-100">
+                  <AlertCircle size={15} />
                   <span>{uploadError}</span>
                 </div>
               )}
 
               <div>
-                <label className="block text-xs font-extrabold text-slate-500 uppercase tracking-wider mb-2">
-                  FACULTY / MACHINE FULL NAME <span className="text-red-500">*</span>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Machine Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Atlas Compressor X100"
+                  placeholder="e.g. Siemens S7-1500 PLC"
                   value={machineName}
                   onChange={(e) => setMachineName(e.target.value)}
-                  className="w-full bg-blue-50/60 border border-blue-100 rounded-2xl px-4 py-3 text-base text-slate-900 font-semibold outline-none focus:border-blue-500 focus:bg-white transition placeholder-slate-400"
+                  className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 font-medium outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 placeholder-gray-400"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-extrabold text-slate-500 uppercase tracking-wider mb-2">
-                  MACHINE MODEL CODE <span className="text-red-500">*</span>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Model Code <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. X100-v2"
+                  placeholder="e.g. CPU 1516-3 PN/DP"
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
-                  className="w-full bg-blue-50/60 border border-blue-100 rounded-2xl px-4 py-3 text-base text-slate-900 font-semibold outline-none focus:border-blue-500 focus:bg-white transition placeholder-slate-400"
+                  className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 font-medium outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 placeholder-gray-400"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-extrabold text-slate-500 uppercase tracking-wider mb-2">
-                  MANUAL PDF DOCUMENT <span className="text-red-500">*</span>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  PDF File <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="file"
                   accept=".pdf"
                   onChange={(e) => setFile(e.target.files[0])}
-                  className="w-full text-xs text-slate-600 file:mr-3 file:py-2.5 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-extrabold file:bg-blue-600 file:text-white cursor-pointer"
+                  className="w-full text-xs text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
                   required
                 />
               </div>
 
-              <div className="pt-4 flex items-center justify-end space-x-3">
+              <div className="pt-3 flex items-center justify-end space-x-2 border-t border-gray-100">
                 <button
                   type="button"
                   onClick={() => setShowUploadModal(false)}
-                  className="px-6 py-3 rounded-full bg-slate-100 text-slate-700 font-extrabold text-xs tracking-wider uppercase hover:bg-slate-200 transition"
+                  className="px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 text-xs font-medium hover:bg-gray-50 transition-colors"
                 >
-                  CANCEL
+                  Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={uploading}
-                  className="px-7 py-3 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs tracking-wider uppercase flex items-center space-x-2 transition shadow-md shadow-blue-600/30 disabled:opacity-50"
+                  className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs flex items-center space-x-1.5 transition-colors disabled:opacity-50"
                 >
-                  {uploading ? <RefreshCw size={15} className="animate-spin" /> : <Upload size={15} />}
-                  <span>REGISTER MANUAL</span>
+                  {uploading ? <RefreshCw size={14} className="animate-spin" /> : <Upload size={14} />}
+                  <span>Ingest Manual</span>
                 </button>
               </div>
             </form>

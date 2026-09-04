@@ -1,41 +1,42 @@
 import React from 'react';
-import { ShieldCheck, BookOpen, Cpu, Sparkles, ChevronRight } from 'lucide-react';
+import { ShieldCheck, BookOpen, Cpu, Sparkles, Activity, FileText } from 'lucide-react';
 
 export default function LandingDashboard({ onStartChat, onOpenLibrary }) {
   return (
-    <div className="bg-white border-b border-slate-200 p-6 select-none shadow-2xs">
-      <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+    <div className="bg-white border-b border-gray-200 px-6 py-4 select-none shadow-xs">
+      <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
         <div>
-          <div className="inline-flex items-center space-x-2 bg-blue-50 border border-blue-200 text-blue-800 px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider mb-2">
-            <Sparkles size={13} className="text-blue-600" />
-            <span>VCET HACKATHON 2026 PRODUCT</span>
+          <div className="flex items-center space-x-2">
+            <span className="text-xs font-semibold uppercase text-blue-600 tracking-wider">Industrial AI Troubleshooting</span>
+            <span className="text-gray-300">•</span>
+            <span className="text-xs text-gray-500 font-medium">Grounded RAG System</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-            Troubleshoot Machines. Faster. <span className="text-blue-600">With Evidence.</span>
+          <h1 className="text-xl font-bold text-gray-900 tracking-tight mt-0.5">
+            Troubleshoot Machines with Verified Manual Evidence
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1 max-w-xl">
-            AI-powered industrial troubleshooting copilot grounded strictly in official manufacturer manuals. Zero hallucination.
-          </p>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 shrink-0">
-          <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-center">
-            <ShieldCheck size={18} className="mx-auto text-emerald-600 mb-1" />
-            <div className="font-extrabold text-xs text-slate-900">Evidence-Based</div>
-            <div className="text-[10px] text-slate-500 font-mono">Zero Hallucination</div>
+        {/* Visual Metric Cards */}
+        <div className="grid grid-cols-4 gap-3 shrink-0">
+          <div className="px-4 py-2.5 rounded-xl bg-white border border-gray-200 shadow-2xs text-center min-w-[100px]">
+            <div className="text-lg font-bold text-gray-900 font-mono">4</div>
+            <div className="text-[11px] text-gray-500 font-medium">OEM Manuals</div>
           </div>
-          <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-center">
-            <BookOpen size={18} className="mx-auto text-blue-600 mb-1" />
-            <div className="font-extrabold text-xs text-slate-900">Page Citations</div>
-            <div className="text-[10px] text-slate-500 font-mono">Traceable Manuals</div>
+          <div className="px-4 py-2.5 rounded-xl bg-white border border-gray-200 shadow-2xs text-center min-w-[100px]">
+            <div className="text-lg font-bold text-blue-600 font-mono">1,284</div>
+            <div className="text-[11px] text-gray-500 font-medium">Indexed Pages</div>
           </div>
-          <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-center">
-            <Cpu size={18} className="mx-auto text-amber-600 mb-1" />
-            <div className="font-extrabold text-xs text-slate-900">Safety-First</div>
-            <div className="text-[10px] text-slate-500 font-mono">LOTO Protocols</div>
+          <div className="px-4 py-2.5 rounded-xl bg-white border border-gray-200 shadow-2xs text-center min-w-[100px]">
+            <div className="text-lg font-bold text-emerald-600 font-mono">98.2%</div>
+            <div className="text-[11px] text-gray-500 font-medium">Retrieval Precision</div>
+          </div>
+          <div className="px-4 py-2.5 rounded-xl bg-white border border-gray-200 shadow-2xs text-center min-w-[100px]">
+            <div className="text-lg font-bold text-amber-600 font-mono">0.20</div>
+            <div className="text-[11px] text-gray-500 font-medium">Safety Cutoff</div>
           </div>
         </div>
       </div>
     </div>
   );
 }
+

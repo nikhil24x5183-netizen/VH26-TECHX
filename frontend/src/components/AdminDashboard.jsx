@@ -13,86 +13,86 @@ export default function AdminDashboard({ documents, onReset }) {
   ];
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-slate-50 overflow-y-auto p-6 space-y-6 select-none">
+    <div className="flex-1 flex flex-col h-full bg-[#F7F9FC] overflow-y-auto p-6 space-y-4 select-none">
       {/* Top Banner */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs flex items-center justify-between">
+      <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-2xs flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center">
-            <Server size={22} className="mr-2 text-blue-600" /> Admin & Pipeline Diagnostics Dashboard
+          <h2 className="text-base font-bold text-gray-900 tracking-tight flex items-center">
+            <Server size={18} className="mr-2 text-blue-600" /> Admin & Pipeline Diagnostics Dashboard
           </h2>
-          <p className="text-xs text-slate-500 font-medium mt-1">
+          <p className="text-xs text-gray-500 font-medium mt-0.5">
             Real-time RAG ingestion pipeline metrics, embedding status, and vector index health.
           </p>
         </div>
         <button
           onClick={onReset}
-          className="px-6 py-2.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs uppercase flex items-center space-x-2 transition shadow-xs"
+          className="px-4 py-2 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-medium text-xs flex items-center space-x-1.5 transition-colors shadow-2xs"
         >
-          <RefreshCw size={14} />
+          <RefreshCw size={13} />
           <span>Re-Initialize Store</span>
         </button>
       </div>
 
       {/* Metrics Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-2">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-xs font-extrabold uppercase font-mono tracking-wider">TOTAL MANUALS</span>
-            <FileText size={18} className="text-blue-600" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-2xs space-y-1.5">
+          <div className="flex items-center justify-between text-gray-400">
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Total Manuals</span>
+            <FileText size={16} className="text-blue-600" />
           </div>
-          <div className="text-3xl font-black text-slate-900">{documents.length}</div>
-          <div className="text-[11px] font-mono font-bold text-emerald-600 flex items-center">
+          <div className="text-2xl font-bold text-gray-900 font-mono">{documents.length}</div>
+          <div className="text-[11px] font-medium text-emerald-600 flex items-center">
             <CheckCircle size={12} className="mr-1" /> 100% Ingested
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-2">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-xs font-extrabold uppercase font-mono tracking-wider">VECTOR CHUNKS</span>
-            <Database size={18} className="text-blue-600" />
+        <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-2xs space-y-1.5">
+          <div className="flex items-center justify-between text-gray-400">
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Vector Chunks</span>
+            <Database size={16} className="text-blue-600" />
           </div>
-          <div className="text-3xl font-black text-slate-900">{totalChunks}</div>
-          <div className="text-[11px] font-mono font-bold text-blue-600">384-Dim Dense Embeddings</div>
+          <div className="text-2xl font-bold text-gray-900 font-mono">{totalChunks}</div>
+          <div className="text-[11px] font-mono text-gray-500">384-Dim Dense Embeddings</div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-2">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-xs font-extrabold uppercase font-mono tracking-wider">EMBEDDING MODEL</span>
-            <Activity size={18} className="text-blue-600" />
+        <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-2xs space-y-1.5">
+          <div className="flex items-center justify-between text-gray-400">
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Embedding Model</span>
+            <Activity size={16} className="text-blue-600" />
           </div>
-          <div className="text-base font-extrabold text-slate-900 truncate">all-MiniLM-L6-v2</div>
-          <div className="text-[11px] font-mono font-bold text-emerald-600">SentenceTransformers Active</div>
+          <div className="text-sm font-semibold text-gray-900 truncate">all-MiniLM-L6-v2</div>
+          <div className="text-[11px] font-medium text-emerald-600">SentenceTransformers Active</div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-2">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-xs font-extrabold uppercase font-mono tracking-wider">REFUSAL CONTROL</span>
-            <ShieldCheck size={18} className="text-emerald-600" />
+        <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-2xs space-y-1.5">
+          <div className="flex items-center justify-between text-gray-400">
+            <span className="text-[11px] font-semibold uppercase tracking-wider">Refusal Control</span>
+            <ShieldCheck size={16} className="text-emerald-600" />
           </div>
-          <div className="text-base font-extrabold text-emerald-700">Strict Safety Cutoff</div>
-          <div className="text-[11px] font-mono font-bold text-slate-500">Threshold &lt; 0.20 Active</div>
+          <div className="text-sm font-semibold text-emerald-700">Strict Safety Cutoff</div>
+          <div className="text-[11px] font-mono text-gray-500">Threshold &lt; 0.20 Active</div>
         </div>
       </div>
 
       {/* Visual Ingestion Pipeline */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-4">
-        <h3 className="text-sm font-extrabold uppercase tracking-wider text-slate-900 flex items-center">
-          <Layers size={16} className="mr-2 text-blue-600" /> Document Ingestion Pipeline Architecture
+      <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-2xs space-y-3">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-700 flex items-center">
+          <Layers size={15} className="mr-1.5 text-blue-600" /> Document Ingestion Pipeline Architecture
         </h3>
 
-        <div className="space-y-3">
+        <div className="space-y-2">
           {pipelineSteps.map((step, idx) => (
-            <div key={idx} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+            <div key={idx} className="p-3 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <span className="w-7 h-7 rounded-full bg-blue-600 text-white font-mono font-extrabold text-xs flex items-center justify-center">
+                <span className="w-6 h-6 rounded-md bg-blue-600 text-white font-mono font-bold text-xs flex items-center justify-center">
                   {idx + 1}
                 </span>
                 <div>
-                  <h4 className="font-extrabold text-xs text-slate-900">{step.name}</h4>
-                  <p className="text-[11px] font-mono text-slate-500">{step.desc}</p>
+                  <h4 className="font-semibold text-xs text-gray-900">{step.name}</h4>
+                  <p className="text-[11px] text-gray-500 font-mono">{step.desc}</p>
                 </div>
               </div>
-              <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1 rounded-full text-xs font-mono font-bold flex items-center">
+              <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded text-[11px] font-semibold flex items-center">
                 <CheckCircle size={12} className="mr-1 text-emerald-600" /> {step.status}
               </span>
             </div>
@@ -102,3 +102,4 @@ export default function AdminDashboard({ documents, onReset }) {
     </div>
   );
 }
+

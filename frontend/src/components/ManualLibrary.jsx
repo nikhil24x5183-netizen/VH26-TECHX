@@ -11,22 +11,22 @@ export default function ManualLibrary({ documents, onUploadNew, onDeleteDocument
   );
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-slate-50 overflow-y-auto p-6 space-y-6">
+    <div className="flex-1 flex flex-col h-full bg-[#F7F9FC] overflow-y-auto p-6 space-y-4">
       {/* Top Banner */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs flex items-center justify-between">
+      <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-2xs flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center">
-            <FileText size={22} className="mr-2 text-blue-600" /> Manual Library & Knowledge Store
+          <h2 className="text-base font-bold text-gray-900 tracking-tight flex items-center">
+            <FileText size={18} className="mr-2 text-blue-600" /> Manual Library & Knowledge Store
           </h2>
-          <p className="text-xs text-slate-500 font-medium mt-1">
+          <p className="text-xs text-gray-500 font-medium mt-0.5">
             Manage ingested manufacturer manuals, indexing status, and document metadata.
           </p>
         </div>
         <button
           onClick={onUploadNew}
-          className="px-6 py-3 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs uppercase flex items-center space-x-2 shadow-md shadow-blue-600/30 transition"
+          className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs flex items-center space-x-1.5 transition-colors shadow-2xs"
         >
-          <Plus size={16} />
+          <Plus size={15} />
           <span>Upload PDF Manual</span>
         </button>
       </div>
@@ -34,78 +34,78 @@ export default function ManualLibrary({ documents, onUploadNew, onDeleteDocument
       {/* Filter & Search Bar */}
       <div className="flex items-center justify-between space-x-4">
         <div className="relative flex-1 max-w-md">
-          <Search size={16} className="absolute left-3.5 top-3 text-slate-400" />
+          <Search size={14} className="absolute left-3 top-2.5 text-gray-400" />
           <input
             type="text"
             placeholder="Filter manuals by manufacturer, machine, or file name..."
             value={filterText}
             onChange={(e) => setFilterText(e.target.value)}
-            className="w-full bg-white border border-slate-200 rounded-full pl-10 pr-4 py-2 text-xs text-slate-900 font-medium outline-none focus:border-blue-500 shadow-2xs"
+            className="w-full bg-white border border-gray-200 rounded-lg pl-9 pr-3 py-1.5 text-xs text-gray-900 font-medium outline-none focus:border-blue-600 transition-colors shadow-2xs"
           />
         </div>
-        <div className="text-xs font-mono font-bold text-slate-500">
-          SHOWING {filteredDocs.length} OF {documents.length} MANUALS
+        <div className="text-xs font-mono font-medium text-gray-500">
+          Showing {filteredDocs.length} of {documents.length} manuals
         </div>
       </div>
 
       {/* Documents Grid Table */}
-      <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-xs">
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-2xs">
         <table className="w-full text-left text-xs border-collapse">
           <thead>
-            <tr className="bg-slate-100/80 border-b border-slate-200 text-slate-500 uppercase font-mono font-extrabold text-[11px]">
-              <th className="p-4">MANUFACTURER</th>
-              <th className="p-4">MACHINE & MODEL</th>
-              <th className="p-4">MANUAL TITLE</th>
-              <th className="p-4">CHUNKS</th>
-              <th className="p-4">STATUS</th>
-              <th className="p-4 text-right">ACTIONS</th>
+            <tr className="bg-gray-50 border-b border-gray-200 text-gray-500 font-semibold text-[11px]">
+              <th className="p-3.5">Manufacturer</th>
+              <th className="p-3.5">Machine & Model</th>
+              <th className="p-3.5">Manual Title</th>
+              <th className="p-3.5">Chunks</th>
+              <th className="p-3.5">Status</th>
+              <th className="p-3.5 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
+          <tbody className="divide-y divide-gray-100 font-medium text-gray-800">
             {filteredDocs.length === 0 ? (
               <tr>
-                <td colSpan="6" className="p-8 text-center text-slate-400 font-mono text-xs">
+                <td colSpan="6" className="p-8 text-center text-gray-400 font-normal text-xs">
                   No manuals matching filter.
                 </td>
               </tr>
             ) : (
               filteredDocs.map((doc, idx) => (
-                <tr key={idx} className="hover:bg-slate-50/80 transition">
-                  <td className="p-4 font-bold text-slate-900">
-                    <span className="bg-blue-50 text-blue-800 border border-blue-100 px-2.5 py-1 rounded-full font-mono text-[11px] font-extrabold">
+                <tr key={idx} className="hover:bg-gray-50/70 transition-colors">
+                  <td className="p-3.5">
+                    <span className="bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded text-[11px] font-semibold">
                       {doc.manufacturer}
                     </span>
                   </td>
-                  <td className="p-4">
-                    <div className="font-extrabold text-slate-900">{doc.machine_name}</div>
-                    <div className="text-[11px] font-mono text-slate-500">{doc.model}</div>
+                  <td className="p-3.5">
+                    <div className="font-semibold text-gray-900">{doc.machine_name}</div>
+                    <div className="text-[11px] text-gray-500 font-mono">{doc.model}</div>
                   </td>
-                  <td className="p-4 font-mono text-xs text-slate-700">
+                  <td className="p-3.5 font-mono text-xs text-gray-600">
                     {doc.file_name}
                   </td>
-                  <td className="p-4 font-mono font-bold">
+                  <td className="p-3.5 font-mono font-semibold text-gray-700">
                     {doc.chunk_count} chunks
                   </td>
-                  <td className="p-4">
-                    <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-1 rounded-full font-mono text-[11px] font-extrabold flex items-center w-fit">
+                  <td className="p-3.5">
+                    <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded text-[11px] font-semibold flex items-center w-fit">
                       <CheckCircle size={12} className="mr-1 text-emerald-600" /> {doc.status}
                     </span>
                   </td>
-                  <td className="p-4 text-right">
-                    <div className="flex items-center justify-end space-x-2">
+                  <td className="p-3.5 text-right">
+                    <div className="flex items-center justify-end space-x-1.5">
                       <button
                         onClick={onReindex}
-                        className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600"
+                        className="p-1.5 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 transition-colors"
                         title="Re-index Manual"
                       >
-                        <RefreshCw size={14} />
+                        <RefreshCw size={13} />
                       </button>
                       <button
                         onClick={() => onDeleteDocument(doc.document_id)}
-                        className="p-2 rounded-xl bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-600"
+                        className="p-1.5 rounded-lg bg-white border border-gray-200 hover:bg-red-50 hover:border-red-200 text-gray-600 hover:text-red-600 transition-colors"
                         title="Delete Manual"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={13} />
                       </button>
                     </div>
                   </td>
@@ -118,3 +118,4 @@ export default function ManualLibrary({ documents, onUploadNew, onDeleteDocument
     </div>
   );
 }
+

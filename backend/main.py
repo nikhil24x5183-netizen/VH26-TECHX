@@ -131,12 +131,13 @@ def list_documents():
     return {"documents": docs}
 
 
+@app.post("/api/upload")
 @app.post("/api/documents/upload")
 async def upload_document(
     file: UploadFile = File(...),
-    manufacturer: str = Form(...),
     machine_name: str = Form(...),
     model: str = Form(...),
+    manufacturer: Optional[str] = Form("Industrial OEM"),
     revision: Optional[str] = Form("Rev. 2026.1")
 ):
     """Uploads and validates a PDF manual before chunking and embedding it."""

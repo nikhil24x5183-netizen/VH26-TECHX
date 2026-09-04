@@ -173,29 +173,38 @@ export default function App() {
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-slate-50 text-slate-900 overflow-hidden font-sans select-none">
+    <div className="flex flex-col h-screen w-screen bg-[#F7F9FC] text-gray-900 overflow-hidden font-sans select-none">
       {/* 1. Header Navigation Bar */}
-      <header className="h-14 border-b border-slate-200 bg-white px-5 flex items-center justify-between z-20 shadow-2xs">
-        {/* Search */}
-        <form onSubmit={handleSearchSubmit} className="flex items-center">
-          <div className="relative w-60 sm:w-72">
-            <Search size={14} className="absolute left-3.5 top-3 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search error code or manual..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-full pl-9 pr-3 py-1.5 text-xs text-slate-900 placeholder-slate-400 font-medium focus:border-blue-500 outline-none"
-            />
+      <header className="h-14 border-b border-gray-200 bg-white px-6 flex items-center justify-between z-20 shadow-xs">
+        {/* Brand & Search */}
+        <div className="flex items-center space-x-6">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold shadow-xs">
+              <Cpu size={18} />
+            </div>
+            <span className="font-bold text-base text-gray-900 tracking-tight">MaintAI</span>
           </div>
-        </form>
+
+          <form onSubmit={handleSearchSubmit} className="flex items-center">
+            <div className="relative w-64">
+              <Search size={14} className="absolute left-3 top-2.5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search error code or manual..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-gray-50 border border-gray-200 rounded-lg pl-9 pr-3 py-1.5 text-xs text-gray-900 placeholder-gray-400 font-medium focus:border-blue-600 focus:bg-white outline-none transition-colors"
+              />
+            </div>
+          </form>
+        </div>
 
         {/* Center Navigation Pages Tabs */}
-        <div className="flex items-center space-x-1.5 bg-slate-100 p-1 rounded-2xl border border-slate-200 font-extrabold text-xs">
+        <div className="flex items-center space-x-1 bg-gray-100 p-1 rounded-xl border border-gray-200 text-xs font-semibold text-gray-600">
           <button
             onClick={() => setActiveTab('technician')}
-            className={`px-4 py-1.5 rounded-xl flex items-center space-x-1.5 transition ${
-              activeTab === 'technician' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+            className={`px-3.5 py-1.5 rounded-lg flex items-center space-x-1.5 transition-colors ${
+              activeTab === 'technician' ? 'bg-blue-600 text-white shadow-xs' : 'hover:text-gray-900 hover:bg-gray-200/60'
             }`}
           >
             <Cpu size={14} />
@@ -203,8 +212,8 @@ export default function App() {
           </button>
           <button
             onClick={() => setActiveTab('library')}
-            className={`px-4 py-1.5 rounded-xl flex items-center space-x-1.5 transition ${
-              activeTab === 'library' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+            className={`px-3.5 py-1.5 rounded-lg flex items-center space-x-1.5 transition-colors ${
+              activeTab === 'library' ? 'bg-blue-600 text-white shadow-xs' : 'hover:text-gray-900 hover:bg-gray-200/60'
             }`}
           >
             <FileText size={14} />
@@ -212,8 +221,8 @@ export default function App() {
           </button>
           <button
             onClick={() => setActiveTab('admin')}
-            className={`px-4 py-1.5 rounded-xl flex items-center space-x-1.5 transition ${
-              activeTab === 'admin' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+            className={`px-3.5 py-1.5 rounded-lg flex items-center space-x-1.5 transition-colors ${
+              activeTab === 'admin' ? 'bg-blue-600 text-white shadow-xs' : 'hover:text-gray-900 hover:bg-gray-200/60'
             }`}
           >
             <Server size={14} />
@@ -221,8 +230,8 @@ export default function App() {
           </button>
           <button
             onClick={() => setActiveTab('evaluation')}
-            className={`px-4 py-1.5 rounded-xl flex items-center space-x-1.5 transition ${
-              activeTab === 'evaluation' ? 'bg-amber-500 text-slate-950 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+            className={`px-3.5 py-1.5 rounded-lg flex items-center space-x-1.5 transition-colors ${
+              activeTab === 'evaluation' ? 'bg-blue-600 text-white shadow-xs' : 'hover:text-gray-900 hover:bg-gray-200/60'
             }`}
           >
             <Award size={14} />
@@ -235,28 +244,29 @@ export default function App() {
           {/* Photo Scanner Button */}
           <button
             onClick={() => setShowPhotoModal(true)}
-            className="p-2 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 text-xs font-bold flex items-center space-x-1 transition"
+            className="p-2 rounded-lg bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 text-xs font-medium flex items-center space-x-1 transition-colors"
             title="Scan Photo of Code"
           >
-            <Camera size={15} />
+            <Camera size={15} className="text-blue-600" />
+            <span className="hidden sm:inline">OCR</span>
           </button>
 
           {/* Language Switcher */}
           <button
             onClick={() => setLanguage(l => l === 'en' ? 'hi' : 'en')}
-            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 text-xs font-bold flex items-center space-x-1 transition"
+            className="p-2 rounded-lg bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 text-xs font-medium flex items-center space-x-1 transition-colors"
             title="Toggle Language (English / Hindi)"
           >
-            <Globe size={15} />
-            <span className="font-mono text-[11px] uppercase">{language}</span>
+            <Globe size={15} className="text-gray-500" />
+            <span className="font-mono text-xs uppercase">{language}</span>
           </button>
 
           <button
             onClick={() => setShowKeyModal(true)}
-            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-600 transition"
+            className="p-2 rounded-lg bg-white hover:bg-gray-50 border border-gray-200 text-gray-600 transition-colors"
             title="API Key"
           >
-            <Key size={15} className={apiKey ? "text-emerald-600" : "text-slate-500"} />
+            <Key size={15} className={apiKey ? "text-emerald-600" : "text-gray-400"} />
           </button>
         </div>
       </header>
