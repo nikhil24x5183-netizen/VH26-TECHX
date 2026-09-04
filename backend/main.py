@@ -52,7 +52,7 @@ def initialize_app():
     try:
         generate_all_samples(SAMPLE_DIR)
         _index_directory(SAMPLE_DIR)
-        print("MaintAI Startup Complete: Sample manuals indexed successfully.")
+        print("MaintAI Startup Complete: Real-world industrial machine manuals indexed.")
     except Exception as e:
         print(f"Error initializing sample manuals: {e}")
 
@@ -63,9 +63,10 @@ def _index_directory(directory_path: str):
         return
 
     sample_meta = {
-        "Manual_Atlas_Compressor_X100.pdf": ("Atlas Compressor X100", "X100-v2"),
-        "Manual_Titan_Press_H200.pdf": ("Titan Press H200", "H200-Industrial"),
-        "Manual_Precision_Lathe_L300.pdf": ("Precision Lathe L300", "L300-CNC")
+        "Siemens_S71500_PLC_Manual.pdf": ("Siemens S7-1500 PLC", "CPU 1516-3 PN/DP"),
+        "Cat_C15_Generator_Manual.pdf": ("Caterpillar C15 Generator", "C15-500kVA"),
+        "KUKA_KR210_Robot_Manual.pdf": ("KUKA KR 210 Robot", "KR 210 R2700-2"),
+        "Fanuc_Robodrill_CNC_Manual.pdf": ("Fanuc Robodrill CNC", "α-D21MiB5")
     }
 
     for fname in os.listdir(directory_path):
