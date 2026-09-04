@@ -47,23 +47,17 @@ MaintAI is an AI copilot for factory technicians grounded strictly in official m
 
 ## 🚀 Quick Start Guide
 
-### 1. Start the Backend API Server
+### Single Command Launch (Complete Full-Stack Application)
 
 ```bash
-cd backend
-pip install -r requirements.txt
-python main.py
+python start.py
 ```
 
-### 2. Start the Frontend React App
+Access the entire application at a single URL:
 
-```bash
-cd frontend
-npm install
-npm run dev
-```
+👉 **[http://localhost:3000](http://localhost:3000)**
 
-Open **`http://localhost:3000`** in your browser.
+*(Note: Internal API services run quietly behind Vite's transparent proxy on `http://localhost:3000/api/*` and require zero manual setup).*
 
 ---
 

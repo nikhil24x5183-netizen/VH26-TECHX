@@ -162,7 +162,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#F7F9FC] text-gray-900 overflow-hidden font-sans select-none">
+    <div className="flex flex-col h-screen w-screen bg-[#F7F9FC] text-gray-900 overflow-hidden font-sans">
       {/* 1. Top Header Navigation Bar */}
       <header className="h-14 border-b border-gray-200 bg-white px-5 flex items-center justify-between z-20 shadow-2xs">
         {/* Brand & Search */}
@@ -263,6 +263,8 @@ export default function App() {
         stats={stats}
         onStartChat={() => setActiveTab('technician')}
         onOpenLibrary={() => setActiveTab('library')}
+        onOpenAdmin={() => setActiveTab('admin')}
+        onOpenEval={() => setActiveTab('evaluation')}
       />
 
       {/* 3. Main Workspace Area */}
@@ -290,6 +292,7 @@ export default function App() {
               onSelectCitation={(cit) => setSelectedCitation(cit)}
               onUploadModalOpen={() => {}}
               onOpenWhyModal={(msg) => setWhyAnswerMessage(msg)}
+              onNavigateTab={setActiveTab}
               isLoading={isLoading}
             />
 

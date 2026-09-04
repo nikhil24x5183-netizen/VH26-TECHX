@@ -63,3 +63,13 @@ Every generated troubleshooting answer is mandated to include structured citatio
 - **Excerpt Snippet**
 
 Technicians can inspect and verify every claim back to the physical page of the official manual.
+
+---
+
+## 5. Single-URL Unified Application Architecture (`http://localhost:3000`)
+
+MaintAI operates as a single-URL unified full-stack application:
+
+- **Browser Entrypoint**: `http://localhost:3000`
+- **Transparent API Proxy**: All requests (`/api/chat`, `/api/documents`, `/api/search`, `/api/health`, `/api/machines`, `/api/evaluation`) route internally through Vite's transparent proxy server to internal ports, providing a single unified URL experience for hackathon presentation and usage.
+

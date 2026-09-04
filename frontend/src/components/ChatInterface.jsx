@@ -11,6 +11,7 @@ export default function ChatInterface({
   onSelectCitation,
   onUploadModalOpen,
   onOpenWhyModal,
+  onNavigateTab,
   isLoading
 }) {
   const [input, setInput] = useState('');
@@ -114,19 +115,26 @@ export default function ChatInterface({
             <div className="flex items-center space-x-1.5 text-xs">
               <button
                 onClick={() => onSelectMachine(null)}
-                className={`px-3 py-1 rounded-md text-xs font-semibold border transition-colors ${
+                className={`px-3 py-1 rounded-md text-xs font-semibold border transition-colors cursor-pointer ${
                   !selectedMachine ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
                 }`}
+                title="Filter by all machines"
               >
                 [ All Machines ]
               </button>
               <button
-                className="px-3 py-1 rounded-md bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 text-xs font-medium"
+                onClick={() => onSelectMachine('Caterpillar C15 Generator')}
+                className={`px-3 py-1 rounded-md text-xs font-medium border transition-colors cursor-pointer ${
+                  selectedMachine === 'Caterpillar C15 Generator' ? 'bg-blue-50 border-blue-200 text-blue-700 font-semibold' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                }`}
+                title="Select Caterpillar Model"
               >
                 [ Select Model ]
               </button>
               <button
-                className="px-3 py-1 rounded-md bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 text-xs font-medium"
+                onClick={() => onNavigateTab && onNavigateTab('library')}
+                className="px-3 py-1 rounded-md bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-blue-600 text-xs font-medium cursor-pointer transition-colors"
+                title="Open Manual Library"
               >
                 [ Manual ]
               </button>
@@ -135,7 +143,7 @@ export default function ChatInterface({
 
           <button
             onClick={onClearChat}
-            className="py-1.5 px-3 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 hover:text-red-600 text-xs font-medium flex items-center space-x-1.5 transition-colors shadow-2xs"
+            className="py-1.5 px-3 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 hover:text-red-600 text-xs font-medium flex items-center space-x-1.5 transition-colors shadow-2xs cursor-pointer"
             title="Clear Chat"
           >
             <Trash2 size={14} />
@@ -146,16 +154,16 @@ export default function ChatInterface({
         {/* Compact Diagnostic Status Strip */}
         <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 flex items-center justify-between text-xs font-mono text-gray-600">
           <div className="flex items-center space-x-4">
-            <span>Machine: <strong className="text-gray-900 font-semibold">{selectedMachine || '—'}</strong></span>
+            <span>Machine: <button onClick={() => onSelectMachine(selectedMachine ? null : 'Caterpillar C15 Generator')} className="text-gray-900 font-semibold hover:text-blue-600 hover:underline cursor-pointer">{selectedMachine || 'All Scope'}</button></span>
             <span className="text-gray-300">|</span>
-            <span>Model: <strong className="text-gray-900 font-semibold">{selectedMachine ? 'Scope Locked' : 'Auto-Detect'}</strong></span>
+            <span>Model: <strong className="text-gray-900 font-semibold">{selectedMachine ? 'C15-OEM' : 'Auto-Detect'}</strong></span>
             <span className="text-gray-300">|</span>
-            <span>Active Alarm: <strong className="text-blue-700 font-semibold">{activeAlarm}</strong></span>
+            <span>Active Alarm: <button onClick={() => onSendMessage("What is E101?")} className="text-blue-700 font-semibold hover:underline cursor-pointer">{activeAlarm}</button></span>
           </div>
-          <div className="flex items-center space-x-1 text-emerald-700 font-semibold">
+          <button onClick={() => onNavigateTab && onNavigateTab('library')} className="flex items-center space-x-1 text-emerald-700 font-semibold hover:text-emerald-800 cursor-pointer">
             <CheckCircle size={14} className="text-emerald-600" />
             <span>Evidence: Ready</span>
-          </div>
+          </button>
         </div>
       </div>
 
@@ -171,7 +179,7 @@ export default function ChatInterface({
               if (p.scope !== undefined) onSelectMachine(p.scope);
               onSendMessage(p.query);
             }}
-            className="shrink-0 px-3 py-1 rounded-md bg-white hover:bg-blue-50/60 border border-gray-200 hover:border-blue-300 text-xs text-gray-700 hover:text-blue-700 font-medium transition-colors shadow-2xs"
+            className="shrink-0 px-3 py-1 rounded-md bg-white hover:bg-blue-50/60 border border-gray-200 hover:border-blue-300 text-xs text-gray-700 hover:text-blue-700 font-medium transition-colors shadow-2xs cursor-pointer"
           >
             {p.label}
           </button>
@@ -196,7 +204,7 @@ export default function ChatInterface({
                 <button
                   key={idx}
                   onClick={() => onSendMessage(act.query)}
-                  className="p-3.5 rounded-lg border border-gray-200 bg-white hover:bg-blue-50/50 hover:border-blue-300 text-left text-xs font-semibold text-gray-800 transition-colors shadow-2xs flex items-center justify-between"
+                  className="p-3.5 rounded-lg border border-gray-200 bg-white hover:bg-blue-50/50 hover:border-blue-300 text-left text-xs font-semibold text-gray-800 transition-colors shadow-2xs flex items-center justify-between cursor-pointer"
                 >
                   <span>{act.label}</span>
                   <span className="text-blue-600 text-sm font-bold">→</span>

@@ -5,7 +5,7 @@ export default function RightEvidencePanel({ citation, onClose, onOpenPdf }) {
   if (!citation) return null;
 
   return (
-    <aside className="w-80 bg-white border-l border-gray-200 flex flex-col h-full select-none shrink-0 shadow-xs z-30 transition-all">
+    <aside className="w-80 bg-white border-l border-gray-200 flex flex-col h-full shrink-0 shadow-xs z-30 transition-all">
       {/* Panel Header */}
       <div className="p-4 border-b border-gray-200 flex items-center justify-between">
         <div className="flex items-center space-x-2">

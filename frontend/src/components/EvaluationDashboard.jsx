@@ -23,7 +23,7 @@ export default function EvaluationDashboard() {
   }, []);
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#F7F9FC] overflow-y-auto p-6 space-y-4 select-none">
+    <div className="flex-1 flex flex-col h-full bg-[#F7F9FC] overflow-y-auto p-6 space-y-4">
       {/* Top Header Banner */}
       <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-2xs flex items-center justify-between">
         <div>
