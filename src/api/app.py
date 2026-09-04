@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
-from fastapi import FastAPI, HTTPException
+from typing import Optional
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from src.config import settings
 from src.api.schemas import QueryRequest, ClearSessionRequest, HealthResponse
