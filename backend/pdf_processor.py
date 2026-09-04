@@ -1,11 +1,11 @@
 """
-PDF Processing and Text Chunking Module for MaintAI.
-Extracts text from PDF manuals preserving page numbers, section titles, and machine metadata.
+PDF Processing and Document Ingestion Pipeline for MaintAI.
+Extracts text, preserves page numbers, section titles, document metadata, and normalizes error codes.
 """
 
 import os
 import re
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 try:
     import fitz  # PyMuPDF
@@ -20,16 +20,52 @@ except ImportError:
     HAS_PYPDF = False
 
 
+def normalize_error_code(text: str) -> List[str]:
+    """
+    Normalizes error codes (e.g., E101, E-101, Error E101, Alarm E101, F30001, ALM-401, SPN 110)
+    into standardized searchable strings.
+    """
+    patterns = [
+        r'\b[eE][-\s]?\d{3,5}\b',          # E101, E-101, E1010
+        r'\b[fF][-\s]?\d{3,5}\b',          # F30001, F-0301
+        r'\bALM-[A-Z0-9]+\b',             # ALM-401, ALM-100
+        r'\bSPN\s?\d{2,4}\b',              # SPN 110, SPN 94
+        r'\bKSS\d{5}\b'                    # KSS01001
+    ]
+    matches = []
+    for pat in patterns:
+        found = re.findall(pat, text, re.IGNORECASE)
+        for f in found:
+            clean = re.sub(r'[-\s]', '', f).upper()
+            matches.append(clean)
+            matches.append(f.upper())
+    return list(set(matches))
+
+
 class PDFProcessor:
     def __init__(self, chunk_size: int = 500, chunk_overlap: int = 100):
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
 
+    def validate_pdf(self, filepath: str) -> bool:
+        """Validates if file exists and is a valid non-corrupt PDF."""
+        if not os.path.exists(filepath):
+            return False
+        try:
+            if HAS_FITZ:
+                doc = fitz.open(filepath)
+                is_valid = len(doc) > 0
+                doc.close()
+                return is_valid
+            elif HAS_PYPDF:
+                reader = pypdf.PdfReader(filepath)
+                return len(reader.pages) > 0
+        except Exception:
+            return False
+        return True
+
     def extract_pages(self, filepath: str) -> List[Dict[str, Any]]:
-        """
-        Extracts structured page content from a PDF file.
-        Returns a list of dicts: [{"page": 1, "text": "...", "sections": ["..."]}]
-        """
+        """Extracts page-by-page content preserving page numbers and section headers."""
         pages = []
         if HAS_FITZ:
             doc = fitz.open(filepath)
@@ -53,30 +89,35 @@ class PDFProcessor:
                     "sections": sections
                 })
         else:
-            raise RuntimeError("Neither PyMuPDF (fitz) nor pypdf is installed.")
-        
+            raise RuntimeError("PyMuPDF or pypdf is required.")
         return pages
 
     def _detect_sections(self, text: str) -> List[str]:
-        """Detect section headers based on common manual patterns."""
+        """Detect section headers based on manual patterns."""
         sections = []
         lines = text.split("\n")
-        section_pattern = re.compile(r"^(Section\s+\d+|[0-9]+\.[0-9]*\s+[A-Z]|Error Code\s+[A-Z0-9]+|Alarm\s+[A-Z0-9]+)", re.IGNORECASE)
+        section_pattern = re.compile(
+            r"^(Section\s+\d+|[0-9]+\.[0-9]*\s+[A-Z]|Error Code\s+[A-Z0-9]+|Alarm\s+[A-Z0-9]+|CHAPTER\s+\d+)",
+            re.IGNORECASE
+        )
         for line in lines:
             line_clean = line.strip()
             if section_pattern.match(line_clean):
                 sections.append(line_clean)
-        return sections if sections else ["General"]
+        return sections if sections else ["General Specifications & Troubleshooting"]
 
     def create_chunks(
         self,
         filepath: str,
+        manufacturer: str,
         machine_name: str,
         model: str,
-        file_id: str
+        file_id: str,
+        revision: str = "Rev. 2026.1",
+        source_url: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
-        Extracts and chunks PDF contents into chunk records with rich citation metadata.
+        Chunks PDF content while tagging immutable page-level provenance metadata.
         """
         pages = self.extract_pages(filepath)
         filename = os.path.basename(filepath)
@@ -87,21 +128,19 @@ class PDFProcessor:
             page_num = page_data["page_number"]
             page_text = page_data["text"].strip()
             sections = page_data["sections"]
-            current_section = sections[0] if sections else "General"
+            current_section = sections[0] if sections else "General Specifications"
 
             if not page_text:
                 continue
 
-            # Split into paragraphs or slide over text
             paragraphs = re.split(r'\n\s*\n', page_text)
             current_chunk_text = ""
-            
+
             for para in paragraphs:
                 para_clean = para.strip()
                 if not para_clean:
                     continue
 
-                # Check if paragraph introduces a section header
                 for sec in sections:
                     if sec in para_clean:
                         current_section = sec
@@ -112,28 +151,40 @@ class PDFProcessor:
                 else:
                     if current_chunk_text:
                         chunk_counter += 1
+                        error_codes = normalize_error_code(current_chunk_text)
                         chunks.append({
                             "chunk_id": f"{file_id}_p{page_num}_c{chunk_counter}",
+                            "document_id": file_id,
+                            "manufacturer": manufacturer,
                             "machine_name": machine_name,
                             "model": model,
+                            "manual_title": filename.replace(".pdf", "").replace("_", " "),
                             "file_name": filename,
-                            "file_id": file_id,
+                            "revision": revision,
                             "page_number": page_num,
                             "section": current_section,
+                            "source_url": source_url or f"https://manuals.industrial-hub.com/pdf/{filename}",
+                            "normalized_error_codes": error_codes,
                             "text": current_chunk_text.strip()
                         })
                     current_chunk_text = para_clean
 
             if current_chunk_text:
                 chunk_counter += 1
+                error_codes = normalize_error_code(current_chunk_text)
                 chunks.append({
                     "chunk_id": f"{file_id}_p{page_num}_c{chunk_counter}",
+                    "document_id": file_id,
+                    "manufacturer": manufacturer,
                     "machine_name": machine_name,
                     "model": model,
+                    "manual_title": filename.replace(".pdf", "").replace("_", " "),
                     "file_name": filename,
-                    "file_id": file_id,
+                    "revision": revision,
                     "page_number": page_num,
                     "section": current_section,
+                    "source_url": source_url or f"https://manuals.industrial-hub.com/pdf/{filename}",
+                    "normalized_error_codes": error_codes,
                     "text": current_chunk_text.strip()
                 })
 
