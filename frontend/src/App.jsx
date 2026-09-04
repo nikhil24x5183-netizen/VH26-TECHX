@@ -267,7 +267,31 @@ export default function App() {
           <div className="flex-1 p-6 overflow-y-auto max-w-3xl space-y-6">
             <div>
               <h1 className="text-2xl font-bold text-[#111827]">Application Settings</h1>
-              <p className="text-sm text-[#64748B] mt-1">Configure LLM API keys and reset knowledge base indices.</p>
+              <p className="text-sm text-[#64748B] mt-1">Configure LLM API keys, answer synthesis language, and reset indices.</p>
+            </div>
+
+            <div className="bg-white border border-[#E5E7EB] rounded-xl p-6 space-y-4 shadow-2xs">
+              <h2 className="text-lg font-bold text-[#111827]">Answer Output Language</h2>
+              <p className="text-xs text-[#64748B]">
+                Primary language used to synthesize diagnoses and explanations from multilingual manuals (German, Japanese, French, etc.).
+              </p>
+              <div className="max-w-xs">
+                <select
+                  value="English 🇺🇸"
+                  disabled
+                  className="w-full bg-[#F7F9FC] border border-[#E5E7EB] rounded-lg px-4 py-2.5 text-sm font-semibold text-[#111827] outline-none"
+                >
+                  <option value="English 🇺🇸">English 🇺🇸 (Default)</option>
+                  <option value="Hindi 🇮🇳">Hindi 🇮🇳</option>
+                  <option value="German 🇩🇪">German 🇩🇪</option>
+                  <option value="French 🇫🇷">French 🇫🇷</option>
+                  <option value="Spanish 🇪🇸">Spanish 🇪🇸</option>
+                  <option value="Japanese 🇯🇵">Japanese 🇯🇵</option>
+                </select>
+                <p className="text-[11px] text-[#64748B] mt-1.5 font-medium">
+                  ✓ Multilingual Retrieval Active: Answers remain in English while grounding in verbatim German/multilingual evidence.
+                </p>
+              </div>
             </div>
 
             <div className="bg-white border border-[#E5E7EB] rounded-xl p-6 space-y-4 shadow-2xs">

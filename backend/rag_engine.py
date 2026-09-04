@@ -411,13 +411,19 @@ class RAGEngine:
         citations = []
         for r in relevant_chunks:
             c = r["chunk"]
+            orig_t = c.get("original_text", c["text"])
+            trans_t = c.get("translated_text", orig_t)
+            m_lang = c.get("manual_language", "English 🇺🇸")
             citations.append({
                 "file_name": c["file_name"],
                 "machine_name": c["machine_name"],
                 "model": c["model"],
                 "section": c["section"],
                 "page_number": c["page_number"],
-                "snippet": c["text"],
+                "manual_language": m_lang,
+                "original_text": orig_t,
+                "translated_text": trans_t,
+                "snippet": trans_t if "German" in m_lang or "French" in m_lang or "Spanish" in m_lang else orig_t,
                 "match_type": r["match_type"],
                 "score": r["score"],
                 "source_url": f"/api/pdf/{c['file_name']}"

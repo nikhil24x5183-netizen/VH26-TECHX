@@ -1,8 +1,14 @@
-import React from 'react';
-import { X, FileText, ExternalLink, ShieldCheck, BookOpen } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, FileText, ExternalLink, ShieldCheck, Globe, Languages } from 'lucide-react';
 
 export default function RightEvidencePanel({ citation, onClose, onOpenPdf }) {
+  const [activeTab, setActiveTab] = useState('english'); // 'english' | 'original'
+
   if (!citation) return null;
+
+  const originalLang = citation.manual_language || "German 🇩🇪";
+  const origText = citation.original_text || citation.snippet;
+  const transText = citation.translated_text || citation.snippet;
 
   return (
     <div className="fixed inset-0 z-50 bg-gray-900/20 backdrop-blur-xs flex justify-end">
@@ -10,12 +16,12 @@ export default function RightEvidencePanel({ citation, onClose, onOpenPdf }) {
         {/* Panel Header */}
         <div className="p-4 border-b border-[#E5E7EB] flex items-center justify-between bg-white">
           <div className="flex items-center space-x-2.5">
-            <div className="w-7 h-7 rounded-md bg-blue-50 text-[#2563EB] flex items-center justify-center">
+            <div className="w-7 h-7 rounded-md bg-blue-50 text-[#2563EB] flex items-center justify-center font-bold">
               <FileText size={16} />
             </div>
             <div>
               <h3 className="font-bold text-base text-[#111827]">Source Evidence</h3>
-              <p className="text-[11px] text-[#64748B]">Verified Manual Excerpt</p>
+              <p className="text-[11px] text-[#64748B]">Verified Multilingual Manual Excerpt</p>
             </div>
           </div>
           <button
@@ -29,13 +35,18 @@ export default function RightEvidencePanel({ citation, onClose, onOpenPdf }) {
 
         {/* Content Body */}
         <div className="flex-1 overflow-y-auto p-5 space-y-4 text-xs">
-          {/* Grounded Verification Badge */}
-          <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center space-x-2.5">
-            <ShieldCheck size={18} className="text-emerald-600 shrink-0" />
-            <div>
-              <div className="font-bold text-xs text-emerald-900">100% Grounded Manual Evidence</div>
-              <div className="text-[11px] text-emerald-700">Matched via hybrid dense vector & BM25 search</div>
+          {/* Grounded Verification & Language Badge */}
+          <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center justify-between space-x-2">
+            <div className="flex items-center space-x-2">
+              <ShieldCheck size={18} className="text-emerald-600 shrink-0" />
+              <div>
+                <div className="font-bold text-xs text-emerald-900">100% Grounded Evidence</div>
+                <div className="text-[11px] text-emerald-700">Multilingual indexing active</div>
+              </div>
             </div>
+            <span className="bg-white border border-emerald-300 text-emerald-900 font-bold px-2 py-0.5 rounded text-[11px] font-mono shrink-0 shadow-2xs">
+              {originalLang}
+            </span>
           </div>
 
           {/* Manual Metadata Card */}
@@ -57,23 +68,37 @@ export default function RightEvidencePanel({ citation, onClose, onOpenPdf }) {
             </div>
           </div>
 
-          {/* Section Header */}
-          {citation.section && (
-            <div className="space-y-1">
-              <span className="text-[10px] font-semibold uppercase text-[#64748B] tracking-wider block">Section</span>
-              <div className="p-3 rounded-lg bg-blue-50/60 border border-blue-100 font-semibold text-[#111827] text-xs">
-                {citation.section}
-              </div>
-            </div>
-          )}
+          {/* Dual-Text Tab Control */}
+          <div className="flex rounded-lg bg-gray-100 p-1 border border-[#E5E7EB]">
+            <button
+              onClick={() => setActiveTab('english')}
+              className={`flex-1 py-1.5 rounded-md text-xs font-bold transition ${
+                activeTab === 'english'
+                  ? 'bg-white text-[#2563EB] shadow-2xs'
+                  : 'text-[#64748B] hover:text-[#111827]'
+              }`}
+            >
+              English Explanation
+            </button>
+            <button
+              onClick={() => setActiveTab('original')}
+              className={`flex-1 py-1.5 rounded-md text-xs font-bold transition ${
+                activeTab === 'original'
+                  ? 'bg-white text-[#2563EB] shadow-2xs'
+                  : 'text-[#64748B] hover:text-[#111827]'
+              }`}
+            >
+              Original ({originalLang.split(' ')[0]})
+            </button>
+          </div>
 
-          {/* Verbatim Excerpt */}
+          {/* Excerpt Display */}
           <div className="space-y-1.5">
             <span className="text-[10px] font-semibold uppercase text-[#64748B] tracking-wider block">
-              Relevant Excerpt
+              {activeTab === 'english' ? 'English Translation' : `Original Verbatim Manual Text (${originalLang})`}
             </span>
             <div className="p-4 rounded-xl bg-gray-50 border border-[#E5E7EB] font-mono text-[12px] text-gray-800 leading-relaxed whitespace-pre-wrap">
-              "{citation.snippet}"
+              "{activeTab === 'english' ? transText : origText}"
             </div>
           </div>
         </div>

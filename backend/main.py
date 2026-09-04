@@ -47,27 +47,29 @@ def _index_directory(directory_path: str):
         return
 
     sample_meta = {
-        "Siemens_S71500_PLC_Manual.pdf": ("Siemens", "Siemens S7-1500 PLC", "CPU 1516-3 PN/DP", "Rev. 2026.1"),
-        "Cat_C15_Generator_Manual.pdf": ("Caterpillar", "Caterpillar C15 Generator", "C15-500kVA", "Rev. 2026.2"),
-        "KUKA_KR210_Robot_Manual.pdf": ("KUKA Systems", "KUKA KR 210 Robot", "KR 210 R2700-2", "Rev. KSS 8.6"),
-        "Fanuc_Robodrill_CNC_Manual.pdf": ("Fanuc Automation", "Fanuc Robodrill CNC", "α-D21MiB5", "Rev. 31i-B5"),
-        "Siemens_SINAMICS_G120_Manual.pdf": ("Siemens", "SINAMICS G120", "CU240E-2 PN", "Rev. 2026.3")
+        "Siemens_S71500_PLC_Manual.pdf": ("Siemens", "Siemens S7-1500 PLC", "CPU 1516-3 PN/DP", "English 🇺🇸", "Rev. 2026.1"),
+        "Cat_C15_Generator_Manual.pdf": ("Caterpillar", "Caterpillar C15 Generator", "C15-500kVA", "English 🇺🇸", "Rev. 2026.2"),
+        "KUKA_KR210_Robot_Manual.pdf": ("KUKA Systems", "KUKA KR 210 Robot", "KR 210 R2700-2", "English 🇺🇸", "Rev. KSS 8.6"),
+        "Fanuc_Robodrill_CNC_Manual.pdf": ("Fanuc Automation", "Fanuc Robodrill CNC", "α-D21MiB5", "English 🇺🇸", "Rev. 31i-B5"),
+        "Siemens_SINAMICS_G120_Manual.pdf": ("Siemens", "SINAMICS G120", "CU240E-2 PN", "English 🇺🇸", "Rev. 2026.3"),
+        "Siemens_SINAMICS_G120_Betriebsanleitung_DE.pdf": ("Siemens", "SINAMICS G120", "CU240B/E-2", "German 🇩🇪", "Rev. 2021.DE")
     }
 
     for fname in os.listdir(directory_path):
         if fname.endswith(".pdf"):
             fpath = os.path.join(directory_path, fname)
             if fname in sample_meta:
-                mfr, m_name, model, rev = sample_meta[fname]
+                mfr, m_name, model, lang, rev = sample_meta[fname]
             else:
                 detected = pdf_processor.detect_metadata_from_pdf(fpath)
                 mfr = detected["manufacturer"]
                 m_name = detected["machine_name"]
                 model = detected["model"]
+                lang = detected.get("manual_language", "English 🇺🇸")
                 rev = "Rev. 2026.1"
 
             file_id = f"doc_{fname}"
-            chunks = pdf_processor.create_chunks(fpath, mfr, m_name, model, file_id, revision=rev)
+            chunks = pdf_processor.create_chunks(fpath, mfr, m_name, model, file_id, manual_language=lang, revision=rev)
             rag_engine.index_chunks(chunks)
 
 

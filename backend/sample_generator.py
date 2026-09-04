@@ -153,7 +153,27 @@ def generate_all_samples(output_dir: str):
         siemens_g120_pages
     )
 
+    # 6. German OEM Manual: Siemens SINAMICS G120 Betriebsanleitung (Deutsch 🇩🇪)
+    german_g120_pages = [
+        [
+            {"type": "section", "text": "Abschnitt 1: Siemens SINAMICS G120 Betriebsanleitung (Deutsch 🇩🇪)"},
+            {"type": "body", "text": "Hersteller: Siemens AG Automation & Drives.\nGerät: SINAMICS G120 Frequenzumrichter / Wechselrichter.\nSteuereinheit: CU240B/E-2 PN / CU250S-2 Vektorsteuerung.\nBetriebsspannung: 380V - 480V 3AC (Toleranzbereich ±10%).\nSprache: Deutsch (DE 🇩🇪)."},
+            {"type": "section", "text": "Abschnitt 8.6: Liste der Alarme und Fehler (Fehlerdiagnose)"},
+            {"type": "subsection", "text": "Fehler F30001: Überstrom Leistungsteil (F-30001 / F30001)"},
+            {"type": "body", "text": "Beschreibung: Der Wechselrichter Leistungsteil hat einen unzulässigen Überstrom (r0209) festgestellt.\nMögliche Ursachen:\n 1. Motorstromkreis weist Kurzschluss oder Erdschluss in den Phasenkabeln auf.\n 2. Hochlaufzeit (p1120) zu kurz für die mechanische Last eingestellt.\n 3. V/f-Steuerungs-Spannungsanhebung (p1310) zu hoch eingestellt.\n 4. Fehlerhafte Leistungsteil IGBT Transistoren oder Stromsensor-Defekt.\nEmpfohlene Massnahmen:\n 1. Führen Sie Lockout/Tagout (LOTO) durch und prüfen Sie den Isolationswiderstand der Motorkabel (> 50 MΩ).\n 2. Klemmenanschluss U/V/W am Leistungsteil auf lose Kontakte prüfen.\n 3. Hochlaufzeit Parameter p1120 am IOP-2 Bedienteil erhöhen.\n 4. Automatische Motoridentifikation durchführen (p1910 = 1)."},
+            {"type": "subsection", "text": "Fehler F07800: Antriebssignal ausgefallen (F-07800)"},
+            {"type": "body", "text": "Beschreibung: Kommunikationsunterbrechung am PROFINET Bus zur übergeordneten SPS Steuerung.\nEmpfohlene Massnahme: RJ45 Ethernet-Kabel prüfen und Busadresse in TIA Portal kontrollieren."}
+        ]
+    ]
+    create_sample_pdf(
+        os.path.join(output_dir, "Siemens_SINAMICS_G120_Betriebsanleitung_DE.pdf"),
+        "Siemens SINAMICS G120 Betriebsanleitung",
+        "Modell: SINAMICS G120 | Steuereinheit: CU240B/E-2 | Hersteller: Siemens AG 🇩🇪",
+        german_g120_pages
+    )
+
 
 if __name__ == "__main__":
     out_dir = os.path.join(os.path.dirname(__file__), "..", "data", "sample_manuals")
     generate_all_samples(out_dir)
+

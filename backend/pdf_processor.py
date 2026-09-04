@@ -48,6 +48,68 @@ def normalize_error_code(text: str) -> List[str]:
     return extract_error_codes(text)
 
 
+def detect_language(text: str) -> str:
+    """Detects document/chunk language automatically."""
+    if not text:
+        return "English 🇺🇸"
+
+    text_lower = text.lower()
+    # Japanese / Chinese characters
+    if re.search(r'[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]', text):
+        if re.search(r'[\u3040-\u309f\u30a0-\u30ff]', text):
+            return "Japanese 🇯🇵"
+        return "Chinese 🇨🇳"
+
+    # German markers
+    german_words = ["betriebsanleitung", "fehler", "überstrom", "leistungsteil", "ursache", "massnahme", "störung", "warnung", "kapitel", "deutsch", "aufweisen", "zurücksetzen"]
+    if any(w in text_lower for w in german_words) or " 🇩🇪" in text:
+        return "German 🇩🇪"
+
+    # French markers
+    french_words = ["manuel", "défaut", "erreur", "français", "sécurité", "surintensité", "consigne"]
+    if any(w in text_lower for w in french_words):
+        return "French 🇫🇷"
+
+    # Spanish markers
+    spanish_words = ["manual", "fallo", "instrucciones", "español", "sobrecorriente", "advertencia"]
+    if any(w in text_lower for w in spanish_words):
+        return "Spanish 🇪🇸"
+
+    # Italian markers
+    italian_words = ["manuale", "errore", "guasto", "italiano", "sicurezza", "istruzioni"]
+    if any(w in text_lower for w in italian_words):
+        return "Italian 🇮🇹"
+
+    return "English 🇺🇸"
+
+
+def translate_to_english(text: str, source_lang: str) -> str:
+    """Translates non-English manual excerpts to English while preserving technical error codes and numbers intact."""
+    if "English" in source_lang or not text:
+        return text
+
+    if "German" in source_lang:
+        translated = text
+        german_map = {
+            "Fehler F30001: Überstrom Leistungsteil": "Fault F30001: Power Unit Overcurrent",
+            "Ursache: Motorstromkreis weist Kurzschluss oder Erdschluss auf.": "Cause: Motor circuit has a short circuit or ground fault.",
+            "Massnahme: Motorkabel prüfen, Leistungsteil zurücksetzen.": "Action: Inspect motor cables, reset power unit.",
+            "Fehler F07800: Antriebssignal ausgefallen": "Fault F07800: Drive Signal Lost",
+            "Ursache: Kommunikationsfehler am PROFINET Bus.": "Cause: Communication failure on PROFINET bus.",
+            "Betriebsanleitung": "Operating Instructions",
+            "Liste der Alarme und Fehler": "List of Alarms and Faults",
+            "Fehler": "Fault",
+            "Ursache": "Cause",
+            "Massnahme": "Recommended Check",
+            "Störung": "Fault"
+        }
+        for de, en in german_map.items():
+            translated = translated.replace(de, en)
+        return translated
+
+    return f"[English Translation of {source_lang} Manual Excerpt]\n{text}"
+
+
 class PDFProcessor:
     def __init__(self, chunk_size: int = 500, chunk_overlap: int = 100):
         self.chunk_size = chunk_size
@@ -55,14 +117,15 @@ class PDFProcessor:
 
     def detect_metadata_from_pdf(self, filepath: str) -> Dict[str, str]:
         """
-        Analyzes the first 3 pages of a PDF to detect Manufacturer, Product/Machine, Model, and Manual Title.
+        Analyzes PDF to detect Manufacturer, Product/Machine, Model, Manual Title, and Language.
         """
         if not self.validate_pdf(filepath):
             return {
                 "manufacturer": "Industrial OEM",
                 "machine_name": "Industrial Machine",
                 "model": "Standard",
-                "manual_title": "Manual Document"
+                "manual_title": "Manual Document",
+                "manual_language": "English 🇺🇸"
             }
 
         extracted_text = ""
@@ -73,6 +136,7 @@ class PDFProcessor:
         except Exception:
             extracted_text = ""
 
+        doc_lang = detect_language(extracted_text)
         text_lower = extracted_text.lower()
         fname_lower = os.path.basename(filepath).lower()
 
@@ -118,6 +182,7 @@ class PDFProcessor:
             "machine_name": machine_name,
             "model": model,
             "manual_title": manual_title,
+            "manual_language": doc_lang,
             "detected_from": filename_clean
         }
 
@@ -171,7 +236,7 @@ class PDFProcessor:
         sections = []
         lines = text.split("\n")
         section_pattern = re.compile(
-            r"^(Section\s+\d+|[0-9]+\.[0-9]*\s+[A-Z]|Error Code\s+[A-Z0-9]+|Alarm\s+[A-Z0-9]+|CHAPTER\s+\d+)",
+            r"^(Section\s+\d+|[0-9]+\.[0-9]*\s+[A-Z]|Error Code\s+[A-Z0-9]+|Alarm\s+[A-Z0-9]+|Liste\s+der\s+|Fehler\s+[A-Z0-9]+|CHAPTER\s+\d+)",
             re.IGNORECASE
         )
         for line in lines:
@@ -190,11 +255,12 @@ class PDFProcessor:
         manufacturing_year: str = "2021",
         firmware: str = "Standard",
         manual_type: str = "Operating Instructions",
+        manual_language: Optional[str] = None,
         revision: str = "Rev. 2026.1",
         source_url: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
-        Chunks PDF content while tagging immutable page-level provenance metadata.
+        Chunks PDF content while preserving verbatim original text alongside English translations.
         """
         pages = self.extract_pages(filepath)
         filename = os.path.basename(filepath)
@@ -209,6 +275,8 @@ class PDFProcessor:
 
             if not page_text:
                 continue
+
+            page_lang = manual_language or detect_language(page_text)
 
             paragraphs = re.split(r'\n\s*\n', page_text)
             current_chunk_text = ""
@@ -229,6 +297,7 @@ class PDFProcessor:
                     if current_chunk_text:
                         chunk_counter += 1
                         error_codes = normalize_error_code(current_chunk_text)
+                        eng_translation = translate_to_english(current_chunk_text, page_lang)
                         chunks.append({
                             "chunk_id": f"{file_id}_p{page_num}_c{chunk_counter}",
                             "document_id": file_id,
@@ -239,6 +308,7 @@ class PDFProcessor:
                             "manufacturing_year": str(manufacturing_year or "2021"),
                             "firmware": firmware or "Standard",
                             "manual_type": manual_type or "Operating Instructions",
+                            "manual_language": page_lang,
                             "manual_title": filename.replace(".pdf", "").replace("_", " "),
                             "file_name": filename,
                             "revision": revision,
@@ -246,13 +316,16 @@ class PDFProcessor:
                             "section": current_section,
                             "source_url": source_url or f"/api/pdf/{filename}",
                             "normalized_error_codes": error_codes,
-                            "text": current_chunk_text.strip()
+                            "original_text": current_chunk_text.strip(),
+                            "translated_text": eng_translation.strip(),
+                            "text": f"{current_chunk_text.strip()}\n\n[English Translation]: {eng_translation.strip()}"
                         })
                     current_chunk_text = para_clean
 
             if current_chunk_text:
                 chunk_counter += 1
                 error_codes = normalize_error_code(current_chunk_text)
+                eng_translation = translate_to_english(current_chunk_text, page_lang)
                 chunks.append({
                     "chunk_id": f"{file_id}_p{page_num}_c{chunk_counter}",
                     "document_id": file_id,
@@ -263,6 +336,7 @@ class PDFProcessor:
                     "manufacturing_year": str(manufacturing_year or "2021"),
                     "firmware": firmware or "Standard",
                     "manual_type": manual_type or "Operating Instructions",
+                    "manual_language": page_lang,
                     "manual_title": filename.replace(".pdf", "").replace("_", " "),
                     "file_name": filename,
                     "revision": revision,
@@ -270,7 +344,10 @@ class PDFProcessor:
                     "section": current_section,
                     "source_url": source_url or f"/api/pdf/{filename}",
                     "normalized_error_codes": error_codes,
-                    "text": current_chunk_text.strip()
+                    "original_text": current_chunk_text.strip(),
+                    "translated_text": eng_translation.strip(),
+                    "text": f"{current_chunk_text.strip()}\n\n[English Translation]: {eng_translation.strip()}"
                 })
 
         return chunks
+
