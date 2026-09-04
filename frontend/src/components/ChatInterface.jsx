@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Trash2, ShieldAlert, Sparkles, BookOpen } from 'lucide-react';
+import { Send, Bot, User, Trash2, ShieldAlert, Sparkles, BookOpen, ShieldCheck } from 'lucide-react';
 import CitationCard from './CitationCard';
 import AmbiguityCard from './AmbiguityCard';
 
@@ -30,8 +30,8 @@ export default function ChatInterface({
   };
 
   const presets = [
-    { label: "E101 ERROR", query: "What is E101?", scope: "Atlas Compressor X100" },
-    { label: "OVERHEATING", query: "Why is Atlas Compressor X100 overheating?", scope: "Atlas Compressor X100" },
+    { label: "E101 ERROR", query: "What is E101?", scope: "Caterpillar C15 Generator" },
+    { label: "OVERHEATING", query: "Why is Caterpillar C15 Generator coolant temperature high?", scope: "Caterpillar C15 Generator" },
     { label: "AMBIGUITY CHECK", query: "What does E101 mean?", scope: null },
     { label: "SAFETY REFUSAL", query: "My machine is not working.", scope: null }
   ];
@@ -112,6 +112,23 @@ export default function ChatInterface({
                   ? 'bg-blue-600 text-white font-bold rounded-tr-none'
                   : 'bg-white border border-slate-200 text-slate-900 rounded-tl-none space-y-4 font-medium'
               }`}>
+                {/* Header with Confidence Score Badge */}
+                {msg.sender === 'ai' && (
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 text-xs">
+                    <span className="font-extrabold uppercase text-slate-400">AI DIAGNOSTIC RESULT</span>
+                    {msg.confidence_score ? (
+                      <span className={`px-2.5 py-0.5 rounded-full font-mono text-[11px] font-extrabold flex items-center ${
+                        msg.confidence_score >= 0.70
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                          : 'bg-amber-100 text-amber-800 border border-amber-200'
+                      }`}>
+                        <ShieldCheck size={12} className="mr-1" />
+                        {Math.round(msg.confidence_score * 100)}% Match ({msg.confidence_label})
+                      </span>
+                    ) : null}
+                  </div>
+                )}
+
                 {/* Refusal Alert */}
                 {msg.insufficient_info && (
                   <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-extrabold flex items-center space-x-2.5">

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
 import KnowledgeGraph from './components/KnowledgeGraph';
-import { Key, Cpu, Search, Layers, Network, MessageSquare, ChevronRight, X } from 'lucide-react';
+import { Key, Cpu, Search, Network, MessageSquare, ChevronRight, X } from 'lucide-react';
 
 export default function App() {
   const [machines, setMachines] = useState([]);
@@ -14,6 +14,7 @@ export default function App() {
   const [backendHealth, setBackendHealth] = useState('checking');
   const [viewMode, setViewMode] = useState('chat');
   const [searchQuery, setSearchQuery] = useState('');
+  const [lastContext, setLastContext] = useState(null);
 
   const fetchMachines = async () => {
     try {
@@ -61,7 +62,8 @@ export default function App() {
         body: JSON.stringify({
           question: text,
           selected_machine: selectedMachine,
-          api_key: apiKey || null
+          api_key: apiKey || null,
+          previous_context: lastContext
         })
       });
 
@@ -75,10 +77,16 @@ export default function App() {
         citations: data.citations || [],
         ambiguity: data.ambiguity || null,
         insufficient_info: data.insufficient_info || false,
+        confidence_score: data.confidence_score || null,
+        confidence_label: data.confidence_label || null,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
 
       setMessages((prev) => [...prev, aiMsg]);
+      setLastContext({
+        last_question: text,
+        last_machine: selectedMachine || (data.citations?.[0]?.machine_name) || ""
+      });
     } catch (err) {
       console.error('Chat error:', err);
       setMessages((prev) => [
@@ -89,6 +97,8 @@ export default function App() {
           citations: [],
           ambiguity: null,
           insufficient_info: true,
+          confidence_score: 0.0,
+          confidence_label: "API Error",
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }
       ]);
@@ -97,7 +107,10 @@ export default function App() {
     }
   };
 
-  const handleClearChat = () => setMessages([]);
+  const handleClearChat = () => {
+    setMessages([]);
+    setLastContext(null);
+  };
 
   const handleResetDatabase = async () => {
     setIsLoading(true);
@@ -106,6 +119,7 @@ export default function App() {
       if (res.ok) {
         await fetchMachines();
         setMessages([]);
+        setLastContext(null);
       }
     } catch (err) {
       console.error('Reset error:', err);
@@ -157,7 +171,7 @@ export default function App() {
 
         {/* Center Case Stats */}
         <div className="hidden md:flex items-center space-x-3 text-xs font-mono font-bold">
-          <span className="text-slate-400">CASE: <strong className="text-blue-600">TRX-2026-017</strong></span>
+          <span className="text-slate-400">HACKATHON: <strong className="text-blue-600">VCET 2026</strong></span>
           <span className="text-slate-300">•</span>
           <span className="text-slate-400">SCOPE: <strong className="text-slate-800 uppercase">{activeMachineObj.machine_name}</strong></span>
           <span className="text-slate-300">•</span>
@@ -196,7 +210,7 @@ export default function App() {
         <div className="flex items-center space-x-2 text-slate-400 font-mono font-semibold text-[11px]">
           <span>MaintAI</span>
           <ChevronRight size={11} />
-          <span>TRX-2026-017</span>
+          <span>VCET-2026</span>
           <ChevronRight size={11} />
           <span className="text-slate-800 font-bold uppercase">{activeMachineObj.machine_name}</span>
         </div>
