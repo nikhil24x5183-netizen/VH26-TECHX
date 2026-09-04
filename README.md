@@ -1,72 +1,129 @@
-# ⚙️ MaintAI — Industrial Machine Troubleshooting Copilot
+# Factory Floor RAG Troubleshooting Assistant
 
-> **VCET HACKATHON 2026 WINNING PRODUCT**  
-> **Domain**: Application Data Management (RAG)  
-> **Problem Statement**: RAG-Based Intelligent Machine Troubleshooting System
-
-MaintAI is an AI copilot for factory technicians grounded strictly in official manufacturer documentation. It eliminates downtime by converting 400-page machine manuals into instant, evidence-supported troubleshooting answers with exact page-level citations.
+A production-grade, citation-grounded RAG troubleshooting assistant engineered for factory floors. Unlike generic chat-with-PDF demos, this system features **cross-document error code disambiguation**, **hybrid retrieval (Vector + BM25)**, **local cross-encoder reranking**, **dual-layer programmatic hallucination defense**, and **conversational follow-up memory**.
 
 ---
 
-## 🌟 Key Product Capabilities
+## Key Features
 
-1. **📄 PDF Manual Ingestion & Validation**
-   - Upload & validate PDF manuals with rich metadata (`Manufacturer`, `Machine`, `Model`, `Revision`).
-   - PyMuPDF text/layout extractor preserving exact page numbers, table structures, and section headings.
-   - Normalizes error codes (`E101`, `E-101`, `Error E101`, `Alarm E101`, `SPN 110`, `ALM-401`).
-
-2. **🔍 Hybrid Vector Search & Reranking**
-   - **Dense Vectors**: 384-dimensional sentence embeddings (`all-MiniLM-L6-v2` via SentenceTransformers).
-   - **Sparse Search**: BM25 style TF-IDF keyword frequency matching.
-   - **Exact Code Booster**: Automatic +0.45 score boost for matching error code regex patterns.
-
-3. **⚠️ Cross-Document Ambiguity Resolution**
-   - Detects conflicting error codes across different machines (e.g. `E101` on Caterpillar C15 Generator vs `E101` on KUKA KR 210 Robot) and presents interactive clarification cards instead of guessing.
-
-4. **🛡️ Safety-First Refusal & Hallucination Control**
-   - Refuses ungrounded or vague queries (*"My machine is making a weird sound"*) with score cutoff $< 0.20$:
-     > *"I don't have enough information in the available manuals to answer this safely."*
-   - Displays mandatory Lockout/Tagout (LOTO) and PPE safety alerts before repair instructions.
-
-5. **📌 Traceable Citations & Clickable PDF Evidence Viewer**
-   - 4-Part Structured Answers: **PROBLEM**, **LIKELY CAUSE**, **WHAT THE MANUAL SAYS**, **RECOMMENDED CHECKS**, **SAFETY**, **SOURCE**.
-   - `[Open Document]` modal displaying actual manual page preview with highlighted text excerpts.
-
-6. **🏆 Hackathon Judge Evaluation Dashboard**
-   - Live automated benchmark test suite running 6 test cases (Exact error code, Natural language, Ambiguity, Refusal, Machine Isolation, Follow-up context) displaying Pass/Fail status and accuracy scores.
-
-7. **📚 Manual Library & Admin Pipeline Dashboard**
-   - Table grid of ingested manuals with indexing status (`✓ Indexed`), chunk counts, search, filter, upload, delete, and re-index controls.
-   - Real-time ingestion pipeline visualization (`Uploading` $\rightarrow$ `Extracting` $\rightarrow$ `Chunking` $\rightarrow$ `Embedding` $\rightarrow$ `Indexed`).
-
-8. **📷 Photo OCR & Multilingual Support**
-   - "Identify from photo" scanner extracting error codes & machine models from photos of machine displays.
-   - Multilingual toggle (English / Hindi) preserving error codes and citations.
+1. **Dual-Layer Hallucination Control**:
+   - **Layer 1 (Confidence Gate)**: Evaluates retrieval and rerank relevance against a strict confidence threshold (`0.38`) and verifies salient entity token presence. Queries about unknown codes or out-of-scope topics bypass the LLM completely with an explicit refusal.
+   - **Layer 2 (Programmatic Citation Verification)**: Post-generation code verifies that cited manual names, sections, page numbers, and supporting quotes exist verbatim in the source chunks.
+2. **Cross-Document Disambiguation**:
+   - Handles overlapping error codes (e.g., `E101` which exists on both ApexCNC and ThermaPress) by checking a cross-manual registry.
+   - If no machine is specified, discloses both meanings side-by-side with citations—never silently guesses.
+3. **Conversational Follow-Up Memory**:
+   - Retains active machine and error code context across turns. Asking *"and what if that doesn't fix it?"* immediately retrieves secondary diagnostics and replacement part kits without re-specifying the machine.
+4. **Layout-Aware PDF Ingestion**:
+   - PyMuPDF table detection preserves structured alarm matrices as Markdown tables rather than flattening text into unformatted strings.
+5. **Zero External Setup / Offline Ready**:
+   - Local ChromaDB vector store + local FastEmbed ONNX embeddings (`bge-small-en-v1.5`) + local FlashRank cross-encoder (`ms-marco-TinyBERT`).
+   - Runs 100% offline out-of-the-box with built-in extractive generation, with optional Gemini / OpenAI API key support.
 
 ---
 
-## 🚀 Quick Start Guide
-
-### Single Command Launch (Complete Full-Stack Application)
-
-```bash
-python start.py
+## Directory Structure
+```
+rag-troubleshooting-assistant/
+├── ARCHITECTURE.md               # Technical architectural design document
+├── README.md                     # Setup and usage guide
+├── requirements.txt              # Pinned Python dependencies
+├── run.ps1                       # Windows one-command launcher
+├── run.sh                        # POSIX one-command launcher
+├── demo/
+│   ├── sample_outputs.md         # Full verified output logs for all 5 test cases
+│   ├── test_cases.py             # Automated test suite
+│   ├── browser_test.py           # Playwright UI browser test
+│   ├── ui_screenshot.png         # Screenshot of initial Streamlit UI
+│   └── ui_response_screenshot.png# Screenshot of live verified UI answer
+├── manuals_data/                 # 11-page technical PDF manuals with tables & schematics
+│   ├── apexcnc_ultramill_500_manual.pdf
+│   └── thermapress_pro_2000_manual.pdf
+├── src/
+│   ├── config.py                 # Pydantic settings and thresholds
+│   ├── generator/
+│   │   └── create_manuals.py     # ReportLab generator for 11-page test manuals
+│   ├── ingestion/
+│   │   ├── pdf_parser.py         # PyMuPDF table and layout extractor
+│   │   ├── chunker.py            # Section-aware chunking and code registry
+│   │   └── build_index.py        # Knowledge base index builder
+│   ├── indexing/
+│   │   ├── bm25_index.py         # BM25Okapi keyword search with code tokenization
+│   │   ├── vector_store.py       # ChromaDB with FastEmbed ONNX embeddings
+│   │   └── hybrid_search.py      # Reciprocal Rank Fusion (RRF)
+│   ├── query/
+│   │   ├── router.py             # Entity extraction & ambiguity router
+│   │   └── session_memory.py     # Multi-turn conversational memory
+│   ├── pipeline/
+│   │   ├── reranker.py           # FlashRank cross-encoder with code precision tuning
+│   │   ├── confidence_gate.py    # Layer 1 retrieval confidence gate
+│   │   ├── generator.py          # Structured JSON generator (Gemini / OpenAI / Local)
+│   │   ├── verifier.py           # Layer 2 programmatic citation grounding
+│   │   └── service.py            # End-to-end orchestrator
+│   └── api/
+│       ├── schemas.py            # FastAPI Pydantic schemas
+│       └── app.py                # FastAPI REST endpoints (/query, /health, /clear-session)
+└── ui/
+    └── app.py                    # Streamlit factory chat UI
 ```
 
-Access the entire application at a single URL:
+---
 
-👉 **[http://localhost:3000](http://localhost:3000)**
+## Quick Start (One Command)
 
-*(Note: Internal API services run quietly behind Vite's transparent proxy on `http://localhost:3000/api/*` and require zero manual setup).*
+### Windows
+```powershell
+.\run.ps1
+```
+
+### Linux / macOS
+```bash
+chmod +x run.sh
+./run.sh
+```
 
 ---
 
-## 🎯 Testing the Hackathon Demo Scenarios
+## Manual Step-by-Step Setup
 
-In **Technician Mode**, click any button in the top preset bar:
-- **Preset 1 (`E101 ERROR`)**: Exact error lookup on Caterpillar C15 Generator.
-- **Preset 2 (`OVERHEATING`)**: Natural language symptom query.
-- **Preset 3 (`AMBIGUITY CHECK`)**: Conflicting `E101` code across Caterpillar C15 & KUKA KR 210.
-- **Preset 4 (`SAFETY REFUSAL`)**: Insufficient info query (*"My machine is not working"*).
+### 1. Environment & Dependencies
+```bash
+# Using uv (fastest)
+uv venv --python 3.11
+.venv\Scripts\activate
+uv pip install -r requirements.txt
 
-Click the **Judge Evaluation** tab in the top navigation bar to run the live automated benchmark suite!
+# Or using standard pip
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+### 2. Generate Demo Manuals & Build Indices
+```bash
+python -m src.generator.create_manuals
+python -m src.ingestion.build_index
+```
+
+### 3. Start Backend & Web UI
+```bash
+# Terminal 1: FastAPI Backend
+uvicorn src.api.app:app --host 127.0.0.1 --port 8000
+
+# Terminal 2: Streamlit Web UI
+streamlit run ui/app.py --server.port 8501
+```
+Open **http://localhost:8501** in your browser.
+
+---
+
+## Running the Automated Test Suite
+To execute all 5 non-negotiable test cases and update `demo/sample_outputs.md`:
+```bash
+python -m demo.test_cases
+```
+
+To run the live browser UI test with Playwright:
+```bash
+python -m demo.browser_test
+```

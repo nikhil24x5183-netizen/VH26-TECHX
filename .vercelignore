@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+*.log
+.env
+.git/
+manuals_data/*.pdf
+data/chroma_db/
+demo/ui_screenshot.png
+demo/ui_response_screenshot.png

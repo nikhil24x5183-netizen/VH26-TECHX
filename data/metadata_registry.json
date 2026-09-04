@@ -1,0 +1,237 @@
+{
+  "code_index": {
+    "E101": [
+      {
+        "machine_name": "ApexCNC UltraMill 500",
+        "manual_name": "ApexCNC UltraMill 500 Maintenance Manual",
+        "manual_id": "manual_apexcnc_500",
+        "section": "Section 3.1: Complete Diagnostic Code Reference Table",
+        "page": 4,
+        "chunk_id": "manual_apexcnc_500_p4_txt_5_0"
+      },
+      {
+        "machine_name": "ApexCNC UltraMill 500",
+        "manual_name": "ApexCNC UltraMill 500 Maintenance Manual",
+        "manual_id": "manual_apexcnc_500",
+        "section": "Section 3.1: Complete Diagnostic Code Reference Table (Structured Table)",
+        "page": 4,
+        "chunk_id": "manual_apexcnc_500_p4_tbl_6"
+      },
+      {
+        "machine_name": "ApexCNC UltraMill 500",
+        "manual_name": "ApexCNC UltraMill 500 Maintenance Manual",
+        "manual_id": "manual_apexcnc_500",
+        "section": "Section 4.2: Spindle Drive Alarms & Overcurrent Diagnostics",
+        "page": 6,
+        "chunk_id": "manual_apexcnc_500_p6_txt_8_0"
+      },
+      {
+        "machine_name": "ApexCNC UltraMill 500",
+        "manual_name": "ApexCNC UltraMill 500 Maintenance Manual",
+        "manual_id": "manual_apexcnc_500",
+        "section": "Section 4.3: Drive Schematic & Inverter Checkpoints",
+        "page": 7,
+        "chunk_id": "manual_apexcnc_500_p7_txt_9_0"
+      },
+      {
+        "machine_name": "ThermaPress Pro 2000",
+        "manual_name": "ThermaPress Pro 2000 Service Manual",
+        "manual_id": "manual_thermapress_2000",
+        "section": "Section 2.4: Alarm Code Diagnostic Matrix",
+        "page": 4,
+        "chunk_id": "manual_thermapress_2000_p4_txt_22_0"
+      },
+      {
+        "machine_name": "ThermaPress Pro 2000",
+        "manual_name": "ThermaPress Pro 2000 Service Manual",
+        "manual_id": "manual_thermapress_2000",
+        "section": "Section 2.4: Alarm Code Diagnostic Matrix (Structured Table)",
+        "page": 4,
+        "chunk_id": "manual_thermapress_2000_p4_tbl_23"
+      },
+      {
+        "machine_name": "ThermaPress Pro 2000",
+        "manual_name": "ThermaPress Pro 2000 Service Manual",
+        "manual_id": "manual_thermapress_2000",
+        "section": "Section 3.1: Thermal System Faults & Platen Diagnostics",
+        "page": 5,
+        "chunk_id": "manual_thermapress_2000_p5_txt_24_0"
+      }
+    ],
+    "E102": [
+      {
+        "machine_name": "ApexCNC UltraMill 500",
+        "manual_name": "ApexCNC UltraMill 500 Maintenance Manual",
+        "manual_id": "manual_apexcnc_500",
+        "section": "Section 3.1: Complete Diagnostic Code Reference Table",
+        "page": 4,
+        "chunk_id": "manual_apexcnc_500_p4_txt_5_0"
+      },
+      {
+        "machine_name": "ApexCNC UltraMill 500",
+        "manual_name": "ApexCNC UltraMill 500 Maintenance Manual",
+        "manual_id": "manual_apexcnc_500",
+        "section": "Section 3.1: Complete Diagnostic Code Reference Table (Structured Table)",
+        "page": 4,
+        "chunk_id": "manual_apexcnc_500_p4_tbl_6"
+      },
+      {
+        "machine_name": "ApexCNC UltraMill 500",
+        "manual_name": "ApexCNC UltraMill 500 Maintenance Manual",
+        "manual_id": "manual_apexcnc_500",
+        "section": "Section 5.2: Error E103 - Following Error Lag Threshold",
+        "page": 8,
+        "chunk_id": "manual_apexcnc_500_p8_txt_11_0"
+      }
+    ],
+    "E103": [
+      {
+        "machine_name": "ApexCNC UltraMill 500",
+        "manual_name": "ApexCNC UltraMill 500 Maintenance Manual",
+        "manual_id": "manual_apexcnc_500",
+        "section": "Section 3.1: Complete Diagnostic Code Reference Table (Structured Table)",
+        "page": 4,
+        "chunk_id": "manual_apexcnc_500_p4_tbl_6"
+      },
+      {
+        "machine_name": "ApexCNC UltraMill 500",
+        "manual_name": "ApexCNC UltraMill 500 Maintenance Manual",
+        "manual_id": "manual_apexcnc_500",
+        "section": "Section 5.2: Error E103 - Following Error Lag Threshold",
+        "page": 8,
+        "chunk_id": "manual_apexcnc_500_p8_txt_11_0"
+      }
+    ],
+    "E201": [
+      {
+        "machine_name": "ApexCNC UltraMill 500",
+        "manual_name": "ApexCNC UltraMill 500 Maintenance Manual",
+        "manual_id": "manual_apexcnc_500",
+        "section": "Section 3.1: Complete Diagnostic Code Reference Table (Structured Table)",
+        "page": 4,
+        "chunk_id": "manual_apexcnc_500_p4_tbl_6"
+      },
+      {
+        "machine_name": "ApexCNC UltraMill 500",
+        "manual_name": "ApexCNC UltraMill 500 Maintenance Manual",
+        "manual_id": "manual_apexcnc_500",
+        "section": "Section 6.2: Error E305 - Spindle Chiller Temperature Imbalance",
+        "page": 9,
+        "chunk_id": "manual_apexcnc_500_p9_txt_12_0"
+      }
+    ],
+    "E305": [
+      {
+        "machine_name": "ApexCNC UltraMill 500",
+        "manual_name": "ApexCNC UltraMill 500 Maintenance Manual",
+        "manual_id": "manual_apexcnc_500",
+        "section": "Section 3.1: Complete Diagnostic Code Reference Table (Structured Table)",
+        "page": 4,
+        "chunk_id": "manual_apexcnc_500_p4_tbl_6"
+      },
+      {
+        "machine_name": "ApexCNC UltraMill 500",
+        "manual_name": "ApexCNC UltraMill 500 Maintenance Manual",
+        "manual_id": "manual_apexcnc_500",
+        "section": "Section 6.2: Error E305 - Spindle Chiller Temperature Imbalance",
+        "page": 9,
+        "chunk_id": "manual_apexcnc_500_p9_txt_12_0"
+      }
+    ],
+    "E412": [
+      {
+        "machine_name": "ApexCNC UltraMill 500",
+        "manual_name": "ApexCNC UltraMill 500 Maintenance Manual",
+        "manual_id": "manual_apexcnc_500",
+        "section": "Section 3.1: Complete Diagnostic Code Reference Table (Structured Table)",
+        "page": 4,
+        "chunk_id": "manual_apexcnc_500_p4_tbl_6"
+      }
+    ],
+    "E501": [
+      {
+        "machine_name": "ApexCNC UltraMill 500",
+        "manual_name": "ApexCNC UltraMill 500 Maintenance Manual",
+        "manual_id": "manual_apexcnc_500",
+        "section": "Section 3.1: Complete Diagnostic Code Reference Table (Structured Table)",
+        "page": 4,
+        "chunk_id": "manual_apexcnc_500_p4_tbl_6"
+      }
+    ],
+    "E104": [
+      {
+        "machine_name": "ThermaPress Pro 2000",
+        "manual_name": "ThermaPress Pro 2000 Service Manual",
+        "manual_id": "manual_thermapress_2000",
+        "section": "Section 2.4: Alarm Code Diagnostic Matrix (Structured Table)",
+        "page": 4,
+        "chunk_id": "manual_thermapress_2000_p4_tbl_23"
+      },
+      {
+        "machine_name": "ThermaPress Pro 2000",
+        "manual_name": "ThermaPress Pro 2000 Service Manual",
+        "manual_id": "manual_thermapress_2000",
+        "section": "Section 4.2: Error E205 - Proportional Valve Drift",
+        "page": 7,
+        "chunk_id": "manual_thermapress_2000_p7_txt_26_0"
+      }
+    ],
+    "E205": [
+      {
+        "machine_name": "ThermaPress Pro 2000",
+        "manual_name": "ThermaPress Pro 2000 Service Manual",
+        "manual_id": "manual_thermapress_2000",
+        "section": "Section 2.4: Alarm Code Diagnostic Matrix (Structured Table)",
+        "page": 4,
+        "chunk_id": "manual_thermapress_2000_p4_tbl_23"
+      },
+      {
+        "machine_name": "ThermaPress Pro 2000",
+        "manual_name": "ThermaPress Pro 2000 Service Manual",
+        "manual_id": "manual_thermapress_2000",
+        "section": "Section 4.2: Error E205 - Proportional Valve Drift",
+        "page": 7,
+        "chunk_id": "manual_thermapress_2000_p7_txt_26_0"
+      }
+    ],
+    "E302": [
+      {
+        "machine_name": "ThermaPress Pro 2000",
+        "manual_name": "ThermaPress Pro 2000 Service Manual",
+        "manual_id": "manual_thermapress_2000",
+        "section": "Section 2.4: Alarm Code Diagnostic Matrix (Structured Table)",
+        "page": 4,
+        "chunk_id": "manual_thermapress_2000_p4_tbl_23"
+      },
+      {
+        "machine_name": "ThermaPress Pro 2000",
+        "manual_name": "ThermaPress Pro 2000 Service Manual",
+        "manual_id": "manual_thermapress_2000",
+        "section": "Section 6.1: Error E302 - Vacuum Seal Degradation",
+        "page": 10,
+        "chunk_id": "manual_thermapress_2000_p10_txt_30_0"
+      }
+    ],
+    "E410": [
+      {
+        "machine_name": "ThermaPress Pro 2000",
+        "manual_name": "ThermaPress Pro 2000 Service Manual",
+        "manual_id": "manual_thermapress_2000",
+        "section": "Section 2.4: Alarm Code Diagnostic Matrix (Structured Table)",
+        "page": 4,
+        "chunk_id": "manual_thermapress_2000_p4_tbl_23"
+      }
+    ]
+  },
+  "ambiguous_codes": {
+    "E101": [
+      "ThermaPress Pro 2000",
+      "ApexCNC UltraMill 500"
+    ]
+  },
+  "machines": [
+    "ThermaPress Pro 2000",
+    "ApexCNC UltraMill 500"
+  ],
+  "total_chunks": 33
+}
