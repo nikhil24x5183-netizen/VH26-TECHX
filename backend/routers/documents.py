@@ -19,9 +19,10 @@ def list_documents():
     for m in machines:
         docs.append({
             "document_id": m.get("file_id", "sample"),
-            "manufacturer": m.get("machine_name", "").split()[0],
+            "manufacturer": m.get("manufacturer", m.get("machine_name", "").split()[0]),
             "machine_name": m.get("machine_name"),
             "model": m.get("model"),
+            "manual_title": m.get("manual_title", f"{m.get('machine_name')} Operating Instructions"),
             "file_name": m.get("file_name"),
             "chunk_count": m.get("chunk_count"),
             "status": "✓ Indexed",
@@ -38,6 +39,25 @@ def get_document(document_id: str):
             return {"document": m}
     raise HTTPException(status_code=404, detail=f"Document {document_id} not found.")
 
+@router.post("/documents/detect-metadata")
+async def detect_metadata(file: UploadFile = File(...)):
+    pdf_processor, _, MANUALS_DIR = get_services()
+    if not file.filename.endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are supported for metadata detection.")
+
+    temp_id = f"temp_{uuid.uuid4().hex[:6]}"
+    temp_path = os.path.join(MANUALS_DIR, f"{temp_id}_{file.filename}")
+    try:
+        contents = await file.read()
+        with open(temp_path, "wb") as f:
+            f.write(contents)
+
+        detected = pdf_processor.detect_metadata_from_pdf(temp_path)
+        return {"detected_metadata": detected}
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+
 @router.post("/documents/upload")
 @router.post("/upload")
 async def upload_document(
@@ -45,6 +65,7 @@ async def upload_document(
     machine_name: str = Form(...),
     model: str = Form(...),
     manufacturer: Optional[str] = Form("Industrial OEM"),
+    manual_title: Optional[str] = Form(None),
     revision: Optional[str] = Form("Rev. 2026.1")
 ):
     pdf_processor, rag_engine, MANUALS_DIR = get_services()
@@ -64,9 +85,19 @@ async def upload_document(
                 os.remove(save_path)
             raise HTTPException(status_code=400, detail="Invalid or corrupt PDF manual.")
 
+        # Detect PDF metadata & check for mismatch
+        detected = pdf_processor.detect_metadata_from_pdf(save_path)
+        warning_msg = None
+        if machine_name.lower() in ["test", "demo", "sample"] or model.lower() in ["c15", "test"]:
+            if detected["machine_name"] != "Industrial Machine" and detected["machine_name"].lower() != machine_name.lower():
+                warning_msg = f"Manual information appears to identify this document as {detected['manufacturer']} {detected['machine_name']} ({detected['model']}). Metadata auto-adjusted."
+                machine_name = detected["machine_name"]
+                model = detected["model"]
+                manufacturer = detected["manufacturer"]
+
         chunks = pdf_processor.create_chunks(
             filepath=save_path,
-            manufacturer=manufacturer or "Industrial OEM",
+            manufacturer=manufacturer or detected["manufacturer"],
             machine_name=machine_name,
             model=model,
             file_id=file_id,
@@ -76,13 +107,17 @@ async def upload_document(
 
         return {
             "message": "Manual uploaded, validated, and indexed successfully.",
+            "warning": warning_msg,
             "document_id": file_id,
             "filename": file.filename,
             "manufacturer": manufacturer,
             "machine_name": machine_name,
             "model": model,
+            "manual_title": manual_title or f"{machine_name} Operating Instructions",
             "chunks_indexed": len(chunks)
         }
+    except HTTPException:
+        raise
     except Exception as e:
         if os.path.exists(save_path):
             os.remove(save_path)

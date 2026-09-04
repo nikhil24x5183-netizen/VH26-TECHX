@@ -76,13 +76,24 @@ export default function ChatInterface({
     return { problem: '', assessment: text, checks: [], safety: "Follow standard lockout/tagout (LOTO) safety protocols before opening machine enclosure." };
   };
 
+  const selectedObj = machines.find(m => m.machine_name === selectedMachine);
+
   return (
     <div className="flex-1 flex flex-col h-full bg-[#F7F9FC] text-[#111827] overflow-hidden min-w-0">
       {/* Main Top Header & Machine Context Selector */}
-      <div className="bg-white border-b border-[#E5E7EB] px-6 py-4 flex items-center justify-between shadow-2xs">
+      <div className="bg-white border-b border-[#E5E7EB] px-6 py-3.5 flex items-center justify-between shadow-2xs">
         <div>
-          <h1 className="text-2xl font-bold text-[#111827] tracking-tight">Troubleshooting Copilot</h1>
-          <p className="text-xs text-[#64748B] font-medium">Verified RAG Manual Diagnostic Assistant</p>
+          <h1 className="text-xl font-bold text-[#111827] tracking-tight">Troubleshooting Copilot</h1>
+          <div className="flex items-center space-x-2 text-xs text-[#64748B] font-medium mt-0.5">
+            <span className="font-semibold text-[#111827]">{selectedMachine || "⚡ All Scope"}</span>
+            {selectedObj && <span className="font-mono text-[#2563EB]">({selectedObj.model})</span>}
+            <span>•</span>
+            <span className="truncate max-w-xs">Manual: {selectedObj ? selectedObj.manual_title || `${selectedMachine} Operating Instructions` : "All Manuals"}</span>
+            <span>•</span>
+            <span className="text-emerald-700 font-semibold flex items-center shrink-0">
+              <CheckCircle size={13} className="mr-1 text-emerald-600" /> Evidence: Ready
+            </span>
+          </div>
         </div>
 
         {/* Minimal Context Selector Dropdowns */}

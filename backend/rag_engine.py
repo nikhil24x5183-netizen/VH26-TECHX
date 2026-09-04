@@ -361,17 +361,17 @@ class RAGEngine:
         )
 
         if not retrieved_results:
-            return self._build_refusal_response(question, main_error_code)
+            return self._build_refusal_response(question, main_error_code, selected_machine=inferred_machine)
 
         top_result = retrieved_results[0]
         top_score = top_result["score"]
         top_chunk = top_result["chunk"]
 
         if extracted_codes and not top_result["exact_matched"] and top_score < 0.35:
-            return self._build_refusal_response(question, main_error_code)
+            return self._build_refusal_response(question, main_error_code, selected_machine=inferred_machine)
 
         if top_score < 0.20:
-            return self._build_refusal_response(question, main_error_code)
+            return self._build_refusal_response(question, main_error_code, selected_machine=inferred_machine)
 
         # Cross-Document Ambiguity Check
         if not inferred_machine or inferred_machine.lower() == "all":
@@ -439,10 +439,18 @@ class RAGEngine:
             }
         }
 
-    def _build_refusal_response(self, question: str, main_error_code: Optional[str]) -> Dict[str, Any]:
-        code_str = f" for error code '{main_error_code}'" if main_error_code else ""
+    def _build_refusal_response(self, question: str, main_error_code: Optional[str], selected_machine: Optional[str] = None) -> Dict[str, Any]:
+        if main_error_code and selected_machine and selected_machine != "all":
+            ans = f"No relevant information about {main_error_code} was found in the selected {selected_machine} manual."
+        elif main_error_code:
+            ans = f"That fault code '{main_error_code}' was not found in the available manuals."
+        elif selected_machine and selected_machine != "all":
+            ans = f"I couldn't find enough relevant information in the selected {selected_machine} manual for this query."
+        else:
+            ans = "I couldn't find enough relevant information in the available manuals. If you specify the exact machine model or error code, I can narrow it down."
+
         return {
-            "answer": f"I couldn't find enough information{code_str} in the available manuals. If you specify the exact machine model or error code, I can narrow it down.",
+            "answer": ans,
             "citations": [],
             "ambiguity": None,
             "insufficient_info": True,

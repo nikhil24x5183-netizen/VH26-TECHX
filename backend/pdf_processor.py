@@ -53,6 +53,74 @@ class PDFProcessor:
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
 
+    def detect_metadata_from_pdf(self, filepath: str) -> Dict[str, str]:
+        """
+        Analyzes the first 3 pages of a PDF to detect Manufacturer, Product/Machine, Model, and Manual Title.
+        """
+        if not self.validate_pdf(filepath):
+            return {
+                "manufacturer": "Industrial OEM",
+                "machine_name": "Industrial Machine",
+                "model": "Standard",
+                "manual_title": "Manual Document"
+            }
+
+        extracted_text = ""
+        try:
+            pages = self.extract_pages(filepath)
+            for p in pages[:3]:
+                extracted_text += "\n" + p["text"]
+        except Exception:
+            extracted_text = ""
+
+        text_lower = extracted_text.lower()
+        fname_lower = os.path.basename(filepath).lower()
+
+        manufacturer = "Industrial OEM"
+        if "siemens" in text_lower or "siemens" in fname_lower:
+            manufacturer = "Siemens"
+        elif "caterpillar" in text_lower or "cat" in fname_lower:
+            manufacturer = "Caterpillar"
+        elif "kuka" in text_lower or "kuka" in fname_lower:
+            manufacturer = "KUKA Systems"
+        elif "fanuc" in text_lower or "fanuc" in fname_lower:
+            manufacturer = "Fanuc Automation"
+
+        machine_name = "Industrial Machine"
+        if "sinamics g120" in text_lower or "g120" in text_lower or "g120" in fname_lower:
+            machine_name = "SINAMICS G120"
+        elif "s7-1500" in text_lower or "s71500" in fname_lower or "simatic" in text_lower:
+            machine_name = "Siemens S7-1500 PLC"
+        elif "c15" in text_lower or "c15" in fname_lower or "generator" in text_lower:
+            machine_name = "Caterpillar C15 Generator"
+        elif "kr 210" in text_lower or "kr210" in fname_lower:
+            machine_name = "KUKA KR 210 Robot"
+        elif "robodrill" in text_lower or "robodrill" in fname_lower:
+            machine_name = "Fanuc Robodrill CNC"
+
+        model = "Standard"
+        if "cu240" in text_lower or "cu250" in text_lower or "cu240" in fname_lower:
+            model = "CU240B/E-2"
+        elif "1516-3" in text_lower or "s71500" in fname_lower:
+            model = "CPU 1516-3 PN/DP"
+        elif "500kva" in text_lower or "c15" in fname_lower:
+            model = "C15-500kVA"
+        elif "r2700" in text_lower or "kr210" in fname_lower:
+            model = "KR 210 R2700-2"
+        elif "d21mib5" in text_lower or "robodrill" in fname_lower:
+            model = "α-D21MiB5"
+
+        filename_clean = os.path.basename(filepath).replace(".pdf", "").replace("_", " ")
+        manual_title = f"{machine_name} Operating Instructions"
+
+        return {
+            "manufacturer": manufacturer,
+            "machine_name": machine_name,
+            "model": model,
+            "manual_title": manual_title,
+            "detected_from": filename_clean
+        }
+
     def validate_pdf(self, filepath: str) -> bool:
         """Validates if file exists and is a valid non-corrupt PDF."""
         if not os.path.exists(filepath):

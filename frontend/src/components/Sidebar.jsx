@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Home, Cpu, FileText, Activity, Settings, Plus, X, Upload, RefreshCw, AlertCircle } from 'lucide-react';
+import { Home, Cpu, FileText, Activity, Settings, Plus, X, Upload, RefreshCw, AlertCircle, Sparkles } from 'lucide-react';
 import { uploadDocument } from '../api/documents';
 
 export default function Sidebar({
@@ -13,8 +13,10 @@ export default function Sidebar({
   isLoading
 }) {
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [manufacturer, setManufacturer] = useState('Siemens');
   const [machineName, setMachineName] = useState('');
   const [model, setModel] = useState('');
+  const [manualTitle, setManualTitle] = useState('');
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
@@ -22,7 +24,7 @@ export default function Sidebar({
   const handleUploadSubmit = async (e) => {
     e.preventDefault();
     if (!file || !machineName || !model) {
-      setUploadError('All fields required.');
+      setUploadError('Manufacturer, Product/Machine, Model, and PDF are required.');
       return;
     }
 
@@ -31,16 +33,19 @@ export default function Sidebar({
 
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('manufacturer', machineName.split(' ')[0] || 'Industrial OEM');
+    formData.append('manufacturer', manufacturer || 'Industrial OEM');
     formData.append('machine_name', machineName);
     formData.append('model', model);
+    if (manualTitle) formData.append('manual_title', manualTitle);
 
     try {
       await uploadDocument(formData);
       setUploading(false);
       setShowUploadModal(false);
+      setManufacturer('Siemens');
       setMachineName('');
       setModel('');
+      setManualTitle('');
       setFile(null);
       onUploadSuccess();
     } catch (err) {
@@ -131,14 +136,14 @@ export default function Sidebar({
             <div className="flex items-center justify-between pb-3 border-b border-[#E5E7EB]">
               <h2 className="text-base font-bold text-[#111827] flex items-center">
                 <Upload size={16} className="mr-2 text-[#2563EB]" />
-                Upload Machine Manual
+                Upload OEM Manual PDF
               </h2>
               <button onClick={() => setShowUploadModal(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer">
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleUploadSubmit} className="mt-4 space-y-4">
+            <form onSubmit={handleUploadSubmit} className="mt-4 space-y-3.5">
               {uploadError && (
                 <div className="p-3 rounded-lg bg-red-50 text-red-600 text-xs font-medium flex items-center space-x-2 border border-red-100">
                   <AlertCircle size={15} />
@@ -148,11 +153,25 @@ export default function Sidebar({
 
               <div>
                 <label className="block text-xs font-semibold text-[#111827] mb-1">
-                  Machine Name <span className="text-red-500">*</span>
+                  Manufacturer <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Caterpillar C15 Generator"
+                  placeholder="e.g. Siemens"
+                  value={manufacturer}
+                  onChange={(e) => setManufacturer(e.target.value)}
+                  className="w-full bg-white border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm text-[#111827] font-medium outline-none focus:border-[#2563EB]"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#111827] mb-1">
+                  Product / Machine <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. SINAMICS G120"
                   value={machineName}
                   onChange={(e) => setMachineName(e.target.value)}
                   className="w-full bg-white border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm text-[#111827] font-medium outline-none focus:border-[#2563EB]"
@@ -166,11 +185,24 @@ export default function Sidebar({
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. C15-500kVA"
+                  placeholder="e.g. CU240B/E-2"
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
                   className="w-full bg-white border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm text-[#111827] font-medium outline-none focus:border-[#2563EB]"
                   required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#111827] mb-1">
+                  Manual Title <span className="text-gray-400 font-normal">(Optional)</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. SINAMICS G120 Operating Instructions"
+                  value={manualTitle}
+                  onChange={(e) => setManualTitle(e.target.value)}
+                  className="w-full bg-white border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm text-[#111827] font-medium outline-none focus:border-[#2563EB]"
                 />
               </div>
 
