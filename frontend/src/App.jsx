@@ -12,20 +12,21 @@ import WhyThisAnswerModal from './components/WhyThisAnswerModal';
 import PhotoUploadModal from './components/PhotoUploadModal';
 import { Key, Cpu, Search, Server, Award, Camera, Globe, FileText, X, AlertCircle } from 'lucide-react';
 
-import { getMachines, resetDatabase, getHealth } from './api/machines';
+import { getMachines, resetDatabase, getHealth, getStats } from './api/machines';
 import { getDocuments, deleteDocument } from './api/documents';
 import { sendChatMessage } from './api/chat';
 
 export default function App() {
   const [machines, setMachines] = useState([]);
   const [documents, setDocuments] = useState([]);
+  const [stats, setStats] = useState(null);
   const [selectedMachine, setSelectedMachine] = useState(null);
   const [messages, setMessages] = useState([]);
   const [apiKey, setApiKey] = useState(localStorage.getItem('maint_ai_gemini_key') || '');
   const [showKeyModal, setShowKeyModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [backendHealth, setBackendHealth] = useState('checking');
-  const [activeTab, setActiveTab] = useState('technician'); // 'technician' | 'library' | 'admin' | 'evaluation'
+  const [activeTab, setActiveTab] = useState('technician');
   const [searchQuery, setSearchQuery] = useState('');
   const [lastContext, setLastContext] = useState(null);
 
@@ -38,15 +39,17 @@ export default function App() {
 
   const fetchMachinesAndDocs = async () => {
     try {
-      const [mRes, dRes] = await Promise.all([
+      const [mRes, dRes, sRes] = await Promise.all([
         getMachines(),
-        getDocuments()
+        getDocuments(),
+        getStats()
       ]);
       setMachines(mRes.machines || []);
       setDocuments(dRes.documents || []);
+      setStats(sRes || null);
       setBackendHealth('online');
     } catch (err) {
-      console.error('Failed to fetch machines/docs:', err);
+      console.error('Failed to fetch machines/docs/stats:', err);
       setBackendHealth('offline');
     }
   };
@@ -96,7 +99,6 @@ export default function App() {
         last_machine: selectedMachine || (data.citations?.[0]?.machine_name) || ""
       });
 
-      // Auto-open top citation in Right Evidence Panel
       if (data.citations && data.citations.length > 0) {
         setSelectedCitation(data.citations[0]);
       }
@@ -258,11 +260,12 @@ export default function App() {
 
       {/* 2. Visual Metrics Landing Dashboard Banner */}
       <LandingDashboard
+        stats={stats}
         onStartChat={() => setActiveTab('technician')}
         onOpenLibrary={() => setActiveTab('library')}
       />
 
-      {/* 3. Main Workspace Area (Left Sidebar + Chat Workspace + Right Evidence Panel) */}
+      {/* 3. Main Workspace Area */}
       <div className="flex-1 flex overflow-hidden">
         {activeTab === 'technician' && (
           <>
@@ -286,6 +289,7 @@ export default function App() {
               selectedMachine={selectedMachine}
               onSelectCitation={(cit) => setSelectedCitation(cit)}
               onUploadModalOpen={() => {}}
+              onOpenWhyModal={(msg) => setWhyAnswerMessage(msg)}
               isLoading={isLoading}
             />
 
