@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Home, Cpu, FileText, Activity, Settings, Plus, X, Upload, RefreshCw, AlertCircle, Sparkles } from 'lucide-react';
+import { Home, Cpu, FileText, Activity, Settings, Plus, X, Upload, RefreshCw, AlertCircle, Sparkles, Award, Layers } from 'lucide-react';
 import { uploadDocument } from '../api/documents';
 
 export default function Sidebar({
@@ -58,7 +58,9 @@ export default function Sidebar({
     { id: 'technician', label: 'Home', icon: Home },
     { id: 'machines', label: 'Machines', icon: Cpu },
     { id: 'library', label: 'Manuals', icon: FileText },
-    { id: 'admin', label: 'Diagnostics', icon: Activity }
+    { id: 'admin', label: 'Diagnostics', icon: Activity },
+    { id: 'evaluation', label: 'Evaluation', icon: Award },
+    { id: 'graph', label: 'Knowledge Graph', icon: Layers }
   ];
 
   return (

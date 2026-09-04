@@ -217,22 +217,22 @@ export default function ChatInterface({
                           </p>
                           <div className="flex flex-wrap gap-2 pt-1">
                             <button
-                              onClick={() => onSelectMachine('Caterpillar C15 Generator')}
+                              onClick={() => onNavigateTab && onNavigateTab('library')}
                               className="px-3 py-1.5 rounded-lg bg-white border border-amber-300 text-amber-900 text-xs font-semibold hover:bg-amber-100 cursor-pointer"
                             >
-                              [ Select Machine ]
+                              [ Search another manual ]
                             </button>
                             <button
-                              onClick={() => onSendMessage("Model C15 Generator")}
+                              onClick={() => onSelectMachine(null)}
                               className="px-3 py-1.5 rounded-lg bg-white border border-amber-300 text-amber-900 text-xs font-semibold hover:bg-amber-100 cursor-pointer"
                             >
-                              [ Enter Model ]
+                              [ Select All Machines ]
                             </button>
                             <button
-                              onClick={() => onSendMessage("E101")}
+                              onClick={() => onSendMessage("F30001")}
                               className="px-3 py-1.5 rounded-lg bg-white border border-amber-300 text-amber-900 text-xs font-semibold hover:bg-amber-100 cursor-pointer"
                             >
-                              [ Enter Error Code ]
+                              [ Enter another code ]
                             </button>
                           </div>
                         </div>

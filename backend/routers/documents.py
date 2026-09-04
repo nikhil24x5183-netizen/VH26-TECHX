@@ -128,3 +128,28 @@ def delete_document(document_id: str):
     _, rag_engine, _ = get_services()
     rag_engine.remove_file(document_id)
     return {"message": f"Document {document_id} removed from index."}
+
+from fastapi.responses import FileResponse
+
+@router.get("/pdf/{file_name}")
+@router.get("/documents/{file_name}/pdf")
+def serve_pdf(file_name: str):
+    pdf_processor, rag_engine, MANUALS_DIR = get_services()
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    SAMPLE_DIR = os.path.join(BASE_DIR, "..", "data", "sample_manuals")
+
+    for dir_path in [MANUALS_DIR, SAMPLE_DIR]:
+        if not os.path.exists(dir_path):
+            continue
+        # Direct match
+        target = os.path.join(dir_path, file_name)
+        if os.path.exists(target) and os.path.isfile(target):
+            return FileResponse(target, media_type="application/pdf")
+
+        # Match by substring or file_id
+        for fn in os.listdir(dir_path):
+            if fn.endswith(".pdf") and (file_name in fn or fn in file_name):
+                return FileResponse(os.path.join(dir_path, fn), media_type="application/pdf")
+
+    raise HTTPException(status_code=404, detail=f"PDF document '{file_name}' not found.")
+

@@ -9,7 +9,7 @@ class EvaluationEngine:
     def __init__(self, rag_engine):
         self.rag_engine = rag_engine
 
-    def run_all_benchmarks() -> Dict[str, Any]:
+    def run_all_benchmarks(self) -> Dict[str, Any]:
         """Runs automated evaluation suite against active RAG vector index."""
         test_cases = [
             {

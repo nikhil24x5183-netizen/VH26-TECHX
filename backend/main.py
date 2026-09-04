@@ -57,10 +57,15 @@ def _index_directory(directory_path: str):
     for fname in os.listdir(directory_path):
         if fname.endswith(".pdf"):
             fpath = os.path.join(directory_path, fname)
-            mfr, m_name, model, rev = sample_meta.get(
-                fname,
-                ("Industrial OEM", fname.replace(".pdf", "").replace("_", " "), "Standard", "Rev. 1.0")
-            )
+            if fname in sample_meta:
+                mfr, m_name, model, rev = sample_meta[fname]
+            else:
+                detected = pdf_processor.detect_metadata_from_pdf(fpath)
+                mfr = detected["manufacturer"]
+                m_name = detected["machine_name"]
+                model = detected["model"]
+                rev = "Rev. 2026.1"
+
             file_id = f"doc_{fname}"
             chunks = pdf_processor.create_chunks(fpath, mfr, m_name, model, file_id, revision=rev)
             rag_engine.index_chunks(chunks)
@@ -68,11 +73,19 @@ def _index_directory(directory_path: str):
 
 @app.on_event("startup")
 def initialize_app():
-    """Pre-indexes authentic OEM sample manuals on startup."""
+    """Pre-indexes authentic OEM sample manuals & uploaded manuals on startup."""
     try:
         generate_all_samples(SAMPLE_DIR)
         _index_directory(SAMPLE_DIR)
-        print("MaintAI API Server Ready: Authentic OEM manuals pre-indexed.")
+        _index_directory(MANUALS_DIR)
+
+        # Requirement #14: Purge bad records where machine is TEST or model is C15
+        rag_engine.store.chunks = [
+            c for c in rag_engine.store.chunks
+            if c.get("machine_name") != "TEST" and c.get("model") != "C15"
+        ]
+
+        print("MaintAI API Server Ready: Authentic OEM & uploaded manuals indexed cleanly.")
     except Exception as e:
         print(f"Error during startup initialization: {e}")
 

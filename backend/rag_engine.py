@@ -404,7 +404,8 @@ class RAGEngine:
                 "page_number": c["page_number"],
                 "snippet": c["text"],
                 "match_type": r["match_type"],
-                "score": r["score"]
+                "score": r["score"],
+                "source_url": f"/api/pdf/{c['file_name']}"
             })
 
         conf_score = round(min(0.99, max(0.40, top_score)), 2)

@@ -245,6 +245,24 @@ export default function App() {
           />
         )}
 
+        {activeTab === 'evaluation' && (
+          <EvaluationDashboard />
+        )}
+
+        {activeTab === 'graph' && (
+          <KnowledgeGraph
+            machines={machines}
+            onSelectMachine={(mName) => {
+              setSelectedMachine(mName);
+              setActiveTab('technician');
+            }}
+            onAskError={(code) => {
+              handleSendMessage(`What is ${code}?`);
+              setActiveTab('technician');
+            }}
+          />
+        )}
+
         {activeTab === 'settings' && (
           <div className="flex-1 p-6 overflow-y-auto max-w-3xl space-y-6">
             <div>
