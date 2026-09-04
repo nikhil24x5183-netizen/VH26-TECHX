@@ -1,17 +1,15 @@
 import React, { useState } from 'react';
-import { Upload, Cpu, Trash2, RefreshCw, Plus, FileText, X, AlertCircle, Layers, LayoutDashboard, Settings, Activity, Award, ShieldCheck } from 'lucide-react';
+import { Home, Cpu, FileText, Activity, Settings, Plus, X, Upload, RefreshCw, AlertCircle } from 'lucide-react';
 import { uploadDocument } from '../api/documents';
-import { resetDatabase } from '../api/machines';
 
 export default function Sidebar({
   machines,
   selectedMachine,
   onSelectMachine,
   onUploadSuccess,
-  onDeleteMachine,
-  onResetDatabase,
   activeTab,
   onNavigateTab,
+  onOpenKeyModal,
   isLoading
 }) {
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -47,231 +45,162 @@ export default function Sidebar({
       onUploadSuccess();
     } catch (err) {
       setUploading(false);
-      setUploadError(err.message);
+      setUploadError(err.message || 'Failed to upload manual');
     }
   };
 
   const navItems = [
-    { id: 'technician', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'technician', label: 'Home', icon: Home },
     { id: 'machines', label: 'Machines', icon: Cpu },
-    { id: 'library', label: 'Manual Library', icon: FileText },
-    { id: 'admin', label: 'Diagnostics', icon: Activity },
-    { id: 'evaluation', label: 'Evaluation', icon: Award }
+    { id: 'library', label: 'Manuals', icon: FileText },
+    { id: 'admin', label: 'Diagnostics', icon: Activity }
   ];
 
   return (
-    <aside className="w-64 bg-white border-r border-gray-200 flex flex-col h-full shrink-0 z-20">
+    <aside className="w-60 bg-white border-r border-[#E5E7EB] flex flex-col h-full shrink-0 z-20">
       {/* Brand Header */}
-      <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-        <div className="flex items-center space-x-2.5">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold shadow-2xs">
+      <div className="p-4 border-b border-[#E5E7EB] flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 rounded-lg bg-[#2563EB] flex items-center justify-center text-white font-bold shadow-xs">
             <Cpu size={18} />
           </div>
           <div>
-            <h1 className="font-bold text-sm text-gray-900 tracking-tight">MaintAI</h1>
-            <span className="text-[10px] text-blue-600 font-mono font-semibold uppercase tracking-wider">Workspace</span>
+            <h1 className="font-bold text-base text-[#111827] tracking-tight">MaintAI</h1>
+            <p className="text-[11px] text-[#64748B] font-medium">Copilot</p>
           </div>
         </div>
         <button
           onClick={() => setShowUploadModal(true)}
-          className="p-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors"
-          title="Upload Manual"
+          className="p-1.5 rounded-lg bg-[#2563EB] hover:bg-blue-700 text-white transition-colors cursor-pointer"
+          title="Upload Manual PDF"
         >
-          <Plus size={15} />
+          <Plus size={16} />
         </button>
       </div>
 
-      {/* Main Navigation Links */}
-      <div className="p-3 border-b border-gray-200 space-y-1">
-        <div className="text-[10px] font-semibold uppercase text-gray-400 px-2 mb-1 tracking-wider">
-          NAVIGATION
-        </div>
+      {/* Main Minimal Navigation */}
+      <div className="p-3 flex-1 space-y-1">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = (activeTab === item.id) || (activeTab === 'technician' && item.id === 'technician');
+          const isActive = activeTab === item.id || (activeTab === 'technician' && item.id === 'technician');
           return (
             <button
               key={item.id}
-              onClick={() => onNavigateTab(item.id === 'machines' ? 'technician' : item.id)}
-              className={`w-full px-3 py-2 rounded-lg text-xs font-medium flex items-center space-x-2.5 transition-colors ${
+              onClick={() => onNavigateTab(item.id)}
+              className={`w-full px-3 py-2.5 rounded-lg text-[14px] font-medium flex items-center space-x-3 transition-colors cursor-pointer ${
                 isActive
-                  ? 'bg-blue-50/80 text-blue-700 font-semibold'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  ? 'bg-blue-50 text-[#2563EB] font-semibold'
+                  : 'text-[#64748B] hover:bg-gray-50 hover:text-[#111827]'
               }`}
             >
-              <Icon size={15} className={isActive ? 'text-blue-600' : 'text-gray-400'} />
+              <Icon size={18} className={isActive ? 'text-[#2563EB]' : 'text-[#64748B]'} />
               <span>{item.label}</span>
             </button>
           );
         })}
       </div>
 
-      {/* Target Scope Machine Selector */}
-      <div className="p-3 bg-gray-50/40 border-b border-gray-200">
-        <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1 px-1">
-          TARGET MACHINE SCOPE
-        </label>
-        <select
-          value={selectedMachine || 'all'}
-          onChange={(e) => onSelectMachine(e.target.value === 'all' ? null : e.target.value)}
-          className="w-full bg-white border border-gray-200 text-gray-900 text-xs font-medium rounded-lg px-2.5 py-1.5 outline-none cursor-pointer focus:border-blue-600 transition-colors"
+      {/* Bottom Settings Button */}
+      <div className="p-3 border-t border-[#E5E7EB] bg-white space-y-1">
+        <button
+          onClick={onOpenKeyModal}
+          className={`w-full px-3 py-2.5 rounded-lg text-[14px] font-medium flex items-center space-x-3 transition-colors cursor-pointer ${
+            activeTab === 'settings'
+              ? 'bg-blue-50 text-[#2563EB] font-semibold'
+              : 'text-[#64748B] hover:bg-gray-50 hover:text-[#111827]'
+          }`}
         >
-          <option value="all">⚡ All Machines Scope</option>
-          {machines.map((m, idx) => (
-            <option key={idx} value={m.machine_name}>
-              {m.machine_name} ({m.model})
-            </option>
-          ))}
-        </select>
-      </div>
+          <Settings size={18} className="text-[#64748B]" />
+          <span>Settings</span>
+        </button>
 
-      {/* Manuals Scope List */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-1">
-        <div className="flex items-center justify-between px-1 mb-1">
-          <span className="text-[10px] font-semibold uppercase text-gray-400 tracking-wider">
-            MANUALS ({machines.length})
+        {/* Minimal System Status */}
+        <div className="pt-2 px-2 flex items-center justify-between text-[11px] text-[#64748B]">
+          <span className="flex items-center space-x-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span>AI Online</span>
           </span>
-          {isLoading && <RefreshCw size={12} className="animate-spin text-blue-600" />}
-        </div>
-
-        {machines.length === 0 ? (
-          <div className="p-3 text-center border border-dashed border-gray-200 rounded-lg text-gray-400 text-xs">
-            No manuals loaded.
-          </div>
-        ) : (
-          machines.map((m, idx) => {
-            const isSelected = selectedMachine === m.machine_name;
-            return (
-              <div
-                key={idx}
-                onClick={() => onSelectMachine(isSelected ? null : m.machine_name)}
-                className={`group p-2.5 rounded-lg border transition-colors cursor-pointer ${
-                  isSelected
-                    ? 'bg-blue-50/80 border-blue-500 text-blue-900'
-                    : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-2 min-w-0">
-                    <FileText size={14} className={isSelected ? 'text-blue-600' : 'text-gray-400'} />
-                    <div className="min-w-0">
-                      <h3 className={`text-xs font-semibold truncate ${isSelected ? 'text-blue-900' : 'text-gray-900'}`}>
-                        {m.machine_name}
-                      </h3>
-                      <p className="text-[10px] text-gray-500 truncate">{m.model}</p>
-                    </div>
-                  </div>
-                  {m.file_id && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteMachine(m.file_id);
-                      }}
-                      className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-600 text-gray-400 transition-colors"
-                      title="Delete Manual"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-
-      {/* System Status Block (Required bottom status indicators) */}
-      <div className="p-3 border-t border-gray-200 bg-gray-50/50 space-y-1 text-xs">
-        <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
-          System Status
-        </div>
-        <div className="flex items-center space-x-2 text-emerald-700 font-semibold text-[11px]">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span>AI Online</span>
-        </div>
-        <div className="flex items-center space-x-2 text-blue-700 font-semibold text-[11px]">
-          <span className="w-2 h-2 rounded-full bg-blue-600"></span>
-          <span>Knowledge Base Indexed</span>
+          <span className="font-mono text-[10px]">v2026.1</span>
         </div>
       </div>
 
-      {/* Upload Modal */}
+      {/* Upload Manual Modal */}
       {showUploadModal && (
         <div className="fixed inset-0 z-50 bg-gray-900/30 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-5 shadow-xl relative border border-gray-200">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
-              <h2 className="text-sm font-bold text-gray-900 flex items-center">
-                <Upload size={15} className="mr-2 text-blue-600" />
+          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl relative border border-[#E5E7EB]">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E5E7EB]">
+              <h2 className="text-base font-bold text-[#111827] flex items-center">
+                <Upload size={16} className="mr-2 text-[#2563EB]" />
                 Upload Machine Manual
               </h2>
-              <button onClick={() => setShowUploadModal(false)} className="text-gray-400 hover:text-gray-600">
-                <X size={16} />
+              <button onClick={() => setShowUploadModal(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer">
+                <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleUploadSubmit} className="mt-3 space-y-3">
+            <form onSubmit={handleUploadSubmit} className="mt-4 space-y-4">
               {uploadError && (
-                <div className="p-2.5 rounded-lg bg-red-50 text-red-600 text-xs font-medium flex items-center space-x-2 border border-red-100">
-                  <AlertCircle size={14} />
+                <div className="p-3 rounded-lg bg-red-50 text-red-600 text-xs font-medium flex items-center space-x-2 border border-red-100">
+                  <AlertCircle size={15} />
                   <span>{uploadError}</span>
                 </div>
               )}
 
               <div>
-                <label className="block text-[11px] font-medium text-gray-700 mb-1">
+                <label className="block text-xs font-semibold text-[#111827] mb-1">
                   Machine Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Siemens S7-1500 PLC"
+                  placeholder="e.g. Caterpillar C15 Generator"
                   value={machineName}
                   onChange={(e) => setMachineName(e.target.value)}
-                  className="w-full bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-900 font-medium outline-none focus:border-blue-600"
+                  className="w-full bg-white border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm text-[#111827] font-medium outline-none focus:border-[#2563EB]"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-medium text-gray-700 mb-1">
+                <label className="block text-xs font-semibold text-[#111827] mb-1">
                   Model Code <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. CPU 1516-3 PN/DP"
+                  placeholder="e.g. C15-500kVA"
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
-                  className="w-full bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-900 font-medium outline-none focus:border-blue-600"
+                  className="w-full bg-white border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm text-[#111827] font-medium outline-none focus:border-[#2563EB]"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-medium text-gray-700 mb-1">
+                <label className="block text-xs font-semibold text-[#111827] mb-1">
                   PDF Manual <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="file"
                   accept=".pdf"
                   onChange={(e) => setFile(e.target.files[0])}
-                  className="w-full text-xs text-gray-600 file:mr-3 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                  className="w-full text-xs text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#2563EB] hover:file:bg-blue-100 cursor-pointer"
                   required
                 />
               </div>
 
-              <div className="pt-2 flex items-center justify-end space-x-2 border-t border-gray-100">
+              <div className="pt-3 flex items-center justify-end space-x-2 border-t border-[#E5E7EB]">
                 <button
                   type="button"
                   onClick={() => setShowUploadModal(false)}
-                  className="px-3.5 py-1.5 rounded-lg bg-white border border-gray-200 text-gray-700 text-xs font-medium hover:bg-gray-50"
+                  className="px-4 py-2 rounded-lg bg-white border border-[#E5E7EB] text-[#111827] text-xs font-medium hover:bg-gray-50 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={uploading}
-                  className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs flex items-center space-x-1.5 disabled:opacity-50"
+                  className="px-4 py-2 rounded-lg bg-[#2563EB] hover:bg-blue-700 text-white font-medium text-xs flex items-center space-x-1.5 disabled:opacity-50 cursor-pointer shadow-xs"
                 >
-                  {uploading ? <RefreshCw size={13} className="animate-spin" /> : <Upload size={13} />}
+                  {uploading ? <RefreshCw size={14} className="animate-spin" /> : <Upload size={14} />}
                   <span>Ingest Manual</span>
                 </button>
               </div>

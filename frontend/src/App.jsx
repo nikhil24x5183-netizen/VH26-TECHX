@@ -5,12 +5,11 @@ import KnowledgeGraph from './components/KnowledgeGraph';
 import ManualLibrary from './components/ManualLibrary';
 import AdminDashboard from './components/AdminDashboard';
 import EvaluationDashboard from './components/EvaluationDashboard';
-import LandingDashboard from './components/LandingDashboard';
 import RightEvidencePanel from './components/RightEvidencePanel';
 import PDFViewerModal from './components/PDFViewerModal';
 import WhyThisAnswerModal from './components/WhyThisAnswerModal';
 import PhotoUploadModal from './components/PhotoUploadModal';
-import { Key, Cpu, Search, Server, Award, Camera, Globe, FileText, X, AlertCircle } from 'lucide-react';
+import { Key, Cpu, Search, Server, Award, Camera, Globe, FileText, X, AlertCircle, Settings, RefreshCw } from 'lucide-react';
 
 import { getMachines, resetDatabase, getHealth, getStats } from './api/machines';
 import { getDocuments, deleteDocument } from './api/documents';
@@ -26,8 +25,7 @@ export default function App() {
   const [showKeyModal, setShowKeyModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [backendHealth, setBackendHealth] = useState('checking');
-  const [activeTab, setActiveTab] = useState('technician');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState('technician'); // 'technician' | 'machines' | 'library' | 'admin' | 'settings'
   const [lastContext, setLastContext] = useState(null);
 
   // Evidence Drawer & Modals
@@ -35,7 +33,6 @@ export default function App() {
   const [pdfPreviewCitation, setPdfPreviewCitation] = useState(null);
   const [whyAnswerMessage, setWhyAnswerMessage] = useState(null);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
-  const [language, setLanguage] = useState('en');
 
   const fetchMachinesAndDocs = async () => {
     try {
@@ -99,9 +96,6 @@ export default function App() {
         last_machine: selectedMachine || (data.citations?.[0]?.machine_name) || ""
       });
 
-      if (data.citations && data.citations.length > 0) {
-        setSelectedCitation(data.citations[0]);
-      }
     } catch (err) {
       console.error('Chat error:', err);
       setMessages((prev) => [
@@ -152,159 +146,86 @@ export default function App() {
     }
   };
 
-  const handleSearchSubmit = (e) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      setActiveTab('technician');
-      handleSendMessage(searchQuery.trim());
-      setSearchQuery('');
-    }
-  };
-
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#F7F9FC] text-gray-900 overflow-hidden font-sans">
-      {/* 1. Top Header Navigation Bar */}
-      <header className="h-14 border-b border-gray-200 bg-white px-5 flex items-center justify-between z-20 shadow-2xs">
-        {/* Brand & Search */}
-        <div className="flex items-center space-x-5">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold shadow-2xs">
-              <Cpu size={18} />
-            </div>
-            <span className="font-bold text-base text-gray-900 tracking-tight">MaintAI</span>
-          </div>
-
-          <form onSubmit={handleSearchSubmit} className="flex items-center">
-            <div className="relative w-64">
-              <Search size={14} className="absolute left-3 top-2.5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search error code or manual..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-gray-50 border border-gray-200 rounded-lg pl-9 pr-3 py-1.5 text-xs text-gray-900 placeholder-gray-400 font-medium focus:border-blue-600 focus:bg-white outline-none transition-colors"
-              />
-            </div>
-          </form>
-        </div>
-
-        {/* Center Navigation Pages Tabs */}
-        <div className="flex items-center space-x-1 bg-gray-100 p-1 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600">
-          <button
-            onClick={() => setActiveTab('technician')}
-            className={`px-3 py-1.5 rounded-md flex items-center space-x-1.5 transition-colors ${
-              activeTab === 'technician' ? 'bg-blue-600 text-white shadow-2xs' : 'hover:text-gray-900 hover:bg-gray-200/60'
-            }`}
-          >
-            <Cpu size={14} />
-            <span>Technician Mode</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('library')}
-            className={`px-3 py-1.5 rounded-md flex items-center space-x-1.5 transition-colors ${
-              activeTab === 'library' ? 'bg-blue-600 text-white shadow-2xs' : 'hover:text-gray-900 hover:bg-gray-200/60'
-            }`}
-          >
-            <FileText size={14} />
-            <span>Manual Library</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('admin')}
-            className={`px-3 py-1.5 rounded-md flex items-center space-x-1.5 transition-colors ${
-              activeTab === 'admin' ? 'bg-blue-600 text-white shadow-2xs' : 'hover:text-gray-900 hover:bg-gray-200/60'
-            }`}
-          >
-            <Server size={14} />
-            <span>Admin Pipeline</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('evaluation')}
-            className={`px-3 py-1.5 rounded-md flex items-center space-x-1.5 transition-colors ${
-              activeTab === 'evaluation' ? 'bg-blue-600 text-white shadow-2xs' : 'hover:text-gray-900 hover:bg-gray-200/60'
-            }`}
-          >
-            <Award size={14} />
-            <span>Judge Evaluation</span>
-          </button>
-        </div>
-
-        {/* Right Tools & Config */}
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => setShowPhotoModal(true)}
-            className="p-2 rounded-lg bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 text-xs font-medium flex items-center space-x-1 transition-colors"
-            title="Scan Photo OCR"
-          >
-            <Camera size={15} className="text-blue-600" />
-            <span className="hidden sm:inline">OCR</span>
-          </button>
-
-          <button
-            onClick={() => setLanguage(l => l === 'en' ? 'hi' : 'en')}
-            className="p-2 rounded-lg bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 text-xs font-medium flex items-center space-x-1 transition-colors"
-            title="Toggle Language"
-          >
-            <Globe size={15} className="text-gray-500" />
-            <span className="font-mono text-xs uppercase">{language}</span>
-          </button>
-
-          <button
-            onClick={() => setShowKeyModal(true)}
-            className="p-2 rounded-lg bg-white hover:bg-gray-50 border border-gray-200 text-gray-600 transition-colors"
-            title="API Key"
-          >
-            <Key size={15} className={apiKey ? "text-emerald-600" : "text-gray-400"} />
-          </button>
-        </div>
-      </header>
-
-      {/* 2. Visual Metrics Landing Dashboard Banner */}
-      <LandingDashboard
-        stats={stats}
-        onStartChat={() => setActiveTab('technician')}
-        onOpenLibrary={() => setActiveTab('library')}
-        onOpenAdmin={() => setActiveTab('admin')}
-        onOpenEval={() => setActiveTab('evaluation')}
+    <div className="flex h-screen w-screen bg-[#F7F9FC] text-[#111827] overflow-hidden font-sans">
+      {/* 1. Left Minimal Sidebar */}
+      <Sidebar
+        machines={machines}
+        selectedMachine={selectedMachine}
+        onSelectMachine={setSelectedMachine}
+        onUploadSuccess={fetchMachinesAndDocs}
+        activeTab={activeTab}
+        onNavigateTab={setActiveTab}
+        onOpenKeyModal={() => setShowKeyModal(true)}
+        isLoading={isLoading}
       />
 
-      {/* 3. Main Workspace Area */}
-      <div className="flex-1 flex overflow-hidden">
+      {/* 2. Main Workspace Area */}
+      <main className="flex-1 flex overflow-hidden">
         {activeTab === 'technician' && (
-          <>
-            <Sidebar
-              machines={machines}
-              selectedMachine={selectedMachine}
-              onSelectMachine={setSelectedMachine}
-              onUploadSuccess={fetchMachinesAndDocs}
-              onDeleteMachine={handleDeleteMachine}
-              onResetDatabase={handleResetDatabase}
-              activeTab={activeTab}
-              onNavigateTab={setActiveTab}
-              isLoading={isLoading}
-            />
+          <ChatInterface
+            messages={messages}
+            onSendMessage={handleSendMessage}
+            onClearChat={handleClearChat}
+            onSelectMachine={setSelectedMachine}
+            selectedMachine={selectedMachine}
+            onSelectCitation={(cit) => setSelectedCitation(cit)}
+            onOpenWhyModal={(msg) => setWhyAnswerMessage(msg)}
+            onOpenPhotoModal={() => setShowPhotoModal(true)}
+            onNavigateTab={setActiveTab}
+            machines={machines}
+            isLoading={isLoading}
+          />
+        )}
 
-            <ChatInterface
-              messages={messages}
-              onSendMessage={handleSendMessage}
-              onClearChat={handleClearChat}
-              onSelectMachine={setSelectedMachine}
-              selectedMachine={selectedMachine}
-              onSelectCitation={(cit) => setSelectedCitation(cit)}
-              onUploadModalOpen={() => {}}
-              onOpenWhyModal={(msg) => setWhyAnswerMessage(msg)}
-              onNavigateTab={setActiveTab}
-              isLoading={isLoading}
-            />
+        {activeTab === 'machines' && (
+          <div className="flex-1 p-6 overflow-y-auto space-y-4">
+            <div className="bg-white border border-[#E5E7EB] rounded-xl p-6 shadow-2xs flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-[#111827]">Ingested Machines & Models</h1>
+                <p className="text-sm text-[#64748B] mt-1">Select a machine scope or manage ingested OEM models.</p>
+              </div>
+            </div>
 
-            {/* Right Evidence Inspector Panel */}
-            {selectedCitation && (
-              <RightEvidencePanel
-                citation={selectedCitation}
-                onClose={() => setSelectedCitation(null)}
-                onOpenPdf={(cit) => setPdfPreviewCitation(cit)}
-              />
-            )}
-          </>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {machines.map((m, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => {
+                    setSelectedMachine(m.machine_name);
+                    setActiveTab('technician');
+                  }}
+                  className={`p-5 rounded-xl border transition-all cursor-pointer bg-white shadow-2xs hover:border-[#2563EB] ${
+                    selectedMachine === m.machine_name ? 'border-[#2563EB] ring-2 ring-blue-100' : 'border-[#E5E7EB]'
+                  }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 rounded-lg bg-blue-50 text-[#2563EB] flex items-center justify-center font-bold">
+                      <Cpu size={20} />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-base text-[#111827]">{m.machine_name}</h3>
+                      <p className="text-xs text-[#64748B] font-mono">{m.model}</p>
+                    </div>
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
+                    <span className="text-[#2563EB] font-semibold">Scope Active →</span>
+                    {m.file_id && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteMachine(m.file_id);
+                        }}
+                        className="text-gray-400 hover:text-red-600 font-medium"
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         {activeTab === 'library' && (
@@ -323,10 +244,57 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'evaluation' && (
-          <EvaluationDashboard />
+        {activeTab === 'settings' && (
+          <div className="flex-1 p-6 overflow-y-auto max-w-3xl space-y-6">
+            <div>
+              <h1 className="text-2xl font-bold text-[#111827]">Application Settings</h1>
+              <p className="text-sm text-[#64748B] mt-1">Configure LLM API keys and reset knowledge base indices.</p>
+            </div>
+
+            <div className="bg-white border border-[#E5E7EB] rounded-xl p-6 space-y-4 shadow-2xs">
+              <h2 className="text-lg font-bold text-[#111827]">Gemini API Key</h2>
+              <p className="text-xs text-[#64748B]">Provide an optional custom Gemini API key for external LLM reasoning.</p>
+              <div className="flex items-center space-x-3">
+                <input
+                  type="password"
+                  placeholder="AIzaSy..."
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  className="flex-1 bg-[#F7F9FC] border border-[#E5E7EB] rounded-lg px-4 py-2.5 text-sm font-mono outline-none focus:border-[#2563EB]"
+                />
+                <button
+                  onClick={() => handleSaveApiKey(apiKey)}
+                  className="px-5 py-2.5 rounded-lg bg-[#2563EB] hover:bg-blue-700 text-white font-semibold text-sm cursor-pointer shadow-xs"
+                >
+                  Save Key
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-white border border-[#E5E7EB] rounded-xl p-6 space-y-4 shadow-2xs">
+              <h2 className="text-lg font-bold text-red-600">Database & Knowledge Index Reset</h2>
+              <p className="text-xs text-[#64748B]">Re-initialize vector database and reload default OEM manual benchmarks.</p>
+              <button
+                onClick={handleResetDatabase}
+                disabled={isLoading}
+                className="px-5 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold text-sm flex items-center space-x-2 cursor-pointer shadow-xs disabled:opacity-50"
+              >
+                <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
+                <span>Re-Initialize Store</span>
+              </button>
+            </div>
+          </div>
         )}
-      </div>
+      </main>
+
+      {/* 3. Slide-Over Evidence Inspector Modal Panel */}
+      {selectedCitation && (
+        <RightEvidencePanel
+          citation={selectedCitation}
+          onClose={() => setSelectedCitation(null)}
+          onOpenPdf={(cit) => setPdfPreviewCitation(cit)}
+        />
+      )}
 
       {/* MODALS */}
       {pdfPreviewCitation && (
@@ -353,41 +321,40 @@ export default function App() {
         />
       )}
 
-      {/* API Key Modal */}
       {showKeyModal && (
         <div className="fixed inset-0 z-50 bg-gray-900/30 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-gray-200 rounded-xl max-w-sm w-full p-5 shadow-xl relative">
+          <div className="bg-white border border-[#E5E7EB] rounded-xl max-w-sm w-full p-6 shadow-xl relative">
             <div className="flex items-center justify-between pb-3 border-b border-gray-100">
-              <h2 className="text-xs font-bold text-gray-900 flex items-center">
-                <Key size={14} className="mr-1.5 text-blue-600" /> Gemini API Key
+              <h2 className="text-base font-bold text-[#111827] flex items-center">
+                <Key size={16} className="mr-2 text-[#2563EB]" /> Gemini API Key
               </h2>
-              <button onClick={() => setShowKeyModal(false)} className="text-gray-400 hover:text-gray-600">
-                <X size={16} />
+              <button onClick={() => setShowKeyModal(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer">
+                <X size={18} />
               </button>
             </div>
 
-            <div className="mt-3 space-y-3">
+            <div className="mt-4 space-y-4">
               <div>
-                <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">API Key</label>
+                <label className="block text-xs font-semibold text-[#64748B] uppercase tracking-wider mb-1">API Key</label>
                 <input
                   type="password"
                   placeholder="AIzaSy..."
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-900 font-mono outline-none focus:border-blue-600"
+                  className="w-full bg-[#F7F9FC] border border-[#E5E7EB] rounded-lg px-3 py-2 text-sm text-[#111827] font-mono outline-none focus:border-[#2563EB]"
                 />
               </div>
 
-              <div className="pt-2 flex items-center justify-end space-x-2 border-t border-gray-100">
+              <div className="pt-3 flex items-center justify-end space-x-2 border-t border-gray-100">
                 <button
                   onClick={() => handleSaveApiKey('')}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:text-red-600"
+                  className="px-4 py-2 rounded-lg text-xs font-semibold text-gray-500 hover:text-red-600 cursor-pointer"
                 >
                   Clear
                 </button>
                 <button
                   onClick={() => handleSaveApiKey(apiKey)}
-                  className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-2xs"
+                  className="px-4 py-2 rounded-lg bg-[#2563EB] hover:bg-blue-700 text-white font-semibold text-xs shadow-xs cursor-pointer"
                 >
                   Save Key
                 </button>

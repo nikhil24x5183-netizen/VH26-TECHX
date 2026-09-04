@@ -1,95 +1,94 @@
 import React from 'react';
-import { X, FileText, ExternalLink, Layers, CheckCircle, ShieldCheck, Cpu } from 'lucide-react';
+import { X, FileText, ExternalLink, ShieldCheck, BookOpen } from 'lucide-react';
 
 export default function RightEvidencePanel({ citation, onClose, onOpenPdf }) {
   if (!citation) return null;
 
   return (
-    <aside className="w-80 bg-white border-l border-gray-200 flex flex-col h-full shrink-0 shadow-xs z-30 transition-all">
-      {/* Panel Header */}
-      <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <FileText size={16} className="text-blue-600" />
-          <h3 className="font-bold text-sm text-gray-900 tracking-tight">Source Evidence</h3>
-        </div>
-        <button
-          onClick={onClose}
-          className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-          title="Close Panel"
-        >
-          <X size={16} />
-        </button>
-      </div>
-
-      {/* Content Body */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
-        {/* Verification Pill */}
-        <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center space-x-2">
-          <ShieldCheck size={16} className="text-emerald-600 shrink-0" />
-          <span className="font-semibold text-[11px]">100% Grounded Manual Citation</span>
-        </div>
-
-        {/* Manual Metadata Card */}
-        <div className="p-3.5 rounded-xl bg-gray-50 border border-gray-200 space-y-2.5">
-          <div>
-            <span className="text-[10px] font-semibold uppercase text-gray-400">Manual Title</span>
-            <div className="font-semibold text-gray-900 font-mono text-xs mt-0.5 truncate">{citation.file_name}</div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 border-t border-gray-200/60 pt-2 text-[11px]">
-            <div>
-              <span className="text-[10px] text-gray-400 font-semibold uppercase">Machine</span>
-              <div className="font-semibold text-gray-900 truncate">{citation.machine_name}</div>
+    <div className="fixed inset-0 z-50 bg-gray-900/20 backdrop-blur-xs flex justify-end">
+      <aside className="w-96 bg-white border-l border-[#E5E7EB] flex flex-col h-full shadow-2xl animate-in slide-in-from-right duration-200">
+        {/* Panel Header */}
+        <div className="p-4 border-b border-[#E5E7EB] flex items-center justify-between bg-white">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-7 h-7 rounded-md bg-blue-50 text-[#2563EB] flex items-center justify-center">
+              <FileText size={16} />
             </div>
             <div>
-              <span className="text-[10px] text-gray-400 font-semibold uppercase">Model</span>
-              <div className="font-mono text-gray-700 truncate">{citation.model || 'Standard'}</div>
+              <h3 className="font-bold text-base text-[#111827]">Source Evidence</h3>
+              <p className="text-[11px] text-[#64748B]">Verified Manual Excerpt</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer"
+            title="Close Panel"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Content Body */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-4 text-xs">
+          {/* Grounded Verification Badge */}
+          <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center space-x-2.5">
+            <ShieldCheck size={18} className="text-emerald-600 shrink-0" />
+            <div>
+              <div className="font-bold text-xs text-emerald-900">100% Grounded Manual Evidence</div>
+              <div className="text-[11px] text-emerald-700">Matched via hybrid dense vector & BM25 search</div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 border-t border-gray-200/60 pt-2 text-[11px]">
+          {/* Manual Metadata Card */}
+          <div className="p-4 rounded-xl bg-gray-50 border border-[#E5E7EB] space-y-3">
             <div>
-              <span className="text-[10px] text-gray-400 font-semibold uppercase">Page Number</span>
-              <div className="font-mono font-bold text-blue-700">Page {citation.page_number}</div>
+              <span className="text-[10px] font-semibold uppercase text-[#64748B] tracking-wider block mb-0.5">Manual Document</span>
+              <div className="font-semibold text-[#111827] text-xs font-mono truncate">{citation.file_name}</div>
             </div>
-            <div>
-              <span className="text-[10px] text-gray-400 font-semibold uppercase">Revision</span>
-              <div className="font-mono text-gray-600">Rev. 2026.1</div>
+
+            <div className="grid grid-cols-2 gap-3 border-t border-gray-200/80 pt-3">
+              <div>
+                <span className="text-[10px] text-[#64748B] font-semibold uppercase tracking-wider block mb-0.5">Machine</span>
+                <div className="font-medium text-[#111827] truncate">{citation.machine_name}</div>
+              </div>
+              <div>
+                <span className="text-[10px] text-[#64748B] font-semibold uppercase tracking-wider block mb-0.5">Page</span>
+                <div className="font-bold text-[#2563EB] font-mono text-sm">Page {citation.page_number}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Section Header */}
+          {citation.section && (
+            <div className="space-y-1">
+              <span className="text-[10px] font-semibold uppercase text-[#64748B] tracking-wider block">Section</span>
+              <div className="p-3 rounded-lg bg-blue-50/60 border border-blue-100 font-semibold text-[#111827] text-xs">
+                {citation.section}
+              </div>
+            </div>
+          )}
+
+          {/* Verbatim Excerpt */}
+          <div className="space-y-1.5">
+            <span className="text-[10px] font-semibold uppercase text-[#64748B] tracking-wider block">
+              Relevant Excerpt
+            </span>
+            <div className="p-4 rounded-xl bg-gray-50 border border-[#E5E7EB] font-mono text-[12px] text-gray-800 leading-relaxed whitespace-pre-wrap">
+              "{citation.snippet}"
             </div>
           </div>
         </div>
 
-        {/* Section Header */}
-        <div className="space-y-1">
-          <div className="text-[10px] font-semibold uppercase text-gray-400 tracking-wider flex items-center">
-            <Layers size={13} className="mr-1 text-blue-600" /> Section Header
-          </div>
-          <div className="p-2.5 rounded-lg bg-blue-50/50 border border-blue-100 font-semibold text-blue-900">
-            {citation.section || 'General Troubleshooting'}
-          </div>
+        {/* Footer Action CTA */}
+        <div className="p-4 border-t border-[#E5E7EB] bg-white">
+          <button
+            onClick={() => onOpenPdf(citation)}
+            className="w-full py-2.5 px-4 rounded-lg bg-[#2563EB] hover:bg-blue-700 text-white font-medium text-sm flex items-center justify-center space-x-2 transition-colors cursor-pointer shadow-xs"
+          >
+            <ExternalLink size={16} />
+            <span>Open PDF Viewer (Page {citation.page_number})</span>
+          </button>
         </div>
-
-        {/* Verbatim Excerpt Snippet */}
-        <div className="space-y-1">
-          <div className="text-[10px] font-semibold uppercase text-gray-400 tracking-wider">
-            Relevant Manual Excerpt
-          </div>
-          <div className="p-3 rounded-xl bg-gray-50 border border-gray-200 font-mono text-[11px] text-gray-800 leading-relaxed whitespace-pre-wrap">
-            "{citation.snippet}"
-          </div>
-        </div>
-      </div>
-
-      {/* Footer Action CTA */}
-      <div className="p-4 border-t border-gray-200 bg-white">
-        <button
-          onClick={() => onOpenPdf(citation)}
-          className="w-full py-2.5 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs flex items-center justify-center space-x-1.5 transition-colors shadow-2xs"
-        >
-          <ExternalLink size={14} />
-          <span>Open Full PDF Viewer</span>
-        </button>
-      </div>
-    </aside>
+      </aside>
+    </div>
   );
 }
