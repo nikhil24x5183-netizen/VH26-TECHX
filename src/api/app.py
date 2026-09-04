@@ -90,14 +90,31 @@ def get_session(session_id: str):
 
 @app.get("/api/manuals")
 def list_manuals():
-    manuals = []
-    for pdf_file in settings.MANUALS_DIR.glob("*.pdf"):
-        manuals.append({
-            "name": pdf_file.stem.replace("_", " ").title(),
-            "filename": pdf_file.name,
-            "size_kb": round(pdf_file.stat().st_size / 1024, 1),
-            "type": "Manual"
-        })
+    manuals = [
+        {
+            "name": "ApexCNC UltraMill 500 Maintenance Manual",
+            "machine": "ApexCNC UltraMill 500",
+            "filename": "apexcnc_ultramill_500_manual.pdf",
+            "type": "Built-in",
+            "pages": 11,
+            "size_kb": 89.7
+        },
+        {
+            "name": "ThermaPress Pro 2000 Service Manual",
+            "machine": "ThermaPress Pro 2000",
+            "filename": "thermapress_pro_2000_manual.pdf",
+            "type": "Built-in",
+            "pages": 11,
+            "size_kb": 78.6
+        }
+    ]
+    try:
+        from api.index import load_custom_manuals
+        custom_data = load_custom_manuals()
+        for m in custom_data.get("manuals", []):
+            manuals.append(m)
+    except Exception:
+        pass
     return {"manuals": manuals, "total_manuals": len(manuals)}
 
 @app.post("/api/upload")
