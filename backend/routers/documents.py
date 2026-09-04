@@ -22,9 +22,13 @@ def list_documents():
             "manufacturer": m.get("manufacturer", m.get("machine_name", "").split()[0]),
             "machine_name": m.get("machine_name"),
             "model": m.get("model"),
+            "manufacturing_year": m.get("manufacturing_year", "2021"),
+            "firmware": m.get("firmware", "Standard"),
+            "manual_type": m.get("manual_type", "Operating Instructions"),
             "manual_title": m.get("manual_title", f"{m.get('machine_name')} Operating Instructions"),
             "file_name": m.get("file_name"),
             "chunk_count": m.get("chunk_count"),
+            "page_count": max(1, round(m.get("chunk_count", 1) * 0.95)),
             "status": "✓ Indexed",
             "upload_date": "2026-09-04"
         })
@@ -59,12 +63,16 @@ async def detect_metadata(file: UploadFile = File(...)):
             os.remove(temp_path)
 
 @router.post("/documents/upload")
+@router.post("/manuals/upload")
 @router.post("/upload")
 async def upload_document(
     file: UploadFile = File(...),
     machine_name: str = Form(...),
     model: str = Form(...),
     manufacturer: Optional[str] = Form("Industrial OEM"),
+    manufacturing_year: Optional[str] = Form("2021"),
+    firmware: Optional[str] = Form("Standard"),
+    manual_type: Optional[str] = Form("Operating Instructions"),
     manual_title: Optional[str] = Form(None),
     revision: Optional[str] = Form("Rev. 2026.1")
 ):
@@ -101,19 +109,30 @@ async def upload_document(
             machine_name=machine_name,
             model=model,
             file_id=file_id,
+            manufacturing_year=manufacturing_year or "2021",
+            firmware=firmware or "Standard",
+            manual_type=manual_type or "Operating Instructions",
             revision=revision or "Rev. 2026.1"
         )
         rag_engine.index_chunks(chunks)
 
+        pages = pdf_processor.extract_pages(save_path)
+        page_count = len(pages)
+
         return {
             "message": "Manual uploaded, validated, and indexed successfully.",
+            "status": "Ready",
             "warning": warning_msg,
             "document_id": file_id,
             "filename": file.filename,
             "manufacturer": manufacturer,
             "machine_name": machine_name,
             "model": model,
+            "manufacturing_year": manufacturing_year or "2021",
+            "firmware": firmware or "Standard",
+            "manual_type": manual_type or "Operating Instructions",
             "manual_title": manual_title or f"{machine_name} Operating Instructions",
+            "pages_processed": page_count,
             "chunks_indexed": len(chunks)
         }
     except HTTPException:

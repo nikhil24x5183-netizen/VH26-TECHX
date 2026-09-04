@@ -187,6 +187,9 @@ class PDFProcessor:
         machine_name: str,
         model: str,
         file_id: str,
+        manufacturing_year: str = "2021",
+        firmware: str = "Standard",
+        manual_type: str = "Operating Instructions",
         revision: str = "Rev. 2026.1",
         source_url: Optional[str] = None
     ) -> List[Dict[str, Any]]:
@@ -229,15 +232,19 @@ class PDFProcessor:
                         chunks.append({
                             "chunk_id": f"{file_id}_p{page_num}_c{chunk_counter}",
                             "document_id": file_id,
+                            "file_id": file_id,
                             "manufacturer": manufacturer,
                             "machine_name": machine_name,
                             "model": model,
+                            "manufacturing_year": str(manufacturing_year or "2021"),
+                            "firmware": firmware or "Standard",
+                            "manual_type": manual_type or "Operating Instructions",
                             "manual_title": filename.replace(".pdf", "").replace("_", " "),
                             "file_name": filename,
                             "revision": revision,
                             "page_number": page_num,
                             "section": current_section,
-                            "source_url": source_url or f"https://manuals.industrial-hub.com/pdf/{filename}",
+                            "source_url": source_url or f"/api/pdf/{filename}",
                             "normalized_error_codes": error_codes,
                             "text": current_chunk_text.strip()
                         })
@@ -249,15 +256,19 @@ class PDFProcessor:
                 chunks.append({
                     "chunk_id": f"{file_id}_p{page_num}_c{chunk_counter}",
                     "document_id": file_id,
+                    "file_id": file_id,
                     "manufacturer": manufacturer,
                     "machine_name": machine_name,
                     "model": model,
+                    "manufacturing_year": str(manufacturing_year or "2021"),
+                    "firmware": firmware or "Standard",
+                    "manual_type": manual_type or "Operating Instructions",
                     "manual_title": filename.replace(".pdf", "").replace("_", " "),
                     "file_name": filename,
                     "revision": revision,
                     "page_number": page_num,
                     "section": current_section,
-                    "source_url": source_url or f"https://manuals.industrial-hub.com/pdf/{filename}",
+                    "source_url": source_url or f"/api/pdf/{filename}",
                     "normalized_error_codes": error_codes,
                     "text": current_chunk_text.strip()
                 })

@@ -1,13 +1,15 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   body {
-    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    color: #111827;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #0F172A;
     background-color: #FFFFFF;
-    font-size: 15px;
+    font-size: 14px;
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
   }
@@ -15,36 +17,39 @@
     font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   }
   h1 {
-    font-size: 30px;
-    font-weight: 700;
-    line-height: 1.2;
+    font-size: 26px;
+    font-weight: 650;
+    line-height: 1.25;
     letter-spacing: -0.02em;
+    color: #0F172A;
   }
   h2 {
-    font-size: 22px;
-    font-weight: 700;
-    line-height: 1.3;
-    letter-spacing: -0.01em;
-  }
-  h3 {
     font-size: 18px;
     font-weight: 600;
     line-height: 1.35;
+    letter-spacing: -0.01em;
+    color: #0F172A;
+  }
+  h3 {
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.4;
+    color: #0F172A;
   }
 }
 
-/* Premium Minimalist Scrollbar */
+/* Industrial SaaS Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #E2E8F0;
+  background: #CBD5E1;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #CBD5E1;
+  background: #94A3B8;
 }

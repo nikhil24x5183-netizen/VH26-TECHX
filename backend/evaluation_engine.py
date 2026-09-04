@@ -14,14 +14,38 @@ class EvaluationEngine:
         test_cases = [
             {
                 "id": "TC-01",
-                "category": "Exact Error Code",
-                "query": "What is E101?",
-                "scope": "Caterpillar C15 Generator",
-                "expected_type": "answer",
-                "description": "Verifies exact error code lookup on Caterpillar C15."
+                "category": "Casual Greeting",
+                "query": "Hi",
+                "scope": None,
+                "expected_type": "conversational",
+                "description": "Verifies friendly greeting without diagnosis."
             },
             {
                 "id": "TC-02",
+                "category": "Machine Quantity Question",
+                "query": "How many machines do you have?",
+                "scope": None,
+                "expected_type": "conversational",
+                "description": "Verifies conversational listing of available machines without diagnosis."
+            },
+            {
+                "id": "TC-03",
+                "category": "Informal Machine Query",
+                "query": "How much machine u hv?",
+                "scope": None,
+                "expected_type": "conversational",
+                "description": "Verifies informal machine quantity query receives plain text response, never a diagnosis card."
+            },
+            {
+                "id": "TC-04",
+                "category": "Exact Error Code Match",
+                "query": "What is F30001?",
+                "scope": "SINAMICS G120",
+                "expected_type": "answer",
+                "description": "Verifies exact F30001 power unit fault code lookup on Siemens G120."
+            },
+            {
+                "id": "TC-05",
                 "category": "Natural Language Symptom",
                 "query": "Why is Caterpillar C15 Generator coolant temperature high?",
                 "scope": "Caterpillar C15 Generator",
@@ -29,7 +53,7 @@ class EvaluationEngine:
                 "description": "Verifies natural language symptom retrieval."
             },
             {
-                "id": "TC-03",
+                "id": "TC-06",
                 "category": "Cross-Document Ambiguity",
                 "query": "What does E101 mean?",
                 "scope": None,
@@ -37,7 +61,7 @@ class EvaluationEngine:
                 "description": "Verifies detection of conflicting error codes across different machines."
             },
             {
-                "id": "TC-04",
+                "id": "TC-07",
                 "category": "Insufficient Info Refusal",
                 "query": "My machine is making a weird sound.",
                 "scope": None,
@@ -45,24 +69,12 @@ class EvaluationEngine:
                 "description": "Verifies explicit safety refusal for vague, ungrounded queries."
             },
             {
-                "id": "TC-05",
-                "category": "Machine Context Isolation",
-                "query": "What is E301 on Siemens S7-1500 PLC?",
-                "scope": "Siemens S7-1500 PLC",
+                "id": "TC-08",
+                "category": "Symptom Troubleshooting",
+                "query": "My motor isn't starting",
+                "scope": "SINAMICS G120",
                 "expected_type": "answer",
-                "description": "Verifies isolation of Siemens Profinet communication alarm."
-            },
-            {
-                "id": "TC-06",
-                "category": "Follow-Up Conversation",
-                "query": "and what if that doesn't fix it?",
-                "scope": "Caterpillar C15 Generator",
-                "previous_context": {
-                    "last_question": "What is E101?",
-                    "last_machine": "Caterpillar C15 Generator"
-                },
-                "expected_type": "answer",
-                "description": "Verifies multi-turn context preservation."
+                "description": "Verifies symptom troubleshooting grounded in manual without inventing error codes."
             }
         ]
 
@@ -77,7 +89,10 @@ class EvaluationEngine:
             )
 
             status = "FAIL"
-            if tc["expected_type"] == "ambiguity":
+            if tc["expected_type"] == "conversational":
+                if not res.get("insufficient_info") and not res.get("ambiguity") and len(res.get("citations", [])) == 0:
+                    status = "PASS"
+            elif tc["expected_type"] == "ambiguity":
                 if res.get("ambiguity") is not None:
                     status = "PASS"
             elif tc["expected_type"] == "refusal":

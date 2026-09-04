@@ -58,6 +58,13 @@ class IntentClassifier:
     CAPABILITIES_PATTERNS = [
         r'^(who\s+are\s+you|what\s+can\s+you\s+do|what\s+are\s+your\s+features|features|capabilities)\??$'
     ]
+    QUANTITY_PATTERNS = [
+        r'how\s+(many|much)\s+machines?\b',
+        r'machines?\s+(u\s+hv|you\s+have|available|supported)\b',
+        r'which\s+machines?\b',
+        r'what\s+machines?\b',
+        r'list\s+machines?\b'
+    ]
 
     @classmethod
     def classify(cls, text: str) -> Dict[str, Any]:
@@ -72,12 +79,20 @@ class IntentClassifier:
             "repair", "troubleshoot", "why", "check", "g120", "c15", "plc", "s7",
             "kuka", "robodrill", "overheating", "overload", "f30001", "e101", "e301"
         ]
-        has_tech = any(w in text_clean for w in tech_words) or has_codes or len(text_clean.split()) > 4
+
+        is_quantity = any(re.search(pat, text_clean) for pat in cls.QUANTITY_PATTERNS)
+        if is_quantity:
+            return {
+                "intent": "CONVERSATIONAL_QUANTITY",
+                "response": "I currently have the following machines available in your Manual Library:\n\n• Siemens SINAMICS G120 (CU240B/E-2)\n• Caterpillar C15 Generator (C15-500kVA)\n• Siemens S7-1500 PLC (CPU 1516-3 PN/DP)\n• KUKA KR 210 Robot (KR 210 R2700-2)\n• Fanuc Robodrill CNC (α-D21MiB5)\n\nSelect a machine on the Home screen to start troubleshooting."
+            }
 
         is_greeting = any(re.search(pat, text_clean) for pat in cls.GREETING_PATTERNS)
         is_thanks = any(re.search(pat, text_clean) for pat in cls.THANKS_PATTERNS)
         is_help = any(re.search(pat, text_clean) for pat in cls.HELP_PATTERNS)
         is_cap = any(re.search(pat, text_clean) for pat in cls.CAPABILITIES_PATTERNS)
+
+        has_tech = (any(w in text_clean for w in tech_words) or has_codes) and not is_quantity
 
         if is_greeting and has_tech:
             return {
@@ -87,22 +102,22 @@ class IntentClassifier:
         elif is_thanks and not has_tech:
             return {
                 "intent": "THANKS",
-                "response": "You're welcome! Let me know if you need help with anything else."
+                "response": "You're welcome! Let me know if you need help with another machine."
             }
         elif is_greeting and not has_tech:
             return {
                 "intent": "GREETING",
-                "response": "Hello! I'm MaintAI, your industrial troubleshooting copilot. 👋 Tell me the machine, error code, or symptom you're dealing with."
+                "response": "Hi! 👋 Which machine are you troubleshooting today? Select a machine from the Home screen or list."
             }
         elif is_help and not has_tech:
             return {
                 "intent": "HELP",
-                "response": "I can help you troubleshoot industrial machines using verified manual evidence.\n\nYou can:\n• Enter an error code (e.g., F30001, E101)\n• Describe a machine problem or symptom\n• Search a machine manual\n• Upload a new OEM manual\n• Scan an error code or photo\n\nWhat machine or issue would you like to troubleshoot?"
+                "response": "I can help you troubleshoot industrial machines using verified manual evidence.\n\nSteps:\n1. Select your Machine & Model\n2. Enter an error code or describe the symptom\n3. View grounded manual diagnosis and exact page citations\n\nWhich machine are you working on today?"
             }
         elif is_cap and not has_tech:
             return {
                 "intent": "CAPABILITIES",
-                "response": "I'm MaintAI — an AI troubleshooting copilot grounded in official machine manuals.\n\nI can:\n✓ Find error-code definitions & fault meanings\n✓ Troubleshoot mechanical and electrical symptoms\n✓ Search technical manuals & cite exact page numbers\n✓ Detect ambiguous error codes across machines\n✓ Refuse unsupported diagnoses to prevent hallucinations\n\nTell me what machine you're working on today."
+                "response": "I'm MaintAI — an AI troubleshooting copilot grounded in official machine manuals.\n\nI can:\n✓ Find exact error-code definitions & fault meanings\n✓ Troubleshoot mechanical and electrical symptoms\n✓ Search technical manuals & cite exact page numbers\n✓ Detect ambiguous error codes across machines\n✓ Refuse unsupported diagnoses to prevent hallucinations\n\nSelect your machine above to get started."
             }
 
         return {"intent": "TECHNICAL_RAG"}
