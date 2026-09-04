@@ -434,9 +434,39 @@ def list_manuals():
     get_kb()
     custom_data = load_custom_manuals()
     manuals = [
-        {"name": "ApexCNC UltraMill 500 Maintenance Manual", "machine": "ApexCNC UltraMill 500", "type": "Built-in", "pages": 11},
-        {"name": "ThermaPress Pro 2000 Service Manual", "machine": "ThermaPress Pro 2000", "type": "Built-in", "pages": 11},
-        {"name": "Equipment Manual", "machine": "Equipment", "type": "Built-in", "pages": 170}
+        {
+            "name": "ApexCNC UltraMill 500 Maintenance Manual",
+            "machine": "ApexCNC UltraMill 500",
+            "brand": "Apex CNC Dynamics",
+            "model_no": "ACM-500",
+            "year_of_manufacture": "2023",
+            "type": "Built-in",
+            "pages": 11,
+            "chunks": 14,
+            "codes": ["E101", "E102", "E103", "E104"]
+        },
+        {
+            "name": "ThermaPress Pro 2000 Service Manual",
+            "machine": "ThermaPress Pro 2000",
+            "brand": "ThermaPress Industrial",
+            "model_no": "TPP-2000",
+            "year_of_manufacture": "2022",
+            "type": "Built-in",
+            "pages": 11,
+            "chunks": 14,
+            "codes": ["E101", "E102", "E103", "E104"]
+        },
+        {
+            "name": "Equipment Manual",
+            "machine": "Equipment",
+            "brand": "STEM / Tinkering Labs",
+            "model_no": "ATL-100",
+            "year_of_manufacture": "2021",
+            "type": "Built-in",
+            "pages": 170,
+            "chunks": 166,
+            "codes": ["BREADBOARD", "CAPACITOR", "MOTOR", "REGULATOR", "BLOWER"]
+        }
     ]
     for m in custom_data.get("manuals", []):
         manuals.append(m)
@@ -453,6 +483,9 @@ def clear_session(req: Dict[str, str]):
 class ManualUploadJSON(BaseModel):
     filename: Optional[str] = "uploaded_manual.txt"
     machine_name: Optional[str] = None
+    brand: Optional[str] = None
+    model_no: Optional[str] = None
+    year_of_manufacture: Optional[str] = None
     session_id: Optional[str] = None
     text: Optional[str] = None
     pages: Optional[List[Dict[str, Any]]] = None
@@ -461,7 +494,10 @@ def ingest_manual_pages(
     pages_text: List[tuple],
     fname: str,
     machine_name: Optional[str] = None,
-    session_id: Optional[str] = None
+    session_id: Optional[str] = None,
+    brand: Optional[str] = None,
+    model_no: Optional[str] = None,
+    year_of_manufacture: Optional[str] = None
 ) -> Dict[str, Any]:
     pages_text = [(int(p), str(txt).strip()) for p, txt in pages_text if txt and str(txt).strip()]
     if not pages_text:
@@ -469,6 +505,10 @@ def ingest_manual_pages(
             status_code=400,
             detail="The manual contains no readable text. If this is a PDF, ensure it has selectable text (not an image-only scan) or upload a .txt/.md file."
         )
+
+    brand_val = brand.strip() if brand and brand.strip() else None
+    model_no_val = model_no.strip() if model_no and model_no.strip() else None
+    year_val = str(year_of_manufacture).strip() if year_of_manufacture and str(year_of_manufacture).strip() else None
 
     full_sample = " ".join([txt for _, txt in pages_text[:2]])
     effective_machine = None
@@ -508,6 +548,9 @@ def ingest_manual_pages(
                     "chunk_id": f"custom_{re.sub(r'[^a-zA-Z0-9]', '', effective_machine)[:8]}_p{page_num}_{i+1}",
                     "machine_name": effective_machine,
                     "manual_name": manual_title,
+                    "brand": brand_val or "Company Equipment",
+                    "model_no": model_no_val or "N/A",
+                    "year_of_manufacture": year_val or "N/A",
                     "section": first_line[:90],
                     "page": page_num,
                     "text": c_slice,
@@ -521,6 +564,9 @@ def ingest_manual_pages(
                 "chunk_id": f"custom_{re.sub(r'[^a-zA-Z0-9]', '', effective_machine)[:8]}_p{page_num}",
                 "machine_name": effective_machine,
                 "manual_name": manual_title,
+                "brand": brand_val or "Company Equipment",
+                "model_no": model_no_val or "N/A",
+                "year_of_manufacture": year_val or "N/A",
                 "section": sec_name,
                 "page": page_num,
                 "text": ptxt,
@@ -536,6 +582,9 @@ def ingest_manual_pages(
     existing_manuals.append({
         "name": manual_title,
         "machine": effective_machine,
+        "brand": brand_val or "Company Equipment",
+        "model_no": model_no_val or "N/A",
+        "year_of_manufacture": year_val or "N/A",
         "type": "Custom Upload",
         "pages": len(pages_text),
         "chunks": len(new_chunks),
@@ -562,12 +611,15 @@ def ingest_manual_pages(
         "status": "success",
         "machine_name": effective_machine,
         "manual_name": manual_title,
+        "brand": brand_val or "Company Equipment",
+        "model_no": model_no_val or "N/A",
+        "year_of_manufacture": year_val or "N/A",
         "total_pages": len(pages_text),
         "chunks_count": len(new_chunks),
         "chunks": new_chunks,
         "detected_codes": codes_list,
         "sample_queries": sample_queries,
-        "message": f"Successfully parsed {len(pages_text)} pages for {effective_machine}. Indexed {len(new_chunks)} technical chunks with {len(codes_list)} recognized error codes."
+        "message": f"Successfully parsed {len(pages_text)} pages for {effective_machine} ({brand_val or 'Company Equipment'}). Indexed {len(new_chunks)} technical chunks with {len(codes_list)} recognized error codes."
     }
 
 @app.get("/api/upload")
@@ -580,6 +632,11 @@ def upload_info():
 
 @app.post("/api/upload/text")
 def upload_manual_text(req: ManualUploadJSON):
+    if not req.brand or not req.brand.strip() or not req.machine_name or not req.machine_name.strip():
+        raise HTTPException(
+            status_code=403,
+            detail="Manual upload access is restricted to Company Administrators. Please enter brand and machine model name via the Admin Portal (/admin)."
+        )
     pages_text = []
     if req.pages:
         for p in req.pages:
@@ -611,14 +668,31 @@ def upload_manual_text(req: ManualUploadJSON):
                 pages_text.append((cur_p, "\n\n".join(buf).strip()))
 
     fname = req.filename or "uploaded_manual.txt"
-    return ingest_manual_pages(pages_text, fname, req.machine_name, req.session_id)
+    return ingest_manual_pages(
+        pages_text,
+        fname,
+        machine_name=req.machine_name,
+        session_id=req.session_id,
+        brand=req.brand,
+        model_no=req.model_no,
+        year_of_manufacture=req.year_of_manufacture
+    )
 
 @app.post("/api/upload")
 async def upload_manual(
     file: UploadFile = File(...),
     machine_name: Optional[str] = Form(None),
+    brand: Optional[str] = Form(None),
+    model_no: Optional[str] = Form(None),
+    year_of_manufacture: Optional[str] = Form(None),
     session_id: Optional[str] = Form(None)
 ):
+    if not brand or not brand.strip() or not machine_name or not machine_name.strip():
+        raise HTTPException(
+            status_code=403,
+            detail="Manual upload access is restricted to Company Administrators. Please enter brand and machine model name via the Admin Portal (/admin)."
+        )
+
     try:
         contents = await file.read()
     except Exception as e:
@@ -669,7 +743,15 @@ async def upload_manual(
             if buf:
                 pages_text.append((cur_p, "\n\n".join(buf).strip()))
 
-    return ingest_manual_pages(pages_text, fname, machine_name, session_id)
+    return ingest_manual_pages(
+        pages_text,
+        fname,
+        machine_name=machine_name,
+        session_id=session_id,
+        brand=brand,
+        model_no=model_no,
+        year_of_manufacture=year_of_manufacture
+    )
 
 
 @app.post("/api/query")
@@ -815,9 +897,9 @@ def process_query(req: QueryRequest):
 
         # Precision modifiers
         if effective_code and (effective_code in chunk.get("codes_mentioned", []) or effective_code.lower() in chunk["text"].lower()):
-            adj_score += 15.0
+            adj_score += 45.0
             if "Step-by-Step" in chunk["text"] or "Corrective Action" in chunk["text"]:
-                adj_score += 5.0
+                adj_score += 15.0
         elif "overheating" in retrieval_query.lower() and "overheating" in chunk["text"].lower():
             adj_score += 8.0
             if "Step-by-Step" in chunk["text"] or "Corrective Action" in chunk["text"]:
@@ -826,6 +908,12 @@ def process_query(req: QueryRequest):
         # Section Heading Exact / Key Term Match Bonus:
         sec_raw = chunk.get("section", "").lower().strip()
         sec_clean = re.sub(r"^(?:section\s+[\d\.]+|page\s+\d+[^\:]*[:\-]?)", "", sec_raw).strip()
+        # Avoid giving section heading bonus if the section is just the machine name/general title
+        machine_words = set(re.findall(r"\b[a-z0-9]+\b", (chunk.get("machine_name") or "").lower()))
+        sec_words = set(re.findall(r"\b[a-z0-9]+\b", sec_clean.lower())) - STOP_WORDS
+        if sec_words and sec_words.issubset(machine_words):
+            sec_clean = ""
+
         if sec_clean and len(sec_clean) >= 2:
             if sec_clean in retrieval_query.lower() or re.search(rf"\b{re.escape(sec_clean)}\b", retrieval_query.lower()):
                 adj_score += 35.0
@@ -1161,11 +1249,30 @@ def process_query(req: QueryRequest):
             ]
         }
 
+    brand_resolved = top_chunk.get("brand") or (
+        "Apex CNC Dynamics" if "ApexCNC" in top_chunk["machine_name"] else
+        "ThermaPress Industrial" if "ThermaPress" in top_chunk["machine_name"] else
+        "STEM / Tinkering Labs" if "Equipment" in top_chunk["machine_name"] else "Company Equipment"
+    )
+    model_no_resolved = top_chunk.get("model_no") or (
+        "ACM-500" if "ApexCNC" in top_chunk["machine_name"] else
+        "TPP-2000" if "ThermaPress" in top_chunk["machine_name"] else
+        "ATL-100" if "Equipment" in top_chunk["machine_name"] else "N/A"
+    )
+    year_resolved = top_chunk.get("year_of_manufacture") or (
+        "2023" if "ApexCNC" in top_chunk["machine_name"] else
+        "2022" if "ThermaPress" in top_chunk["machine_name"] else
+        "2021" if "Equipment" in top_chunk["machine_name"] else "N/A"
+    )
+
     # Common citation
     citation = {
         "manual_name": top_chunk["manual_name"],
         "section": top_chunk["section"],
         "page": top_chunk["page"],
+        "brand": brand_resolved,
+        "model_no": model_no_resolved,
+        "year_of_manufacture": year_resolved,
         "supporting_quote": chunk_text[:160].replace("\n", " "),
         "verified": True,
         "verification_score": 1.0
@@ -1184,6 +1291,9 @@ def process_query(req: QueryRequest):
         "status": "SUCCESS",
         "query_type": query_type,
         "machine_name": top_chunk["machine_name"],
+        "brand": brand_resolved,
+        "model_no": model_no_resolved,
+        "year_of_manufacture": year_resolved,
         "error_code": effective_code,
         "error_meaning": meaning,
         "probable_causes": causes,

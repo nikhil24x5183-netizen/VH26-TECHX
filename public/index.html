@@ -1,11 +1,13 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full bg-[#f8fafc] text-slate-900">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
   <title>Factory Floor RAG Troubleshooting Assistant</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <!-- Mozilla PDF.js for client-side extraction to bypass 4.5MB Serverless Body limits -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script>
@@ -14,7 +16,7 @@
     }
   </script>
   <style>
-    body { font-family: 'Inter', sans-serif; }
+    body { font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
     /* Hide scrollbar for Chrome, Safari and Opera */
     .scrollbar-none::-webkit-scrollbar {
       display: none;
@@ -26,199 +28,279 @@
     }
   </style>
 </head>
-<body class="bg-slate-100 text-slate-800 antialiased flex h-screen h-[100dvh] overflow-hidden relative">
+<body class="bg-[#f8fafc] text-slate-900 antialiased flex h-screen h-[100dvh] overflow-hidden relative selection:bg-violet-600 selection:text-white">
 
-  <!-- Mobile Backdrop Overlay -->
-  <div id="sidebar-backdrop" onclick="toggleSidebar()" class="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-40 hidden md:hidden transition-opacity"></div>
+  <!-- Role Selection Gateway Modal (Asks before entering: Admin or Operator/User) -->
+  <div id="role-gateway-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 transition-all duration-300">
+    <div class="bg-white border-2 border-slate-200 rounded-3xl shadow-2xl max-w-xl w-full p-6 sm:p-8 text-center space-y-6">
+      <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-violet-600 via-purple-600 to-indigo-600 mx-auto flex items-center justify-center text-3xl shadow-lg shadow-violet-600/30 border border-violet-400/30">
+        🏢
+      </div>
+      <div class="space-y-1.5">
+        <h2 class="text-xl sm:text-2xl font-black text-slate-950 tracking-tight">Factory Floor Knowledge Hub</h2>
+        <p class="text-sm sm:text-base font-bold text-slate-600">
+          Welcome! Please select your portal role to continue:
+        </p>
+      </div>
 
-  <!-- Sidebar: Telemetry & Controls (Drawer on Mobile, Fixed on Desktop) -->
-  <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-72 sm:w-80 bg-slate-900 text-slate-100 flex flex-col border-r border-slate-800 p-4 shrink-0 overflow-y-auto transition-transform duration-300 ease-in-out -translate-x-full md:translate-x-0 md:static md:flex shadow-2xl md:shadow-none">
-    <div class="flex items-center justify-between mb-5">
-      <div class="flex items-center space-x-2.5">
-        <div class="p-2 bg-blue-600 rounded-lg text-white font-bold text-lg leading-none">🛠️</div>
+      <!-- 2 Role Choice Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
+        <!-- Choice 1: Operator / User -->
+        <button type="button" onclick="selectPortalRole('operator')" 
+                class="group p-5 sm:p-6 rounded-2xl bg-slate-50 hover:bg-violet-50/50 border-2 border-slate-200 hover:border-violet-500 text-slate-800 transition-all flex flex-col justify-between space-y-3.5 hover:scale-[1.02] shadow-sm hover:shadow-violet-600/15 cursor-pointer">
+          <div class="flex items-center justify-between w-full">
+            <span class="p-3 rounded-2xl bg-violet-100 text-violet-700 text-2xl group-hover:scale-110 transition border border-violet-200">👷</span>
+            <span class="text-xs font-black px-2.5 py-0.5 rounded-full bg-violet-100 text-violet-800 border border-violet-200">Floor Access</span>
+          </div>
+          <div>
+            <h3 class="font-black text-base sm:text-lg text-slate-950 group-hover:text-violet-700 transition">Operator / User</h3>
+            <p class="text-xs sm:text-sm font-semibold text-slate-600 mt-1.5 leading-relaxed">
+              Diagnose machine errors, ask conceptual doubts, and view simple worker steps or technical solutions.
+            </p>
+          </div>
+          <div class="pt-2 text-xs sm:text-sm font-black text-violet-600 flex items-center gap-1.5 group-hover:translate-x-1 transition">
+            <span>Enter as Operator</span> <span>→</span>
+          </div>
+        </button>
+
+        <!-- Choice 2: Company Admin -->
+        <button type="button" onclick="selectPortalRole('admin')" 
+                class="group p-5 sm:p-6 rounded-2xl bg-slate-50 hover:bg-purple-50/50 border-2 border-slate-200 hover:border-purple-500 text-slate-800 transition-all flex flex-col justify-between space-y-3.5 hover:scale-[1.02] shadow-sm hover:shadow-purple-600/15 cursor-pointer">
+          <div class="flex items-center justify-between w-full">
+            <span class="p-3 rounded-2xl bg-purple-100 text-purple-700 text-2xl group-hover:scale-110 transition border border-purple-200">🛡️</span>
+            <span class="text-xs font-black px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-200">Management</span>
+          </div>
+          <div>
+            <h3 class="font-black text-base sm:text-lg text-slate-950 group-hover:text-purple-700 transition">Company Admin</h3>
+            <p class="text-xs sm:text-sm font-semibold text-slate-600 mt-1.5 leading-relaxed">
+              Upload & register new manuals with Brand, Model No & Year of Manufacture. Manage company equipment registry.
+            </p>
+          </div>
+          <div class="pt-2 text-xs sm:text-sm font-black text-purple-600 flex items-center gap-1.5 group-hover:translate-x-1 transition">
+            <span>Enter as Admin</span> <span>→</span>
+          </div>
+        </button>
+      </div>
+
+      <div class="pt-1 flex items-center justify-center space-x-2 text-xs font-bold text-slate-500">
+        <span>🔄 You can switch between Operator and Admin mode anytime from the top bar.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Backdrop Overlay (Closes menu on outside click) -->
+  <div id="sidebar-backdrop" onclick="closeSidebar()" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 hidden transition-opacity duration-300"></div>
+
+  <!-- Sidebar: Telemetry & Navigation Menu Drawer (Slide-out on click of corner menu button) -->
+  <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-72 sm:w-80 max-w-[85vw] bg-white text-slate-900 flex flex-col border-r border-slate-200 p-4 sm:p-5 shrink-0 overflow-y-auto transition-transform duration-300 ease-in-out -translate-x-full shadow-2xl">
+    <div class="flex items-center justify-between mb-5 border-b border-slate-200 pb-3.5">
+      <div class="flex items-center space-x-3">
+        <div class="p-2.5 bg-gradient-to-br from-violet-600 to-purple-700 rounded-xl text-white font-black text-lg leading-none shadow-md shadow-violet-600/30 border border-violet-400/30">🛠️</div>
         <div>
-          <h1 class="font-bold text-xs sm:text-sm tracking-wide uppercase text-slate-200">System Telemetry</h1>
-          <p class="text-[11px] text-slate-400">Vercel Serverless Edition</p>
+          <h1 class="font-black text-sm sm:text-base tracking-wide uppercase text-slate-950">System Telemetry</h1>
+          <p class="text-xs font-semibold text-slate-500">Vercel Serverless Edition</p>
         </div>
       </div>
-      <!-- Close button on mobile -->
-      <button onclick="toggleSidebar()" class="md:hidden p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition">
-        ✕
+      <!-- Close drawer button -->
+      <button onclick="closeSidebar()" title="Close Menu (Esc)" class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-950 transition cursor-pointer flex items-center justify-center border border-slate-200">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
       </button>
     </div>
 
     <!-- Health Telemetry Card -->
-    <div class="bg-slate-800/80 rounded-lg p-3 border border-slate-700 mb-4 text-xs space-y-2">
+    <div class="bg-slate-50 rounded-2xl p-3.5 sm:p-4 border border-slate-200 mb-4 text-xs sm:text-sm space-y-2.5 shadow-xs">
       <div class="flex items-center justify-between">
-        <span class="text-slate-400">API Status:</span>
-        <span id="api-status" class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/40 text-[11px]">CHECKING...</span>
+        <span class="text-slate-500 font-bold">API Status:</span>
+        <span id="api-status" class="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-black border border-emerald-300 text-xs">CHECKING...</span>
       </div>
       <div class="flex items-center justify-between">
-        <span class="text-slate-400">Indexed Knowledge:</span>
-        <span id="total-chunks" class="font-semibold text-slate-200">33 Chunks</span>
+        <span class="text-slate-500 font-bold">Indexed Knowledge:</span>
+        <span id="total-chunks" class="font-black text-slate-900">33 Chunks</span>
       </div>
       <div class="flex items-center justify-between">
-        <span class="text-slate-400">Confidence Gate:</span>
-        <span class="font-semibold text-slate-200">≥ 0.38 Threshold</span>
+        <span class="text-slate-500 font-bold">Confidence Gate:</span>
+        <span class="font-black text-slate-900">≥ 0.38 Threshold</span>
       </div>
       <div class="flex items-center justify-between">
-        <span class="text-slate-400">Disambiguation:</span>
-        <span class="text-amber-400 font-semibold">Active ('E101')</span>
+        <span class="text-slate-500 font-bold">Disambiguation:</span>
+        <span class="text-amber-700 font-black">Active ('E101')</span>
       </div>
     </div>
 
     <!-- Active Session State Card -->
-    <div class="bg-slate-800/80 rounded-lg p-3 border border-slate-700 mb-4 text-xs space-y-2">
-      <div class="font-semibold text-slate-300 uppercase tracking-wider text-[10px]">Session Context</div>
+    <div class="bg-slate-50 rounded-2xl p-3.5 sm:p-4 border border-slate-200 mb-4 text-xs sm:text-sm space-y-2.5 shadow-xs">
+      <div class="font-black text-slate-800 uppercase tracking-wider text-xs">Session Context</div>
       <div class="flex items-center justify-between">
-        <span class="text-slate-400">Active Machine:</span>
-        <span id="session-machine" class="font-semibold text-blue-400 truncate max-w-[130px]">None (Global)</span>
+        <span class="text-slate-500 font-bold">Active Machine:</span>
+        <span id="session-machine" class="font-black text-violet-700 truncate max-w-[130px]">None (Global)</span>
       </div>
       <div class="flex items-center justify-between">
-        <span class="text-slate-400">Active Code:</span>
-        <span id="session-code" class="font-semibold text-blue-400">None</span>
+        <span class="text-slate-500 font-bold">Active Code:</span>
+        <span id="session-code" class="font-black text-violet-700">None</span>
       </div>
-      <button onclick="resetSession(); closeSidebarOnMobile();" class="w-full mt-2 py-1.5 px-3 bg-slate-700 hover:bg-slate-600 rounded text-slate-200 font-medium transition text-xs flex items-center justify-center space-x-1">
+      <button onclick="resetSession(); closeSidebarOnMobile();" class="w-full mt-2 py-2 px-3 bg-white hover:bg-slate-100 rounded-xl text-slate-800 font-bold transition text-xs sm:text-sm flex items-center justify-center space-x-1.5 border border-slate-200 shadow-2xs cursor-pointer">
         <span>🔄</span> <span>Reset Session Context</span>
       </button>
     </div>
 
-    <!-- Upload Custom Manual Action -->
+    <!-- Company Admin Portal Notice -->
     <div class="mb-4">
-      <button onclick="openUploadModal(); closeSidebarOnMobile();" class="w-full py-2.5 px-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-semibold text-xs shadow-sm transition flex items-center justify-center space-x-1.5 active:scale-95">
-        <span>📤</span> <span>Upload Custom Manual</span>
-      </button>
+      <div class="p-3.5 sm:p-4 rounded-2xl bg-violet-50/70 border border-violet-200 text-xs sm:text-sm space-y-2.5 shadow-xs">
+        <div class="flex items-center justify-between">
+          <span class="font-black text-violet-950 text-xs sm:text-sm uppercase tracking-wide flex items-center gap-1.5">
+            <span>🔒</span> <span>Manual Management</span>
+          </span>
+          <span class="px-2 py-0.5 rounded-full bg-violet-100 text-violet-800 text-[10px] sm:text-xs font-black border border-violet-300">ADMIN ONLY</span>
+        </div>
+        <p class="text-xs font-semibold text-slate-600 leading-relaxed">
+          Uploading new machine manuals is restricted to Company Administrators.
+        </p>
+        <a href="/admin" class="w-full py-2.5 px-3 bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 hover:from-violet-500 hover:to-purple-500 text-white rounded-xl font-black text-xs sm:text-sm shadow-md shadow-violet-600/30 transition flex items-center justify-center space-x-2 border border-violet-400/30">
+          <span>🛡️</span> <span>Go to Admin Portal →</span>
+        </a>
+      </div>
     </div>
 
     <!-- Loaded Technical Manuals Card -->
-    <div class="bg-slate-800/80 rounded-lg p-3 border border-slate-700 mb-4 text-xs space-y-2">
+    <div class="bg-slate-50 rounded-2xl p-3.5 sm:p-4 border border-slate-200 mb-4 text-xs sm:text-sm space-y-2.5 shadow-xs">
       <div class="flex items-center justify-between">
-        <span class="font-semibold text-slate-300 uppercase tracking-wider text-[10px]">Loaded Manuals</span>
-        <span id="manuals-badge" class="px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-400 font-bold text-[10px]">2 Manuals</span>
+        <span class="font-black text-slate-800 uppercase tracking-wider text-xs">Loaded Manuals</span>
+        <span id="manuals-badge" class="px-2.5 py-0.5 rounded-full bg-violet-100 text-violet-800 font-black text-xs border border-violet-200">2 Manuals</span>
       </div>
-      <div id="manuals-list" class="space-y-1 max-h-28 overflow-y-auto text-[11px] text-slate-300 pr-1">
-        <div class="p-1.5 rounded bg-slate-900/60 border border-slate-800">
-          <div class="font-medium text-slate-200 truncate">ApexCNC UltraMill 500</div>
-          <div class="text-[10px] text-slate-500">11 Pages • Built-in</div>
+      <div id="manuals-list" class="space-y-1.5 max-h-32 overflow-y-auto text-xs text-slate-700 pr-1">
+        <div class="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs">
+          <div class="font-bold text-slate-900 truncate text-xs sm:text-sm">ApexCNC UltraMill 500</div>
+          <div class="text-[11px] font-semibold text-slate-500">11 Pages • Built-in</div>
         </div>
-        <div class="p-1.5 rounded bg-slate-900/60 border border-slate-800">
-          <div class="font-medium text-slate-200 truncate">ThermaPress Pro 2000</div>
-          <div class="text-[10px] text-slate-500">11 Pages • Built-in</div>
+        <div class="p-2.5 rounded-xl bg-white border border-slate-200 shadow-2xs">
+          <div class="font-bold text-slate-900 truncate text-xs sm:text-sm">ThermaPress Pro 2000</div>
+          <div class="text-[11px] font-semibold text-slate-500">11 Pages • Built-in</div>
         </div>
       </div>
     </div>
 
     <!-- Quick Verified Test Scenarios -->
     <div class="space-y-2 flex-1">
-      <div class="font-semibold text-slate-400 uppercase tracking-wider text-[10px]">Verified Test Scenarios</div>
-      <button onclick="loadQuery('What does error E101 mean on ApexCNC UltraMill 500?'); closeSidebarOnMobile();" class="w-full text-left p-2 rounded bg-slate-800 hover:bg-slate-700 text-xs border border-slate-700 transition">
-        <span class="font-semibold text-blue-400">1. Exact Code (Machine A)</span>
-        <p class="text-[11px] text-slate-400 truncate">E101 on ApexCNC UltraMill 500</p>
+      <div class="font-black text-slate-500 uppercase tracking-wider text-xs">Verified Test Scenarios</div>
+      <button onclick="loadQuery('What does error E101 mean on ApexCNC UltraMill 500?'); closeSidebarOnMobile();" class="w-full text-left p-2.5 rounded-xl bg-slate-50 hover:bg-violet-50 text-xs sm:text-sm border border-slate-200 hover:border-violet-400 transition cursor-pointer shadow-2xs">
+        <span class="font-bold text-violet-700">1. Exact Code (Machine A)</span>
+        <p class="text-xs font-semibold text-slate-500 truncate mt-0.5">E101 on ApexCNC UltraMill 500</p>
       </button>
-      <button onclick="loadQuery('Why is ThermaPress Pro 2000 overheating?'); closeSidebarOnMobile();" class="w-full text-left p-2 rounded bg-slate-800 hover:bg-slate-700 text-xs border border-slate-700 transition">
-        <span class="font-semibold text-amber-400">2. Symptom Query (Machine B)</span>
-        <p class="text-[11px] text-slate-400 truncate">Why is ThermaPress Pro 2000 overheating?</p>
+      <button onclick="loadQuery('Why is ThermaPress Pro 2000 overheating?'); closeSidebarOnMobile();" class="w-full text-left p-2.5 rounded-xl bg-slate-50 hover:bg-amber-50 text-xs sm:text-sm border border-slate-200 hover:border-amber-400 transition cursor-pointer shadow-2xs">
+        <span class="font-bold text-amber-700">2. Symptom Query (Machine B)</span>
+        <p class="text-xs font-semibold text-slate-500 truncate mt-0.5">Why is ThermaPress Pro 2000 overheating?</p>
       </button>
-      <button onclick="loadQuery('What does error E101 mean?'); closeSidebarOnMobile();" class="w-full text-left p-2 rounded bg-slate-800 hover:bg-slate-700 text-xs border border-slate-700 transition">
-        <span class="font-semibold text-purple-400">3. Ambiguity Case (No Machine)</span>
-        <p class="text-[11px] text-slate-400 truncate">What does error E101 mean?</p>
+      <button onclick="loadQuery('What does error E101 mean?'); closeSidebarOnMobile();" class="w-full text-left p-2.5 rounded-xl bg-slate-50 hover:bg-purple-50 text-xs sm:text-sm border border-slate-200 hover:border-purple-400 transition cursor-pointer shadow-2xs">
+        <span class="font-bold text-purple-700">3. Ambiguity Case (No Machine)</span>
+        <p class="text-xs font-semibold text-slate-500 truncate mt-0.5">What does error E101 mean?</p>
       </button>
-      <button onclick="loadQuery('How do I calibrate the optical laser scanner?'); closeSidebarOnMobile();" class="w-full text-left p-2 rounded bg-slate-800 hover:bg-slate-700 text-xs border border-slate-700 transition">
-        <span class="font-semibold text-red-400">4. Insufficient Info Refusal</span>
-        <p class="text-[11px] text-slate-400 truncate">How do I calibrate optical laser scanner?</p>
+      <button onclick="loadQuery('How do I calibrate the optical laser scanner?'); closeSidebarOnMobile();" class="w-full text-left p-2.5 rounded-xl bg-slate-50 hover:bg-rose-50 text-xs sm:text-sm border border-slate-200 hover:border-rose-400 transition cursor-pointer shadow-2xs">
+        <span class="font-bold text-rose-700">4. Insufficient Info Refusal</span>
+        <p class="text-xs font-semibold text-slate-500 truncate mt-0.5">How do I calibrate optical laser scanner?</p>
       </button>
-      <button onclick="loadQuery('and what if that doesn\'t fix it?'); closeSidebarOnMobile();" class="w-full text-left p-2 rounded bg-slate-800 hover:bg-slate-700 text-xs border border-slate-700 transition">
-        <span class="font-semibold text-emerald-400">5. Conversational Follow-Up</span>
-        <p class="text-[11px] text-slate-400 truncate">and what if that doesn't fix it?</p>
+      <button onclick="loadQuery('and what if that doesn\'t fix it?'); closeSidebarOnMobile();" class="w-full text-left p-2.5 rounded-xl bg-slate-50 hover:bg-emerald-50 text-xs sm:text-sm border border-slate-200 hover:border-emerald-400 transition cursor-pointer shadow-2xs">
+        <span class="font-bold text-emerald-700">5. Conversational Follow-Up</span>
+        <p class="text-xs font-semibold text-slate-500 truncate mt-0.5">and what if that doesn't fix it?</p>
       </button>
     </div>
   </aside>
 
   <!-- Main Content Area -->
-  <main class="flex-1 flex flex-col h-full overflow-hidden bg-slate-50 min-w-0">
+  <main class="flex-1 flex flex-col h-full overflow-hidden bg-[#f8fafc] min-w-0">
     <!-- Top Bar -->
-    <header class="bg-white border-b border-slate-200 px-3 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between shadow-xs shrink-0">
-      <div class="flex items-center space-x-2 sm:space-x-3 min-w-0">
-        <!-- Mobile Drawer Toggle -->
-        <button onclick="toggleSidebar()" aria-label="Open Telemetry" class="md:hidden p-1.5 sm:p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 active:scale-95 transition shrink-0">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+    <header class="bg-white/95 backdrop-blur-md border-b border-slate-200/90 px-3.5 sm:px-6 py-3 sm:py-3.5 flex items-center justify-between shadow-xs shrink-0">
+      <div class="flex items-center space-x-2.5 sm:space-x-4 min-w-0">
+        <!-- Corner Menu Button (Three Lines / Hamburger) on Top-Left Corner -->
+        <button onclick="toggleSidebar()" id="sidebar-toggle-btn" title="Open Navigation & Telemetry Menu" aria-label="Open Navigation & Telemetry Menu" 
+                class="p-2 sm:px-3.5 sm:py-2 rounded-xl bg-black hover:bg-neutral-800 text-white active:scale-95 transition flex items-center justify-center gap-2 shrink-0 shadow-sm cursor-pointer group border border-neutral-900">
+          <svg class="w-5 h-5 text-white group-hover:text-violet-300 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+          <span class="text-xs sm:text-sm font-extrabold text-white group-hover:text-violet-300 hidden sm:inline tracking-wide">Menu</span>
         </button>
         <div class="min-w-0">
-          <h2 class="text-sm sm:text-base font-bold text-slate-900 leading-tight truncate">Factory Floor Diagnostic Assistant</h2>
-          <p class="text-[11px] sm:text-xs text-slate-500 hidden sm:block">Cross-Document Disambiguation • Dual-Layer Hallucination Control • Sourced Citations</p>
+          <h2 class="text-base sm:text-lg font-black text-slate-950 leading-tight truncate tracking-tight">Factory Floor Diagnostic Assistant</h2>
+          <p class="text-xs font-bold text-slate-500 hidden sm:block">Cross-Document Disambiguation • Dual-Layer Hallucination Control • Sourced Citations</p>
         </div>
       </div>
-      <div class="flex items-center space-x-1.5 sm:space-x-2 shrink-0">
+      <div class="flex items-center space-x-2 shrink-0">
         <!-- Default Mode Switcher -->
-        <div class="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
-          <button id="pref-worker-btn" onclick="setPreferredView('worker')" title="Set default to Simple Worker View" class="px-2 py-1 rounded font-bold text-[10px] sm:text-xs bg-white text-emerald-800 shadow-2xs transition">
+        <div class="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner">
+          <button id="pref-worker-btn" onclick="setPreferredView('worker')" title="Set default to Simple Worker View" class="px-2.5 sm:px-3 py-1.5 rounded-lg font-extrabold text-xs bg-violet-600 text-white shadow-md shadow-violet-600/30 transition">
             👷 Simple
           </button>
-          <button id="pref-tech-btn" onclick="setPreferredView('tech')" title="Set default to Deep Technical View" class="px-2 py-1 rounded font-bold text-[10px] sm:text-xs text-slate-600 hover:text-slate-900 transition">
+          <button id="pref-tech-btn" onclick="setPreferredView('tech')" title="Set default to Deep Technical View" class="px-2.5 sm:px-3 py-1.5 rounded-lg font-extrabold text-xs text-slate-600 hover:text-slate-950 transition">
             🔬 Technical
           </button>
         </div>
-        <button onclick="resetSession()" title="Reset Session" class="p-1.5 sm:px-2.5 sm:py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs flex items-center space-x-1 border border-slate-200 transition">
+        <button onclick="resetSession()" title="Reset Session" class="px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold text-xs flex items-center space-x-1.5 border border-slate-200 transition shadow-2xs cursor-pointer">
           <span>🔄</span> <span class="hidden sm:inline">Reset</span>
         </button>
-        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-300">
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1 sm:mr-1.5 animate-pulse"></span>
+        <!-- Switch Role Button -->
+        <button onclick="openRoleGateway()" title="Switch between Operator and Admin" class="px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold text-xs border border-slate-200 transition flex items-center space-x-1.5 shadow-2xs cursor-pointer">
+          <span>⇄</span> <span class="hidden sm:inline">Switch Role</span>
+        </button>
+        <!-- Admin Portal Link -->
+        <a href="/admin" title="Open Company Admin Portal" class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 hover:from-violet-500 hover:to-purple-500 text-white font-extrabold text-xs transition flex items-center space-x-1.5 shadow-md shadow-violet-600/25 border border-violet-400/30">
+          <span>🛡️</span> <span class="hidden sm:inline">Admin Portal</span>
+        </a>
+        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>
           <span>Online</span>
         </span>
       </div>
     </header>
 
-    <!-- Quick Action Scenario Pills (Touch-Friendly Horizontal Carousel) -->
-    <div class="bg-slate-100/95 border-b border-slate-200 px-3 py-1.5 overflow-x-auto whitespace-nowrap flex items-center space-x-2 shrink-0 scrollbar-none text-xs">
-      <button onclick="openUploadModal()" class="inline-flex items-center px-2.5 py-1 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-medium text-[11px] sm:text-xs transition active:scale-95 shrink-0 shadow-2xs">
-        <span>📤</span> <span class="ml-1 font-semibold">Upload Manual</span>
-      </button>
-      <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider hidden sm:inline mr-1">Quick:</span>
-      <button onclick="loadQuery('What does error E101 mean on ApexCNC UltraMill 500?')" class="inline-flex items-center px-2.5 py-1 rounded-full bg-white hover:bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs font-medium text-[11px] sm:text-xs transition active:scale-95 shrink-0">
+    <!-- Quick Action Scenario Pills (Touch-Friendly Horizontal Carousel with Pure Black Pills on Clean White Background) -->
+    <div class="bg-white border-b border-slate-200/90 px-3 sm:px-5 py-2.5 overflow-x-auto whitespace-nowrap flex items-center space-x-2 shrink-0 scrollbar-none">
+      <span class="text-xs font-black uppercase text-violet-700 tracking-wider hidden sm:inline mr-1">Quick:</span>
+      <button onclick="loadQuery('What does error E101 mean on ApexCNC UltraMill 500?')" class="inline-flex items-center px-4 py-2 rounded-full bg-black hover:bg-neutral-800 text-white border border-neutral-900 shadow-sm font-extrabold text-xs sm:text-sm transition hover:scale-105 active:scale-95 shrink-0">
         ⚙️ E101 (ApexCNC)
       </button>
-      <button onclick="loadQuery('Why is ThermaPress Pro 2000 overheating?')" class="inline-flex items-center px-2.5 py-1 rounded-full bg-white hover:bg-amber-50 text-amber-700 border border-amber-200 shadow-2xs font-medium text-[11px] sm:text-xs transition active:scale-95 shrink-0">
+      <button onclick="loadQuery('Why is ThermaPress Pro 2000 overheating?')" class="inline-flex items-center px-4 py-2 rounded-full bg-black hover:bg-neutral-800 text-white border border-neutral-900 shadow-sm font-extrabold text-xs sm:text-sm transition hover:scale-105 active:scale-95 shrink-0">
         🌡️ Overheating
       </button>
-      <button onclick="loadQuery('What does error E101 mean?')" class="inline-flex items-center px-2.5 py-1 rounded-full bg-white hover:bg-purple-50 text-purple-700 border border-purple-200 shadow-2xs font-medium text-[11px] sm:text-xs transition active:scale-95 shrink-0">
+      <button onclick="loadQuery('What does error E101 mean?')" class="inline-flex items-center px-4 py-2 rounded-full bg-black hover:bg-neutral-800 text-white border border-neutral-900 shadow-sm font-extrabold text-xs sm:text-sm transition hover:scale-105 active:scale-95 shrink-0">
         ⚠️ Ambiguous E101
       </button>
-      <button onclick="loadQuery('What is an air blower?')" class="inline-flex items-center px-2.5 py-1 rounded-full bg-white hover:bg-teal-50 text-teal-700 border border-teal-200 shadow-2xs font-medium text-[11px] sm:text-xs transition active:scale-95 shrink-0">
+      <button onclick="loadQuery('What is an air blower?')" class="inline-flex items-center px-4 py-2 rounded-full bg-black hover:bg-neutral-800 text-white border border-neutral-900 shadow-sm font-extrabold text-xs sm:text-sm transition hover:scale-105 active:scale-95 shrink-0">
         💡 Air Blower
       </button>
-      <button onclick="loadQuery('What is a DC motor and how does it work?')" class="inline-flex items-center px-2.5 py-1 rounded-full bg-white hover:bg-cyan-50 text-cyan-700 border border-cyan-200 shadow-2xs font-medium text-[11px] sm:text-xs transition active:scale-95 shrink-0">
+      <button onclick="loadQuery('What is a DC motor and how does it work?')" class="inline-flex items-center px-4 py-2 rounded-full bg-black hover:bg-neutral-800 text-white border border-neutral-900 shadow-sm font-extrabold text-xs sm:text-sm transition hover:scale-105 active:scale-95 shrink-0">
         ⚡ DC Motor
       </button>
-      <button onclick="loadQuery('A student wires a Linear Voltage Regulator into a breadboard circuit and, wanting a bit more output \'headroom,\' feeds it a much higher input voltage than the circuit needs. After a few minutes of operation, the regulator becomes noticeably hot to the touch. What did the student do wrong, and what does the manual say to avoid this?')" class="inline-flex items-center px-2.5 py-1 rounded-full bg-white hover:bg-amber-50 text-amber-700 border border-amber-200 shadow-2xs font-medium text-[11px] sm:text-xs transition active:scale-95 shrink-0">
+      <button onclick="loadQuery('A student wires a Linear Voltage Regulator into a breadboard circuit and, wanting a bit more output \'headroom,\' feeds it a much higher input voltage than the circuit needs. After a few minutes of operation, the regulator becomes noticeably hot to the touch. What did the student do wrong, and what does the manual say to avoid this?')" class="inline-flex items-center px-4 py-2 rounded-full bg-black hover:bg-neutral-800 text-white border border-neutral-900 shadow-sm font-extrabold text-xs sm:text-sm transition hover:scale-105 active:scale-95 shrink-0">
         🔌 Voltage Regulator
       </button>
-      <button onclick="loadQuery('How do I calibrate the optical laser scanner?')" class="inline-flex items-center px-2.5 py-1 rounded-full bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 shadow-2xs font-medium text-[11px] sm:text-xs transition active:scale-95 shrink-0">
+      <button onclick="loadQuery('How do I calibrate the optical laser scanner?')" class="inline-flex items-center px-4 py-2 rounded-full bg-black hover:bg-neutral-800 text-white border border-neutral-900 shadow-sm font-extrabold text-xs sm:text-sm transition hover:scale-105 active:scale-95 shrink-0">
         🚫 Laser Refusal
       </button>
-      <button onclick="loadQuery('and what if that doesn\'t fix it?')" class="inline-flex items-center px-2.5 py-1 rounded-full bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs font-medium text-[11px] sm:text-xs transition active:scale-95 shrink-0">
+      <button onclick="loadQuery('and what if that doesn\'t fix it?')" class="inline-flex items-center px-4 py-2 rounded-full bg-black hover:bg-neutral-800 text-white border border-neutral-900 shadow-sm font-extrabold text-xs sm:text-sm transition hover:scale-105 active:scale-95 shrink-0">
         💬 Follow-Up
       </button>
     </div>
 
     <!-- Chat Message Container -->
-    <div id="chat-box" class="flex-1 overflow-y-auto p-3 sm:p-6 space-y-3 sm:space-y-4">
-      <div class="flex space-x-2.5 sm:space-x-3 max-w-full sm:max-w-3xl">
-        <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">🤖</div>
-        <div class="bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-xs text-xs sm:text-sm space-y-1.5 flex-1 min-w-0">
-          <p class="font-medium text-slate-900">Welcome to the Factory Floor Diagnostic Assistant.</p>
-          <p class="text-slate-600">Type an error code (e.g. <code>E101</code>), describe machine symptoms, or tap any quick scenario chip above.</p>
+    <div id="chat-box" class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-5 bg-[#f8fafc]">
+      <div class="flex space-x-3 sm:space-x-4 max-w-full sm:max-w-3xl">
+        <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-violet-600 via-purple-600 to-indigo-600 text-white flex items-center justify-center font-black text-base shrink-0 mt-0.5 shadow-md shadow-violet-600/30 border border-violet-400/30">🤖</div>
+        <div class="bg-white p-4 sm:p-5 rounded-2xl border-2 border-slate-200 shadow-sm space-y-2 flex-1 min-w-0">
+          <h3 class="font-black text-slate-950 text-base sm:text-lg tracking-tight">Welcome to the Factory Floor Diagnostic Assistant</h3>
+          <p class="text-slate-600 font-bold text-sm sm:text-base leading-relaxed">
+            Type an error code (e.g. <code class="px-2 py-0.5 rounded-md bg-slate-100 text-violet-700 font-mono font-black border border-slate-200">E101</code>), describe machine symptoms, or tap any quick scenario chip above.
+          </p>
         </div>
       </div>
     </div>
 
     <!-- Input Footer with iOS Safe-Area support -->
-    <footer class="bg-white border-t border-slate-200 p-2.5 sm:p-4 pb-[max(0.65rem,env(safe-area-inset-bottom))] shrink-0">
-      <form id="chat-form" onsubmit="submitQuery(event)" class="max-w-4xl mx-auto flex space-x-2 sm:space-x-3">
-        <input id="query-input" type="text" placeholder="Ask error code, symptom, or corrective step..." 
-               class="flex-1 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base sm:text-sm min-w-0" />
-        <button type="submit" id="submit-btn" class="px-3.5 sm:px-5 py-2 sm:py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg text-xs sm:text-sm transition flex items-center space-x-1 shadow-xs shrink-0 active:scale-95">
+    <footer class="bg-white/95 backdrop-blur-md border-t border-slate-200/90 p-3 sm:p-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] shrink-0 shadow-lg">
+      <form id="chat-form" onsubmit="submitQuery(event)" class="max-w-4xl mx-auto flex space-x-2.5 sm:space-x-3">
+        <input id="query-input" type="text" placeholder="Ask error code, machine symptom, or corrective step..." 
+               class="flex-1 px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl border-2 border-slate-300 focus:outline-none focus:border-violet-600 focus:bg-white bg-slate-50 text-slate-900 font-bold text-sm sm:text-base min-w-0 shadow-inner placeholder-slate-400 transition" />
+        <button type="submit" id="submit-btn" class="px-5 sm:px-7 py-3 sm:py-3.5 bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 hover:from-violet-500 hover:to-purple-500 text-white font-black rounded-xl text-sm sm:text-base transition flex items-center space-x-2 shadow-lg shadow-violet-600/30 shrink-0 active:scale-95 cursor-pointer tracking-wide border border-violet-400/30">
           <span>Send</span>
-          <span class="hidden sm:inline">🚀</span>
+          <span class="text-base">🚀</span>
         </button>
       </form>
     </footer>
@@ -249,7 +331,7 @@
         if (res.ok) {
           const data = await res.json();
           document.getElementById('api-status').innerText = 'ONLINE';
-          document.getElementById('api-status').className = 'px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/40';
+          document.getElementById('api-status').className = 'px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-black border border-emerald-300 text-xs';
           if (data.total_chunks) document.getElementById('total-chunks').innerText = data.total_chunks + ' Chunks';
         }
       } catch (e) {
@@ -276,10 +358,10 @@
       const chatBox = document.getElementById('chat-box');
       chatBox.innerHTML = `
         <div class="flex space-x-3 max-w-3xl">
-          <div class="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0">🤖</div>
-          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-sm space-y-2">
-            <p class="font-medium text-slate-900">Session reset. Context cleared.</p>
-            <p class="text-slate-600">You can start a fresh query.</p>
+          <div class="w-9 h-9 rounded-2xl bg-gradient-to-tr from-violet-600 via-purple-600 to-indigo-600 text-white flex items-center justify-center font-black text-xs shrink-0 shadow-md">🤖</div>
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs text-sm space-y-2">
+            <p class="font-extrabold text-slate-950">Session reset. Context cleared.</p>
+            <p class="text-slate-600 font-bold">You can start a fresh query.</p>
           </div>
         </div>
       `;
@@ -297,14 +379,21 @@
       }
     }
 
-    function closeSidebarOnMobile() {
-      if (window.innerWidth < 768) {
-        const sb = document.getElementById('sidebar');
-        const bd = document.getElementById('sidebar-backdrop');
-        if (sb) sb.classList.add('-translate-x-full');
-        if (bd) bd.classList.add('hidden');
-      }
+    function closeSidebar() {
+      const sb = document.getElementById('sidebar');
+      const bd = document.getElementById('sidebar-backdrop');
+      if (sb) sb.classList.add('-translate-x-full');
+      if (bd) bd.classList.add('hidden');
     }
+
+    const closeSidebarOnMobile = closeSidebar; // alias for backwards compatibility
+
+    // Close drawer when user presses Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeSidebar();
+      }
+    });
 
     function loadQuery(q) {
       document.getElementById('query-input').value = q;
@@ -320,22 +409,23 @@
       input.value = '';
       const chatBox = document.getElementById('chat-box');
 
-      // Append User message (Responsive)
+      // Append User message (Electric violet gradient with glowing purple shadow)
       chatBox.innerHTML += `
-        <div class="flex space-x-2.5 sm:space-x-3 max-w-full sm:max-w-3xl justify-end ml-auto">
-          <div class="bg-blue-600 text-white p-2.5 sm:p-3 rounded-xl shadow-xs text-xs sm:text-sm max-w-[85%] sm:max-w-xl break-words">
+        <div class="flex space-x-3 max-w-full sm:max-w-3xl justify-end ml-auto">
+          <div class="bg-gradient-to-r from-violet-700 via-purple-700 to-indigo-700 text-white px-4 sm:px-5 py-3 sm:py-3.5 rounded-2xl shadow-md shadow-violet-600/25 border border-violet-400/30 text-sm sm:text-base font-bold max-w-[85%] sm:max-w-xl break-words tracking-normal leading-relaxed">
             ${escapeHtml(query)}
           </div>
         </div>
       `;
 
-      // Loading bubble (Responsive)
+      // Loading bubble
       const loadingId = 'loading-' + Date.now();
       chatBox.innerHTML += `
-        <div id="${loadingId}" class="flex space-x-2.5 sm:space-x-3 max-w-full sm:max-w-3xl">
-          <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">🤖</div>
-          <div class="bg-white p-2.5 sm:p-3 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-500 animate-pulse">
-            Retrieving manuals and verifying citations...
+        <div id="${loadingId}" class="flex space-x-3 max-w-full sm:max-w-3xl">
+          <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-violet-600 via-purple-600 to-indigo-600 text-white flex items-center justify-center font-black text-sm shrink-0 mt-0.5 shadow-md shadow-violet-600/30 border border-violet-400/30">🤖</div>
+          <div class="bg-white px-4 py-3 rounded-2xl border border-slate-200 shadow-sm text-sm font-bold text-slate-700 animate-pulse flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-violet-600 animate-ping"></span>
+            <span>Retrieving technical manuals and verifying citations...</span>
           </div>
         </div>
       `;
@@ -344,9 +434,7 @@
       try {
         const queryPayload = {
           query: query,
-          session_id: sessionId,
-          session_machine: activeMachine || null,
-          session_code: activeCode || null
+          session_id: sessionId
         };
         if (window.uploadedCustomManual) {
           queryPayload.custom_manual = window.uploadedCustomManual;
@@ -365,12 +453,12 @@
           const d = await res.json();
           renderAssistantResponse(d);
         } else {
-          chatBox.innerHTML += `<div class="p-3 bg-red-100 text-red-700 rounded-lg text-xs sm:text-sm">Error: ${res.statusText}</div>`;
+          chatBox.innerHTML += `<div class="p-3 bg-rose-50 border border-rose-300 text-rose-800 rounded-xl text-xs sm:text-sm font-bold">Error: ${res.statusText}</div>`;
         }
       } catch (err) {
         const loadingElem = document.getElementById(loadingId);
         if (loadingElem) loadingElem.remove();
-        chatBox.innerHTML += `<div class="p-3 bg-red-100 text-red-700 rounded-lg text-xs sm:text-sm">Connection error: ${err.message}</div>`;
+        chatBox.innerHTML += `<div class="p-3 bg-rose-50 border border-rose-300 text-rose-800 rounded-xl text-xs sm:text-sm font-bold">Connection error: ${err.message}</div>`;
       }
       chatBox.scrollTop = chatBox.scrollHeight;
     }
@@ -384,11 +472,11 @@
       const techBtn = document.getElementById('pref-tech-btn');
       if (workerBtn && techBtn) {
         if (view === 'worker') {
-          workerBtn.className = "px-2 py-1 rounded font-bold text-[10px] sm:text-xs bg-white text-emerald-800 shadow-2xs transition";
-          techBtn.className = "px-2 py-1 rounded font-bold text-[10px] sm:text-xs text-slate-600 hover:text-slate-900 transition";
+          workerBtn.className = "px-2.5 sm:px-3 py-1.5 rounded-lg font-extrabold text-xs bg-violet-600 text-white shadow-md shadow-violet-600/30 transition";
+          techBtn.className = "px-2.5 sm:px-3 py-1.5 rounded-lg font-extrabold text-xs text-slate-600 hover:text-slate-950 transition";
         } else {
-          techBtn.className = "px-2 py-1 rounded font-bold text-[10px] sm:text-xs bg-white text-indigo-900 shadow-2xs transition";
-          workerBtn.className = "px-2 py-1 rounded font-bold text-[10px] sm:text-xs text-slate-600 hover:text-slate-900 transition";
+          techBtn.className = "px-2.5 sm:px-3 py-1.5 rounded-lg font-extrabold text-xs bg-violet-600 text-white shadow-md shadow-violet-600/30 transition";
+          workerBtn.className = "px-2.5 sm:px-3 py-1.5 rounded-lg font-extrabold text-xs text-slate-600 hover:text-slate-950 transition";
         }
       }
       document.querySelectorAll('[id^="tab-worker-"]').forEach(btn => {
@@ -405,13 +493,13 @@
       if (!workerTab || !techTab || !workerView || !techView) return;
 
       if (view === 'worker') {
-        workerTab.className = "flex-1 sm:flex-none px-3 py-1.5 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-1.5 bg-white text-emerald-800 shadow-xs border border-emerald-200/60";
-        techTab.className = "flex-1 sm:flex-none px-3 py-1.5 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-1.5 text-slate-600 hover:text-slate-900 border border-transparent";
+        workerTab.className = "flex-1 sm:flex-none px-3.5 py-2 rounded-xl font-black text-xs sm:text-sm transition-all flex items-center justify-center gap-2 bg-violet-600 text-white shadow-md shadow-violet-600/30 border-2 border-violet-500";
+        techTab.className = "flex-1 sm:flex-none px-3.5 py-2 rounded-xl font-black text-xs sm:text-sm transition-all flex items-center justify-center gap-2 text-slate-600 hover:text-slate-950 border-2 border-transparent";
         workerView.classList.remove('hidden');
         techView.classList.add('hidden');
       } else {
-        techTab.className = "flex-1 sm:flex-none px-3 py-1.5 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-1.5 bg-white text-indigo-900 shadow-xs border border-indigo-200/60";
-        workerTab.className = "flex-1 sm:flex-none px-3 py-1.5 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-1.5 text-slate-600 hover:text-slate-900 border border-transparent";
+        techTab.className = "flex-1 sm:flex-none px-3.5 py-2 rounded-xl font-black text-xs sm:text-sm transition-all flex items-center justify-center gap-2 bg-violet-600 text-white shadow-md shadow-violet-600/30 border-2 border-violet-500";
+        workerTab.className = "flex-1 sm:flex-none px-3.5 py-2 rounded-xl font-black text-xs sm:text-sm transition-all flex items-center justify-center gap-2 text-slate-600 hover:text-slate-950 border-2 border-transparent";
         techView.classList.remove('hidden');
         workerView.classList.add('hidden');
       }
@@ -433,36 +521,37 @@
       let statusBadge = '';
       if (d.status === 'SUCCESS') {
         if (d.citations && d.citations.length > 0) {
-          statusBadge = '<span class="px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 inline-flex items-center gap-1 shadow-2xs">✓ VERIFIED CITATION</span>';
+          statusBadge = '<span class="px-3 py-1 rounded-full text-xs sm:text-sm font-black bg-violet-100 text-violet-800 border border-violet-300 inline-flex items-center gap-1.5 shadow-2xs">✓ VERIFIED CITATION</span>';
         } else {
-          statusBadge = '<span class="px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-bold bg-blue-100 text-blue-800 border border-blue-300 inline-flex items-center gap-1 shadow-2xs">🤖 AI ASSISTANT</span>';
+          statusBadge = '<span class="px-3 py-1 rounded-full text-xs sm:text-sm font-black bg-purple-100 text-purple-800 border border-purple-300 inline-flex items-center gap-1.5 shadow-2xs">🤖 AI ASSISTANT</span>';
         }
       } else if (d.status === 'AMBIGUOUS_DISCLOSED') {
-        statusBadge = '<span class="px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 inline-flex items-center gap-1 shadow-2xs">⚠ AMBIGUOUS CODE</span>';
+        statusBadge = '<span class="px-3 py-1 rounded-full text-xs sm:text-sm font-black bg-amber-100 text-amber-900 border border-amber-300 inline-flex items-center gap-1.5 shadow-2xs">⚠ AMBIGUOUS CODE</span>';
       } else {
-        statusBadge = '<span class="px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300 inline-flex items-center gap-1 shadow-2xs">✕ REFUSED (INSUFFICIENT)</span>';
+        statusBadge = '<span class="px-3 py-1 rounded-full text-xs sm:text-sm font-black bg-rose-100 text-rose-900 border border-rose-300 inline-flex items-center gap-1.5 shadow-2xs">✕ REFUSED (INSUFFICIENT)</span>';
       }
 
       const hasDualViews = Boolean(d.simple_worker_view && d.deep_technical_view && (d.simple_worker_view.title || d.deep_technical_view.title));
 
-      // Verified Citations Component
+      // Verified Citations Component (Clean card with Electric Violet left border)
       let citationsHtml = '';
       if (d.citations && d.citations.length > 0) {
         citationsHtml = `
-          <div class="mt-3.5 pt-3 border-t border-slate-200">
-            <h4 class="font-bold text-slate-600 text-[10px] sm:text-[11px] uppercase tracking-wider mb-2 flex items-center gap-1.5">
-              <span>📖</span> Verified Technical Manual Citations:
+          <div class="mt-4 pt-3.5 border-t border-slate-200">
+            <h4 class="font-black text-slate-800 text-xs sm:text-sm uppercase tracking-wider mb-2.5 flex items-center gap-2">
+              <span class="text-base">📖</span> <span>Verified Technical Manual Citations:</span>
             </h4>
-            <div class="space-y-2">
+            <div class="space-y-2.5">
               ${d.citations.map(c => `
-                <div class="bg-slate-50 border border-slate-200 border-l-4 border-l-blue-600 p-2.5 sm:p-3 rounded-lg text-xs break-words">
-                  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] sm:text-xs">
-                    <span class="font-bold text-blue-900 break-words">
+                <div class="bg-slate-50 border-2 border-slate-200 border-l-4 border-l-violet-600 p-3.5 sm:p-4 rounded-xl text-xs sm:text-sm break-words shadow-xs">
+                  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 text-xs sm:text-sm">
+                    <span class="font-extrabold text-violet-800 break-words">
                       📘 ${escapeHtml(c.manual_name || c.doc_name || 'Machine Manual')} — ${escapeHtml(c.section)} (Page ${c.page})
+                      ${c.brand ? `<span class="font-bold text-slate-600 text-xs block sm:inline sm:ml-1.5">[${escapeHtml(c.brand)} • Mod: ${escapeHtml(c.model_no || 'N/A')} • Yr: ${escapeHtml(c.year_of_manufacture || 'N/A')}]</span>` : ''}
                     </span>
-                    <span class="text-emerald-700 font-bold shrink-0 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-[10px] sm:text-[11px]">Verified ✓</span>
+                    <span class="text-violet-800 font-black shrink-0 bg-violet-100 px-2.5 py-0.5 rounded-full border border-violet-300 text-xs">Verified ✓</span>
                   </div>
-                  <div class="mt-2 italic text-slate-700 bg-white p-2.5 rounded border border-slate-100 text-[11px] sm:text-xs break-words leading-relaxed">
+                  <div class="mt-2 italic text-slate-800 bg-white p-3 rounded-lg border border-slate-200 font-semibold text-xs sm:text-sm break-words leading-relaxed shadow-2xs">
                     "${escapeHtml(c.supporting_quote)}"
                   </div>
                 </div>
@@ -481,14 +570,14 @@
 
         // 1. Dual View Switcher Buttons
         const switcherHtml = `
-          <div class="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 w-full sm:w-fit mb-3">
+          <div class="flex items-center bg-slate-100 p-1.5 rounded-2xl border border-slate-200 w-full sm:w-fit mb-3.5 shadow-xs">
             <button id="tab-worker-${msgId}" onclick="switchMsgView('${msgId}', 'worker')" 
-                    class="flex-1 sm:flex-none px-3 py-1.5 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-1.5 ${isWorkerActive ? 'bg-white text-emerald-800 shadow-xs border border-emerald-200/60' : 'text-slate-600 hover:text-slate-900 border border-transparent'}">
-              <span>👷</span> <span>Worker View (Simple)</span>
+                    class="flex-1 sm:flex-none px-3.5 py-2 rounded-xl font-black text-xs sm:text-sm transition-all flex items-center justify-center gap-2 ${isWorkerActive ? 'bg-violet-600 text-white shadow-md shadow-violet-600/30 border-2 border-violet-500' : 'text-slate-600 hover:text-slate-950 border-2 border-transparent'}">
+              <span class="text-base">👷</span> <span>Worker View (Simple)</span>
             </button>
             <button id="tab-tech-${msgId}" onclick="switchMsgView('${msgId}', 'tech')" 
-                    class="flex-1 sm:flex-none px-3 py-1.5 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-1.5 ${!isWorkerActive ? 'bg-white text-indigo-900 shadow-xs border border-indigo-200/60' : 'text-slate-600 hover:text-slate-900 border border-transparent'}">
-              <span>🔬</span> <span>Technical View (Deep)</span>
+                    class="flex-1 sm:flex-none px-3.5 py-2 rounded-xl font-black text-xs sm:text-sm transition-all flex items-center justify-center gap-2 ${!isWorkerActive ? 'bg-violet-600 text-white shadow-md shadow-violet-600/30 border-2 border-violet-500' : 'text-slate-600 hover:text-slate-950 border-2 border-transparent'}">
+              <span class="text-base">🔬</span> <span>Technical View (Deep)</span>
             </button>
           </div>
         `;
@@ -497,22 +586,22 @@
         let workerStepsHtml = '';
         if (w.steps && w.steps.length > 0) {
           workerStepsHtml = `
-            <div class="mt-3">
-              <h4 class="font-extrabold text-emerald-950 text-xs uppercase tracking-wider flex items-center gap-1.5 mb-2">
-                <span>🛠️</span> Step-by-Step Instructions:
+            <div class="mt-3.5">
+              <h4 class="font-black text-slate-950 text-xs sm:text-sm uppercase tracking-wider flex items-center gap-2 mb-2.5">
+                <span class="text-base">🛠️</span> <span>Step-by-Step Instructions:</span>
               </h4>
-              <div class="space-y-2">
+              <div class="space-y-2.5">
                 ${w.steps.map((s, idx) => {
                   let num = idx + 1;
                   let txt = s;
                   const m = s.match(/^Step\s*(\d+)[:.]?\s*(.*)$/i);
                   if (m) { num = m[1]; txt = m[2]; }
                   return `
-                    <div class="flex items-start gap-2.5 sm:gap-3 p-3 bg-emerald-50/50 border-2 border-emerald-200 hover:border-emerald-400 rounded-xl transition shadow-2xs">
-                      <div class="w-7 h-7 rounded-lg bg-emerald-600 text-white font-extrabold text-xs flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                    <div class="flex items-start gap-3 sm:gap-3.5 p-3.5 sm:p-4 bg-slate-50 border-2 border-slate-200/90 hover:border-violet-400 rounded-xl transition shadow-xs group">
+                      <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 text-white font-black text-sm sm:text-base flex items-center justify-center shrink-0 mt-0.5 shadow-md shadow-violet-600/30">
                         ${num}
                       </div>
-                      <div class="text-xs sm:text-sm text-slate-900 leading-relaxed font-medium break-words flex-1">
+                      <div class="text-sm sm:text-base text-slate-900 leading-relaxed font-bold break-words flex-1">
                         ${escapeHtml(txt)}
                       </div>
                     </div>
@@ -526,15 +615,15 @@
         let workerWhyHtml = '';
         if (w.why_it_happened && w.why_it_happened.length > 0) {
           workerWhyHtml = `
-            <div class="mt-2.5">
-              <h5 class="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
-                <span>❓</span> Why This Happened (Simple Explanation):
+            <div class="mt-3">
+              <h5 class="font-extrabold text-slate-800 text-xs sm:text-sm uppercase tracking-wider flex items-center gap-2 mb-2">
+                <span class="text-base">❓</span> <span>Why This Happened (Simple Explanation):</span>
               </h5>
-              <div class="space-y-1">
+              <div class="space-y-1.5">
                 ${w.why_it_happened.map(c => `
-                  <div class="flex items-start gap-2 p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 font-medium">
-                    <span class="text-amber-500 font-bold">•</span>
-                    <span>${escapeHtml(c)}</span>
+                  <div class="flex items-start gap-2.5 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 font-bold">
+                    <span class="text-violet-600 font-black text-base leading-none">•</span>
+                    <span class="leading-relaxed">${escapeHtml(c)}</span>
                   </div>
                 `).join('')}
               </div>
@@ -545,13 +634,13 @@
         let workerAppHtml = '';
         if (w.applications && w.applications.length > 0) {
           workerAppHtml = `
-            <div class="mt-2.5">
-              <h5 class="font-bold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
-                <span>📍</span> Common Uses on the Shop Floor:
+            <div class="mt-3">
+              <h5 class="font-extrabold text-slate-800 text-xs sm:text-sm uppercase tracking-wider flex items-center gap-2 mb-2">
+                <span class="text-base">📍</span> <span>Common Uses on the Shop Floor:</span>
               </h5>
-              <div class="flex flex-wrap gap-1.5">
+              <div class="flex flex-wrap gap-2">
                 ${w.applications.map(a => `
-                  <span class="px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-200 text-blue-900 text-xs font-medium">
+                  <span class="px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200 hover:border-violet-400 text-violet-800 text-xs sm:text-sm font-extrabold shadow-2xs">
                     • ${escapeHtml(a)}
                   </span>
                 `).join('')}
@@ -561,29 +650,29 @@
         }
 
         const workerViewHtml = `
-          <div id="view-worker-${msgId}" class="space-y-3 ${isWorkerActive ? '' : 'hidden'}">
-            <div class="p-3 sm:p-3.5 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl text-xs sm:text-sm space-y-2">
-              <div class="font-bold text-emerald-900 text-xs uppercase tracking-wide flex items-center justify-between">
-                <span class="flex items-center gap-1.5"><span>👷</span> <span>${escapeHtml(w.title || 'Simple Worker Guide')}</span></span>
-                <span class="px-2 py-0.5 rounded bg-emerald-200/70 text-emerald-900 text-[10px] font-extrabold">Easy / Worker Language</span>
+          <div id="view-worker-${msgId}" class="space-y-3.5 ${isWorkerActive ? '' : 'hidden'}">
+            <div class="p-4 sm:p-5 bg-violet-50/70 border-2 border-violet-200/80 rounded-2xl text-sm sm:text-base space-y-3 shadow-xs">
+              <div class="font-black text-violet-900 text-xs sm:text-sm uppercase tracking-wide flex items-center justify-between">
+                <span class="flex items-center gap-2"><span class="text-base">👷</span> <span>${escapeHtml(w.title || 'Simple Worker Guide')}</span></span>
+                <span class="px-2.5 py-1 rounded-full bg-violet-100 text-violet-800 text-xs font-black border border-violet-300">Easy / Worker Language</span>
               </div>
-              <p class="text-slate-800 font-medium leading-relaxed">${escapeHtml(w.summary || d.error_meaning)}</p>
+              <p class="text-slate-800 font-bold leading-relaxed text-sm sm:text-base">${escapeHtml(w.summary || d.error_meaning)}</p>
               ${w.what_went_wrong ? `
-                <div class="p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-rose-950 text-xs leading-relaxed">
-                  <strong class="font-bold text-rose-900 block mb-0.5">⚠️ What Went Wrong:</strong>
-                  ${escapeHtml(w.what_went_wrong)}
+                <div class="p-3 sm:p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-900 text-xs sm:text-sm leading-relaxed">
+                  <strong class="font-black text-rose-800 block mb-1 text-xs sm:text-sm">⚠️ What Went Wrong:</strong>
+                  <span class="font-bold">${escapeHtml(w.what_went_wrong)}</span>
                 </div>
               ` : ''}
               ${w.what_manual_says_to_avoid ? `
-                <div class="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-amber-950 text-xs leading-relaxed">
-                  <strong class="font-bold text-amber-900 block mb-0.5">📖 What the Manual Says to Avoid:</strong>
-                  ${escapeHtml(w.what_manual_says_to_avoid)}
+                <div class="p-3 sm:p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs sm:text-sm leading-relaxed">
+                  <strong class="font-black text-amber-800 block mb-1 text-xs sm:text-sm">📖 What the Manual Says to Avoid:</strong>
+                  <span class="font-bold">${escapeHtml(w.what_manual_says_to_avoid)}</span>
                 </div>
               ` : ''}
               ${w.how_it_works ? `
-                <div class="p-2.5 bg-blue-50 border border-blue-200 rounded-lg text-blue-950 text-xs leading-relaxed">
-                  <strong class="font-bold text-blue-900 block mb-0.5">💡 How It Works in Simple Terms:</strong>
-                  ${escapeHtml(w.how_it_works)}
+                <div class="p-3 sm:p-3.5 bg-violet-50 border border-violet-200 rounded-xl text-violet-900 text-xs sm:text-sm leading-relaxed">
+                  <strong class="font-black text-violet-800 block mb-1 text-xs sm:text-sm">💡 How It Works in Simple Terms:</strong>
+                  <span class="font-bold">${escapeHtml(w.how_it_works)}</span>
                 </div>
               ` : ''}
             </div>
@@ -593,30 +682,30 @@
             ${workerStepsHtml}
 
             ${w.safety_tip ? `
-              <div class="p-3 bg-red-50 border-2 border-red-500 rounded-xl text-red-950 text-xs flex items-start gap-2.5 shadow-2xs">
-                <span class="text-xl shrink-0">⚠️</span>
+              <div class="p-4 bg-rose-50 border-2 border-rose-300 rounded-2xl text-rose-900 text-xs sm:text-sm flex items-start gap-3 shadow-sm">
+                <span class="text-2xl shrink-0 leading-none">⚠️</span>
                 <div>
-                  <strong class="font-bold text-red-900 uppercase tracking-wide block mb-0.5 text-[11px]">Worker Safety Rule:</strong>
-                  <span class="font-semibold">${escapeHtml(w.safety_tip)}</span>
+                  <strong class="font-black text-rose-800 uppercase tracking-wide block mb-1 text-xs sm:text-sm">Worker Safety Rule:</strong>
+                  <span class="font-extrabold leading-relaxed">${escapeHtml(w.safety_tip)}</span>
                 </div>
               </div>
             ` : ''}
           </div>
         `;
 
-        // 3. Technical View HTML
+        // 3. Technical View HTML (High-Tech Obsidian Card on White Canvas)
         let techSpecsHtml = '';
         if (t.specifications_and_components && t.specifications_and_components.length > 0) {
           techSpecsHtml = `
-            <div class="mt-2.5">
-              <h5 class="font-bold text-slate-700 text-xs uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                <span>📐</span> Technical Specifications & Hardware Architecture:
+            <div class="mt-3">
+              <h5 class="font-black text-slate-200 text-xs sm:text-sm uppercase tracking-wider mb-2 flex items-center gap-2">
+                <span class="text-base">📐</span> <span>Technical Specifications & Hardware Architecture:</span>
               </h5>
-              <div class="space-y-1">
+              <div class="space-y-1.5">
                 ${t.specifications_and_components.map(s => `
-                  <div class="p-2 bg-slate-50 border border-slate-200 rounded-lg font-mono text-xs text-slate-800 flex items-start gap-2">
-                    <span class="text-indigo-600 font-bold">▪</span>
-                    <span>${escapeHtml(s)}</span>
+                  <div class="p-3 bg-[#0d0e17] border border-neutral-800 rounded-xl font-mono text-xs sm:text-sm text-slate-200 flex items-start gap-2.5 font-bold">
+                    <span class="text-violet-400 font-black">▪</span>
+                    <span class="leading-relaxed">${escapeHtml(s)}</span>
                   </div>
                 `).join('')}
               </div>
@@ -627,15 +716,15 @@
         let techCausesHtml = '';
         if (t.root_causes && t.root_causes.length > 0) {
           techCausesHtml = `
-            <div class="mt-2.5">
-              <h5 class="font-bold text-slate-700 text-xs uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                <span>🔬</span> Root Cause Failure Mechanics & Diagnostic Hypotheses:
+            <div class="mt-3">
+              <h5 class="font-black text-slate-200 text-xs sm:text-sm uppercase tracking-wider mb-2 flex items-center gap-2">
+                <span class="text-base">🔬</span> <span>Root Cause Failure Mechanics & Diagnostic Hypotheses:</span>
               </h5>
-              <div class="space-y-1">
+              <div class="space-y-1.5">
                 ${t.root_causes.map(c => `
-                  <div class="p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 flex items-start gap-2 font-medium">
-                    <span class="text-amber-500 font-bold">•</span>
-                    <span>${escapeHtml(c)}</span>
+                  <div class="p-3 bg-[#0d0e17] border border-neutral-800 rounded-xl text-xs sm:text-sm text-slate-200 flex items-start gap-2.5 font-bold">
+                    <span class="text-amber-400 font-black text-base leading-none">•</span>
+                    <span class="leading-relaxed">${escapeHtml(c)}</span>
                   </div>
                 `).join('')}
               </div>
@@ -646,13 +735,13 @@
         let techProceduresHtml = '';
         if (t.engineering_procedures && t.engineering_procedures.length > 0) {
           techProceduresHtml = `
-            <div class="mt-3">
-              <h5 class="font-bold text-slate-700 text-xs uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <span>🛠️</span> Engineering Diagnostic & Operating Procedures:
+            <div class="mt-3.5">
+              <h5 class="font-black text-slate-200 text-xs sm:text-sm uppercase tracking-wider mb-2.5 flex items-center gap-2">
+                <span class="text-base">🛠️</span> <span>Engineering Diagnostic & Operating Procedures:</span>
               </h5>
-              <div class="space-y-1.5">
+              <div class="space-y-2">
                 ${t.engineering_procedures.map(p => `
-                  <div class="p-2.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 leading-relaxed font-mono">
+                  <div class="p-3.5 bg-[#0d0e17] border-2 border-neutral-800 rounded-xl text-xs sm:text-sm text-slate-100 leading-relaxed font-mono font-bold shadow-md">
                     ${escapeHtml(p)}
                   </div>
                 `).join('')}
@@ -662,15 +751,15 @@
         }
 
         const techViewHtml = `
-          <div id="view-tech-${msgId}" class="space-y-3 ${!isWorkerActive ? '' : 'hidden'}">
-            <div class="p-3.5 bg-slate-900 text-slate-100 rounded-xl border border-slate-700 text-xs sm:text-sm leading-relaxed space-y-2.5">
-              <div class="font-bold text-indigo-300 text-xs uppercase tracking-wide flex items-center justify-between">
-                <span class="flex items-center gap-1.5"><span>🔬</span> <span>${escapeHtml(t.title || 'Engineering & Technical Analysis')}</span></span>
-                <span class="px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-700 text-[10px] font-bold">Deep Engineering Mode</span>
+          <div id="view-tech-${msgId}" class="space-y-3.5 ${!isWorkerActive ? '' : 'hidden'}">
+            <div class="p-4 sm:p-5 bg-black text-slate-100 rounded-2xl border-2 border-violet-700/60 text-xs sm:text-sm leading-relaxed space-y-3 shadow-xl">
+              <div class="font-black text-violet-300 text-xs sm:text-sm uppercase tracking-wide flex items-center justify-between">
+                <span class="flex items-center gap-2"><span class="text-base">🔬</span> <span>${escapeHtml(t.title || 'Engineering & Technical Analysis')}</span></span>
+                <span class="px-2.5 py-1 rounded-full bg-violet-950 text-violet-300 border border-violet-700 text-xs font-black">Deep Engineering Mode</span>
               </div>
-              <p class="font-mono text-xs leading-relaxed text-slate-200">${escapeHtml(t.technical_summary || d.error_meaning)}</p>
+              <p class="font-mono text-xs sm:text-sm leading-relaxed text-slate-200 font-bold">${escapeHtml(t.technical_summary || d.error_meaning)}</p>
               ${t.equations ? `
-                <div class="p-2.5 rounded-lg bg-slate-950 border border-indigo-500/50 font-mono text-xs text-indigo-300 font-bold">
+                <div class="p-3 rounded-xl bg-[#0d0e17] border-2 border-violet-500/50 font-mono text-xs sm:text-sm text-violet-300 font-black">
                   📐 Mathematical Model: ${escapeHtml(t.equations)}
                 </div>
               ` : ''}
@@ -681,15 +770,15 @@
             ${techProceduresHtml}
 
             ${t.safety_and_tolerances ? `
-              <div class="p-2.5 bg-rose-50 border border-rose-300 rounded-lg text-rose-950 text-xs">
-                <strong class="font-bold uppercase tracking-wide block mb-0.5">Safety Tolerances & Boundary Constraints:</strong>
-                <span>${escapeHtml(t.safety_and_tolerances)}</span>
+              <div class="p-3.5 bg-rose-950/50 border-2 border-rose-800/80 rounded-xl text-rose-200 text-xs sm:text-sm">
+                <strong class="font-black uppercase tracking-wide block mb-1 text-xs sm:text-sm text-rose-300">Safety Tolerances & Boundary Constraints:</strong>
+                <span class="font-bold leading-relaxed">${escapeHtml(t.safety_and_tolerances)}</span>
               </div>
             ` : ''}
             ${t.escalation_and_spare_parts ? `
-              <div class="p-2.5 bg-amber-50 border border-amber-300 rounded-lg text-amber-950 text-xs">
-                <strong class="font-bold uppercase tracking-wide block mb-0.5">OEM Escalation & Spare Parts:</strong>
-                <span>${escapeHtml(t.escalation_and_spare_parts)}</span>
+              <div class="p-3.5 bg-amber-950/50 border-2 border-amber-800/80 rounded-xl text-amber-200 text-xs sm:text-sm">
+                <strong class="font-black uppercase tracking-wide block mb-1 text-xs sm:text-sm text-amber-300">OEM Escalation & Spare Parts:</strong>
+                <span class="font-bold leading-relaxed">${escapeHtml(t.escalation_and_spare_parts)}</span>
               </div>
             ` : ''}
             ${citationsHtml}
@@ -702,11 +791,11 @@
         let safetyHtml = '';
         if (d.safety_warning) {
           safetyHtml = `
-            <div class="p-3 sm:p-3.5 bg-red-50 border-2 border-red-500 rounded-xl text-red-950 font-medium text-xs sm:text-sm flex items-start gap-2.5 sm:gap-3 shadow-xs">
-              <span class="text-xl sm:text-2xl shrink-0 leading-none">⚠️</span>
+            <div class="p-4 sm:p-4.5 bg-rose-50 border-2 border-rose-300 rounded-2xl text-rose-900 font-bold text-sm sm:text-base flex items-start gap-3 shadow-sm">
+              <span class="text-2xl shrink-0 leading-none">⚠️</span>
               <div class="min-w-0">
-                <strong class="font-extrabold text-red-900 uppercase tracking-wide block text-[11px] sm:text-xs mb-0.5">SAFETY FIRST / LOCKOUT NOTICE:</strong>
-                <div class="leading-relaxed font-semibold">${escapeHtml(d.safety_warning)}</div>
+                <strong class="font-black text-rose-800 uppercase tracking-wide block text-xs sm:text-sm mb-1">SAFETY FIRST / LOCKOUT NOTICE:</strong>
+                <div class="leading-relaxed font-extrabold">${escapeHtml(d.safety_warning)}</div>
               </div>
             </div>
           `;
@@ -715,11 +804,11 @@
         let meaningHtml = '';
         if (d.error_meaning) {
           meaningHtml = `
-            <div class="p-3 sm:p-3.5 bg-blue-50/80 border border-blue-200 text-blue-950 rounded-xl text-xs sm:text-sm leading-relaxed">
-              <strong class="font-bold text-blue-900 flex items-center gap-1.5 mb-1 text-[11px] sm:text-xs uppercase tracking-wide">
+            <div class="p-4 sm:p-4.5 bg-violet-50/70 border-2 border-violet-200 text-violet-950 rounded-2xl text-sm sm:text-base leading-relaxed shadow-xs">
+              <strong class="font-black text-violet-900 flex items-center gap-2 mb-1.5 text-xs sm:text-sm uppercase tracking-wide">
                 <span>🔍</span> Operator Diagnostic Summary:
               </strong>
-              <div class="text-slate-800 font-medium leading-relaxed">${escapeHtml(d.error_meaning)}</div>
+              <div class="text-slate-800 font-bold leading-relaxed">${escapeHtml(d.error_meaning)}</div>
             </div>
           `;
         }
@@ -728,9 +817,9 @@
         if (d.message) {
           const isRefusal = d.status === 'REFUSED_INSUFFICIENT_INFORMATION';
           const isAmbiguous = d.status === 'AMBIGUOUS_DISCLOSED';
-          const bg = isRefusal ? 'bg-rose-50 border-rose-200 text-rose-950' : (isAmbiguous ? 'bg-amber-50 border-amber-200 text-amber-950' : 'bg-blue-50/70 border-blue-200 text-slate-800');
+          const bg = isRefusal ? 'bg-rose-50 border-2 border-rose-300 text-rose-900' : (isAmbiguous ? 'bg-amber-50 border-2 border-amber-300 text-amber-900' : 'bg-slate-50 border-2 border-slate-200 text-slate-900');
           messageHtml = `
-            <div class="p-3 sm:p-3.5 ${bg} border rounded-xl text-xs sm:text-sm leading-relaxed whitespace-pre-line font-medium">
+            <div class="p-4 sm:p-4.5 ${bg} rounded-2xl text-sm sm:text-base leading-relaxed whitespace-pre-line font-bold shadow-xs">
               ${escapeHtml(d.message)}
             </div>
           `;
@@ -739,15 +828,15 @@
         let causesHtml = '';
         if (d.probable_causes && d.probable_causes.length > 0) {
           causesHtml = `
-            <div class="mt-2.5">
-              <h4 class="font-bold text-slate-800 text-[11px] sm:text-xs uppercase tracking-wider flex items-center gap-1.5 mb-1.5">
+            <div class="mt-3">
+              <h4 class="font-black text-slate-800 text-xs sm:text-sm uppercase tracking-wider flex items-center gap-2 mb-2">
                 <span>❓</span> Probable Causes (Why this happened):
               </h4>
-              <div class="space-y-1 sm:space-y-1.5">
+              <div class="space-y-1.5">
                 ${d.probable_causes.map(c => `
-                  <div class="flex items-start gap-2 sm:gap-2.5 p-2 sm:p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs sm:text-sm text-slate-800">
-                    <span class="text-amber-500 font-bold shrink-0 mt-0.5">•</span>
-                    <span class="break-words font-medium leading-snug">${escapeHtml(c)}</span>
+                  <div class="flex items-start gap-2.5 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 font-bold">
+                    <span class="text-amber-600 font-black shrink-0 leading-none mt-0.5">•</span>
+                    <span class="break-words font-bold leading-snug">${escapeHtml(c)}</span>
                   </div>
                 `).join('')}
               </div>
@@ -758,22 +847,22 @@
         let stepsHtml = '';
         if (d.corrective_actions && d.corrective_actions.length > 0) {
           stepsHtml = `
-            <div class="mt-3">
-              <h4 class="font-extrabold text-emerald-950 text-[11px] sm:text-xs uppercase tracking-wider flex items-center gap-1.5 mb-2">
+            <div class="mt-3.5">
+              <h4 class="font-black text-slate-950 text-xs sm:text-sm uppercase tracking-wider flex items-center gap-2 mb-2.5">
                 <span>🛠️</span> Worker Action Steps (Follow in Order):
               </h4>
-              <div class="space-y-2 sm:space-y-2.5">
+              <div class="space-y-2.5">
                 ${d.corrective_actions.map((s, idx) => {
                   let stepNum = idx + 1;
                   let text = s;
                   const m = s.match(/^Step\s*(\d+)[:.]?\s*(.*)$/i);
                   if (m) { stepNum = m[1]; text = m[2]; }
                   return `
-                    <div class="flex items-start gap-3 p-3 bg-white border-2 border-emerald-200 hover:border-emerald-500 rounded-xl shadow-xs transition-all">
-                      <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-600 text-white font-extrabold text-xs sm:text-sm flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+                    <div class="flex items-start gap-3 p-3.5 bg-slate-50 border-2 border-slate-200 hover:border-violet-400 rounded-xl shadow-xs transition-all">
+                      <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 text-white font-black text-sm sm:text-base flex items-center justify-center shrink-0 mt-0.5 shadow-md shadow-violet-600/30">
                         ${stepNum}
                       </div>
-                      <div class="text-xs sm:text-sm text-slate-900 leading-relaxed font-medium break-words flex-1">
+                      <div class="text-sm sm:text-base text-slate-900 leading-relaxed font-bold break-words flex-1">
                         ${escapeHtml(text)}
                       </div>
                     </div>
@@ -787,13 +876,13 @@
         let escalationHtml = '';
         if (d.escalation_notes && d.status === 'SUCCESS') {
           escalationHtml = `
-            <div class="mt-3 p-3 sm:p-3.5 bg-amber-50 border-l-4 border-amber-500 rounded-r-xl text-xs sm:text-sm text-amber-950 break-words flex items-start gap-2.5">
-              <span class="text-lg shrink-0">📞</span>
+            <div class="mt-3.5 p-4 bg-amber-50 border-l-4 border-amber-500 rounded-r-2xl text-xs sm:text-sm text-amber-900 break-words flex items-start gap-3 shadow-xs">
+              <span class="text-xl shrink-0">📞</span>
               <div class="min-w-0 flex-1">
-                <strong class="font-bold text-amber-900 block mb-0.5 text-[11px] sm:text-xs uppercase tracking-wide">
+                <strong class="font-black text-amber-800 block mb-1 text-xs sm:text-sm uppercase tracking-wide">
                   If Problem Persists (Next-Tier Escalation):
                 </strong>
-                <div class="leading-relaxed font-medium">${escapeHtml(d.escalation_notes)}</div>
+                <div class="leading-relaxed font-bold text-slate-800">${escapeHtml(d.escalation_notes)}</div>
               </div>
             </div>
           `;
@@ -803,14 +892,17 @@
       }
 
       chatBox.innerHTML += `
-        <div class="flex space-x-2.5 sm:space-x-3 max-w-full sm:max-w-3xl">
-          <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm shrink-0 mt-0.5 shadow-xs">🤖</div>
-          <div class="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200 shadow-sm text-xs sm:text-sm space-y-3 flex-1 min-w-0">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+        <div class="flex space-x-3 sm:space-x-4 max-w-full sm:max-w-4xl">
+          <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-violet-600 via-purple-600 to-indigo-600 text-white flex items-center justify-center font-black text-base shrink-0 mt-0.5 shadow-md shadow-violet-600/30 border border-violet-400/30">🤖</div>
+          <div class="bg-white p-4 sm:p-6 rounded-2xl border-2 border-slate-200 shadow-md ring-1 ring-slate-900/5 text-sm sm:text-base space-y-4 flex-1 min-w-0 text-slate-900">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-slate-200 pb-3">
               <div class="flex items-center gap-2 flex-wrap">
-                <span class="text-xs font-bold text-slate-800 truncate">${escapeHtml(d.machine_name || 'Industrial Equipment Diagnostic')}</span>
-                ${d.error_code ? `<span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-mono text-[11px] font-bold border border-slate-300">${escapeHtml(d.error_code)}</span>` : ''}
-                ${d.query_type === 'CONCEPT_DOUBT' ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-100 text-teal-800 border border-teal-200">💡 Machine Guide</span>' : ''}
+                <span class="text-sm sm:text-base font-black text-slate-950 truncate">${escapeHtml(d.machine_name || 'Industrial Equipment Diagnostic')}</span>
+                ${d.brand && d.brand !== 'Company Equipment' ? `<span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-800 text-xs font-black border border-slate-200">${escapeHtml(d.brand)}</span>` : ''}
+                ${d.model_no && d.model_no !== 'N/A' ? `<span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-800 font-mono text-xs font-black border border-slate-200">Mod: ${escapeHtml(d.model_no)}</span>` : ''}
+                ${d.year_of_manufacture && d.year_of_manufacture !== 'N/A' ? `<span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-800 font-mono text-xs font-black border border-slate-200">Yr: ${escapeHtml(d.year_of_manufacture)}</span>` : ''}
+                ${d.error_code ? `<span class="px-2.5 py-0.5 rounded-md bg-violet-100 text-violet-800 font-mono text-xs sm:text-sm font-black border border-violet-300">${escapeHtml(d.error_code)}</span>` : ''}
+                ${d.query_type === 'CONCEPT_DOUBT' ? '<span class="px-2.5 py-0.5 rounded-full text-xs font-black bg-purple-100 text-purple-800 border border-purple-200">💡 Machine Guide</span>' : ''}
               </div>
               <div>${statusBadge}</div>
             </div>
@@ -825,227 +917,7 @@
       return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
-    let selectedUploadFile = null;
-
-    function openUploadModal() {
-      document.getElementById('upload-modal').classList.remove('hidden');
-      document.getElementById('upload-status').classList.add('hidden');
-      document.getElementById('upload-status').innerHTML = '';
-      document.getElementById('selected-file-info').classList.add('hidden');
-      document.getElementById('file-input').value = '';
-      document.getElementById('upload-submit-btn').disabled = true;
-      selectedUploadFile = null;
-    }
-
-    function closeUploadModal() {
-      document.getElementById('upload-modal').classList.add('hidden');
-    }
-
-    function handleFileSelected(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-      selectedUploadFile = file;
-      const info = document.getElementById('selected-file-info');
-      info.innerText = `📄 ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
-      info.classList.remove('hidden');
-      document.getElementById('upload-submit-btn').disabled = false;
-    }
-
-    async function submitManualUpload() {
-      if (!selectedUploadFile) return;
-      const btn = document.getElementById('upload-submit-btn');
-      const statusDiv = document.getElementById('upload-status');
-      btn.disabled = true;
-      statusDiv.classList.remove('hidden');
-      statusDiv.className = 'p-3.5 rounded-xl border border-blue-200 bg-blue-50/80 text-blue-900 space-y-2 text-xs';
-
-      const mName = document.getElementById('machine-name-input').value.trim();
-      const fname = selectedUploadFile.name || 'uploaded_manual.txt';
-      const isPdf = fname.toLowerCase().endsWith('.pdf');
-
-      try {
-        let uploadPayload = null;
-        let useJsonEndpoint = false;
-
-        if (isPdf && typeof pdfjsLib !== 'undefined') {
-          statusDiv.innerHTML = `
-            <div class="flex items-center space-x-2">
-              <div class="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-              <span class="font-semibold">Reading PDF in Browser...</span>
-            </div>
-            <p class="text-[11px] text-blue-700">Loading document pages to bypass server limits...</p>
-          `;
-          try {
-            if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-              pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-            }
-            const buffer = await selectedUploadFile.arrayBuffer();
-            const loadingTask = pdfjsLib.getDocument({ data: buffer });
-            const pdfDoc = await loadingTask.promise;
-            const extractedPages = [];
-            let totalChars = 0;
-
-            for (let i = 1; i <= pdfDoc.numPages; i++) {
-              statusDiv.innerHTML = `
-                <div class="flex items-center space-x-2">
-                  <div class="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                  <span class="font-semibold">Extracting Technical Manual...</span>
-                </div>
-                <p class="text-[11px] text-blue-700">Scanning page ${i} of ${pdfDoc.numPages}...</p>
-              `;
-              const page = await pdfDoc.getPage(i);
-              const textContent = await page.getTextContent();
-              const pageText = textContent.items.map(item => item.str).join(' ');
-              totalChars += pageText.trim().length;
-              if (pageText.trim()) {
-                extractedPages.push({ page_num: i, text: pageText.trim() });
-              }
-            }
-
-            if (totalChars < 20 || extractedPages.length === 0) {
-              statusDiv.className = 'p-3.5 rounded-xl border border-amber-300 bg-amber-50 text-amber-900 space-y-1.5 text-xs';
-              statusDiv.innerHTML = `
-                <div class="flex items-center space-x-1.5 font-bold text-amber-800">
-                  <span>⚠️</span> <span>Scanned / Image-Only PDF Detected</span>
-                </div>
-                <p class="text-[11px] text-amber-700">No selectable text characters were found in this PDF (it appears to be a scanned image or photograph without an OCR text layer). Please upload a searchable PDF or a plain text (.txt / .md) file.</p>
-              `;
-              btn.disabled = false;
-              return;
-            }
-
-            uploadPayload = {
-              filename: fname,
-              machine_name: mName || null,
-              session_id: sessionId,
-              pages: extractedPages
-            };
-            useJsonEndpoint = true;
-          } catch (pdfErr) {
-            console.warn('Client-side PDF extraction fallback to direct upload:', pdfErr);
-          }
-        } else if (!isPdf) {
-          statusDiv.innerHTML = `
-            <div class="flex items-center space-x-2">
-              <div class="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-              <span class="font-semibold">Reading Manual Text...</span>
-            </div>
-            <p class="text-[11px] text-blue-700">Preparing file data...</p>
-          `;
-          const rawText = await selectedUploadFile.text();
-          if (!rawText.trim()) {
-            statusDiv.className = 'p-3.5 rounded-xl border border-rose-300 bg-rose-50 text-rose-900 text-xs';
-            statusDiv.innerHTML = `<strong>Upload Failed:</strong> The selected file is completely empty.`;
-            btn.disabled = false;
-            return;
-          }
-          uploadPayload = {
-            filename: fname,
-            machine_name: mName || null,
-            session_id: sessionId,
-            text: rawText
-          };
-          useJsonEndpoint = true;
-        }
-
-        statusDiv.innerHTML = `
-          <div class="flex items-center space-x-2">
-            <div class="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <span class="font-semibold">Ingesting & Building RAG Vectors...</span>
-          </div>
-          <p class="text-[11px] text-blue-700">Extracting fault codes and creating index chunks...</p>
-        `;
-
-        let res;
-        if (useJsonEndpoint && uploadPayload) {
-          res = await fetch('/api/upload/text', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(uploadPayload)
-          });
-        } else {
-          const formData = new FormData();
-          formData.append('file', selectedUploadFile);
-          if (mName) formData.append('machine_name', mName);
-          formData.append('session_id', sessionId);
-          res = await fetch('/api/upload', {
-            method: 'POST',
-            body: formData
-          });
-        }
-
-        if (res.ok) {
-          const data = await res.json();
-          window.uploadedCustomManual = {
-            machine_name: data.machine_name,
-            manual_name: data.manual_name,
-            total_pages: data.total_pages,
-            detected_codes: data.detected_codes,
-            chunks: data.chunks
-          };
-          try {
-            localStorage.setItem('activeCustomManual', JSON.stringify(window.uploadedCustomManual));
-          } catch(e) {}
-
-          statusDiv.className = 'p-3.5 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-900 space-y-2.5 text-xs';
-          let codesHtml = '';
-          if (data.detected_codes && data.detected_codes.length > 0) {
-            codesHtml = `
-              <div class="mt-2">
-                <span class="font-semibold text-emerald-950 text-[11px]">Discovered Error Codes (Click to troubleshoot):</span>
-                <div class="flex flex-wrap gap-1.5 mt-1">
-                  ${data.detected_codes.map(c => `
-                    <button type="button" onclick="askDiscoveredCode('${escapeHtml(data.machine_name)}', '${escapeHtml(c)}')" class="px-2 py-0.5 rounded bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold text-xs transition shadow-2xs">
-                      ${escapeHtml(c)}
-                    </button>
-                  `).join('')}
-                </div>
-              </div>
-            `;
-          }
-
-          statusDiv.innerHTML = `
-            <div class="flex items-center justify-between">
-              <span class="font-bold text-emerald-800 text-sm">✓ Manual Ingested Successfully!</span>
-              <span class="px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900 font-bold text-[10px]">${data.total_pages} Pages • ${data.chunks_count} Chunks</span>
-            </div>
-            <p class="text-[11px] text-emerald-800"><strong>Target Machine:</strong> ${escapeHtml(data.machine_name)}</p>
-            ${codesHtml}
-            <div class="pt-2 flex justify-end space-x-2">
-              <button type="button" onclick="closeUploadModal(); loadQuery('${data.sample_queries && data.sample_queries[0] ? escapeHtml(data.sample_queries[0]) : ('How do I troubleshoot ' + escapeHtml(data.machine_name) + '?')}');" class="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-semibold text-xs transition shadow-xs">
-                Start Troubleshooting →
-              </button>
-            </div>
-          `;
-
-          activeMachine = data.machine_name;
-          document.getElementById('session-machine').innerText = activeMachine;
-
-          fetchManualsList();
-          checkHealth();
-        } else {
-          let errMsg = `Server returned ${res.status} ${res.statusText}`;
-          if (res.status === 413) {
-            errMsg = 'File exceeds Vercel Serverless payload limit (4.5 MB). Try uploading as plain text (.txt / .md) or a searchable PDF.';
-          } else {
-            try {
-              const errData = await res.json();
-              if (errData.detail) errMsg = errData.detail;
-            } catch(e){}
-          }
-          statusDiv.className = 'p-3.5 rounded-xl border border-rose-300 bg-rose-50 text-rose-900 text-xs';
-          statusDiv.innerHTML = `<strong>Upload Failed:</strong> ${escapeHtml(errMsg)}`;
-          btn.disabled = false;
-        }
-      } catch (err) {
-        statusDiv.className = 'p-3.5 rounded-xl border border-rose-300 bg-rose-50 text-rose-900 text-xs';
-        statusDiv.innerHTML = `<strong>Upload Error:</strong> ${escapeHtml(err.message)}`;
-        btn.disabled = false;
-      }
-    }
-
     function askDiscoveredCode(machine, code) {
-      closeUploadModal();
       loadQuery(`What does error ${code} mean on ${machine}?`);
     }
 
@@ -1057,9 +929,17 @@
           document.getElementById('manuals-badge').innerText = `${d.total_manuals} Manuals`;
           const listDiv = document.getElementById('manuals-list');
           listDiv.innerHTML = d.manuals.map(m => `
-            <div class="p-1.5 rounded bg-slate-900/60 border border-slate-800">
-              <div class="font-medium text-slate-200 truncate">${escapeHtml(m.machine)}</div>
-              <div class="text-[10px] text-slate-500">${m.pages} Pages • ${m.type}</div>
+            <div onclick="loadQuery('How do I troubleshoot ${escapeHtml(m.machine)}?'); closeSidebarOnMobile();" 
+                 class="p-2.5 rounded-xl bg-white hover:bg-violet-50 border border-slate-200 hover:border-violet-400 cursor-pointer transition space-y-1 group shadow-2xs">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-slate-900 group-hover:text-violet-700 truncate text-xs sm:text-sm">${escapeHtml(m.machine)}</span>
+                ${m.year_of_manufacture ? `<span class="text-[10px] sm:text-xs px-2 py-0.5 rounded-md bg-slate-100 text-violet-800 font-mono font-bold border border-slate-200">${escapeHtml(m.year_of_manufacture)}</span>` : ''}
+              </div>
+              <div class="text-xs text-slate-500 truncate font-semibold">
+                <span class="text-slate-800 font-bold">${escapeHtml(m.brand || 'Standard OEM')}</span>
+                ${m.model_no && m.model_no !== 'N/A' ? ` • <span class="font-mono text-slate-600 font-bold">${escapeHtml(m.model_no)}</span>` : ''}
+              </div>
+              <div class="text-[11px] sm:text-xs text-slate-400 font-medium">${m.pages || 0} Pages • ${m.type}</div>
             </div>
           `).join('');
         }
@@ -1067,82 +947,61 @@
     }
     fetchManualsList();
 
-    // Setup drag and drop for modal
-    function initDropZone() {
-      const dropZone = document.getElementById('drop-zone');
-      if (!dropZone) return;
-      ['dragenter', 'dragover'].forEach(eventName => {
-        dropZone.addEventListener(eventName, (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          dropZone.classList.add('border-blue-500', 'bg-blue-50');
-        }, false);
-      });
-      ['dragleave', 'drop'].forEach(eventName => {
-        dropZone.addEventListener(eventName, (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          dropZone.classList.remove('border-blue-500', 'bg-blue-50');
-        }, false);
-      });
-      dropZone.addEventListener('drop', (e) => {
-        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-          handleFileSelected({ target: { files: e.dataTransfer.files } });
-        }
-      }, false);
+    // Check if redirected from Admin Portal with a specific machine
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const prefillMachine = urlParams.get('machine');
+      if (prefillMachine) {
+        activeMachine = prefillMachine;
+        const sessionElem = document.getElementById('session-machine');
+        if (sessionElem) sessionElem.innerText = activeMachine;
+        const qInput = document.getElementById('query-input');
+        if (qInput) qInput.value = `How do I troubleshoot ${prefillMachine}?`;
+      }
+    } catch(e) {}
+
+    function selectPortalRole(role) {
+      sessionStorage.setItem('portal_role_selected', role);
+      if (role === 'admin') {
+        window.location.href = '/admin';
+      } else {
+        const modal = document.getElementById('role-gateway-modal');
+        if (modal) modal.classList.add('hidden');
+      }
     }
-    initDropZone();
+
+    function openRoleGateway() {
+      const modal = document.getElementById('role-gateway-modal');
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    function initRoleGateway() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const isSwitch = urlParams.get('select_role') === '1' || urlParams.get('role') === 'choose';
+      const directRole = urlParams.get('role');
+      const hasMachine = urlParams.get('machine');
+      const alreadyChosen = sessionStorage.getItem('portal_role_selected');
+
+      if (directRole === 'operator' || directRole === 'user') {
+        sessionStorage.setItem('portal_role_selected', 'operator');
+        const modal = document.getElementById('role-gateway-modal');
+        if (modal) modal.classList.add('hidden');
+        return;
+      }
+
+      if (directRole === 'admin') {
+        window.location.href = '/admin';
+        return;
+      }
+
+      if (isSwitch || (!alreadyChosen && !hasMachine)) {
+        openRoleGateway();
+      } else {
+        const modal = document.getElementById('role-gateway-modal');
+        if (modal) modal.classList.add('hidden');
+      }
+    }
+    initRoleGateway();
   </script>
-
-  <!-- Upload Manual Modal -->
-  <div id="upload-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-xs hidden p-3 sm:p-4">
-    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full overflow-hidden transition-all transform scale-100">
-      <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-        <div class="flex items-center space-x-2.5">
-          <div class="p-1.5 bg-blue-600 rounded-lg text-white text-base">📤</div>
-          <div>
-            <h3 class="font-bold text-sm sm:text-base text-slate-900">Upload Technical Machine Manual</h3>
-            <p class="text-[11px] text-slate-500">Scan, index, and troubleshoot your custom equipment</p>
-          </div>
-        </div>
-        <button onclick="closeUploadModal()" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition">✕</button>
-      </div>
-
-      <div class="p-5 space-y-4 text-xs sm:text-sm">
-        <!-- Dropzone / File Picker -->
-        <div id="drop-zone" onclick="document.getElementById('file-input').click()" 
-             class="border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50/50 rounded-xl p-6 text-center cursor-pointer transition flex flex-col items-center justify-center space-y-2 group">
-          <input type="file" id="file-input" accept=".pdf,.txt,.md" class="hidden" onchange="handleFileSelected(event)" />
-          <div class="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xl group-hover:scale-110 transition">📄</div>
-          <div>
-            <span class="font-semibold text-blue-600">Click to browse</span> or drag & drop file
-            <p class="text-xs text-slate-400 mt-0.5">Supports PDF (.pdf), Plain Text (.txt), or Markdown (.md)</p>
-          </div>
-          <div id="selected-file-info" class="hidden mt-2 inline-flex items-center px-3 py-1.5 rounded-lg bg-blue-100 text-blue-800 font-medium text-xs"></div>
-        </div>
-
-        <!-- Optional Machine Name Field -->
-        <div>
-          <label class="block text-xs font-semibold text-slate-700 mb-1">Target Machine Name (Optional Override):</label>
-          <input type="text" id="machine-name-input" placeholder="e.g. KukaBot Arm K-500 (Auto-detected if empty)" 
-                 class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 text-xs text-slate-800" />
-        </div>
-
-        <!-- Scanning Animation / Status -->
-        <div id="upload-status" class="hidden p-3.5 rounded-xl border space-y-2 text-xs">
-        </div>
-
-        <!-- Action Buttons -->
-        <div class="flex items-center justify-end space-x-2 pt-2">
-          <button type="button" onclick="closeUploadModal()" class="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs transition">
-            Cancel
-          </button>
-          <button type="button" id="upload-submit-btn" onclick="submitManualUpload()" disabled class="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium text-xs shadow-sm transition flex items-center space-x-1.5">
-            <span>Scan & Index Manual</span> <span>⚡</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
 </body>
 </html>

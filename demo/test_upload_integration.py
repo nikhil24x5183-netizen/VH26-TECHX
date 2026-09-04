@@ -40,10 +40,24 @@ Step-by-Step Corrective Action:
 '''
 
 def run_test():
-    print("Testing Custom Manual Upload & Indexing...")
+    print("Testing Custom Manual Upload & Admin Authorization Guard...")
+    
+    # 0. Test Operator / Unauthenticated Upload Attempt (Should be HTTP 403 Forbidden)
+    files_unauth = {'file': ('RoboWeld_Pro_3000_Manual.txt', sample_manual.encode('utf-8'), 'text/plain')}
+    res_unauth = client.post('/api/upload', files=files_unauth, data={'machine_name': 'RoboWeld Pro 3000'})
+    print('Unauthorized Upload HTTP Status:', res_unauth.status_code)
+    assert res_unauth.status_code == 403, f"Expected 403 for unauthorized upload without brand, got {res_unauth.status_code}"
+    print("  [PASS] Non-admin upload correctly rejected with HTTP 403 Forbidden!")
+
+    # 1. Test Authorized Company Admin Upload with full equipment metadata
     files = {'file': ('RoboWeld_Pro_3000_Manual.txt', sample_manual.encode('utf-8'), 'text/plain')}
-    res = client.post('/api/upload', files=files, data={'machine_name': 'RoboWeld Pro 3000'})
-    print('Upload HTTP Status:', res.status_code)
+    res = client.post('/api/upload', files=files, data={
+        'machine_name': 'RoboWeld Pro 3000',
+        'brand': 'RoboWeld Industrial',
+        'model_no': 'RW-3000X',
+        'year_of_manufacture': '2023'
+    })
+    print('Authorized Admin Upload HTTP Status:', res.status_code)
     data = res.json()
     print('Uploaded Machine:', data.get('machine_name'))
     print('Detected Codes:', data.get('detected_codes'))
@@ -82,17 +96,31 @@ def run_test():
     print('\nTotal Manuals:', m_res['total_manuals'])
     manual_names = [m['name'] for m in m_res['manuals']]
     print('Registered Manuals:', manual_names)
+    
     # 5. Test JSON Text Upload Endpoint (/api/upload/text)
     print("\nTesting JSON Text Upload Endpoint (/api/upload/text)...")
-    json_res = client.post('/api/upload/text', json={
+    # Verify 403 rejection without brand
+    unauth_json = client.post('/api/upload/text', json={
         'filename': 'LaserCutter_Manual.pdf',
         'machine_name': 'LaserCutter Ultra 900',
+        'pages': [{'page_num': 1, 'text': 'Test'}]
+    })
+    assert unauth_json.status_code == 403
+    print("  [PASS] JSON upload without admin metadata correctly rejected with HTTP 403!")
+
+    # Verify authorized admin upload with full metadata
+    json_res = client.post('/api/upload/text', json={
+        'filename': 'LaserCutter_Manual.pdf',
+        'brand': 'LaserTech Systems',
+        'machine_name': 'LaserCutter Ultra 900',
+        'model_no': 'LT-900',
+        'year_of_manufacture': '2024',
         'pages': [
             {'page_num': 1, 'text': 'LaserCutter Ultra 900 Technical Handbook\nSection 1 Safety Protocol'},
             {'page_num': 2, 'text': 'Section 3.1: Optical Tube Failure\nError E510: Optical Laser Tube Discharge Failure\nProbable Causes:\n1. RF Power Supply inverter trip.\n2. Deionized chiller flow rate < 1.8 L/min.\nStep-by-Step Corrective Action:\n1. Check chiller level.\n2. Cycle breaker CB4.'}
         ]
     })
-    print('JSON Upload HTTP Status:', json_res.status_code)
+    print('Authorized JSON Upload HTTP Status:', json_res.status_code)
     j_data = json_res.json()
     assert json_res.status_code == 200
     assert j_data['machine_name'] == 'LaserCutter Ultra 900'

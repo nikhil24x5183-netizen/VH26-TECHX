@@ -11,8 +11,9 @@ Set-Location $scriptDir
 $venvPython = Join-Path $scriptDir ".venv\Scripts\python.exe"
 
 if (-not (Test-Path $venvPython)) {
-    Write-Host "Virtual environment not found. Setting up..." -ForegroundColor Yellow
-    python -m venv ".venv" --system-site-packages
+    Write-Host "Virtual environment not found. Setting up with uv..." -ForegroundColor Yellow
+    & "C:\Users\ajnky\.local\bin\uv.exe" venv ".venv" --python 3.11
+    & "C:\Users\ajnky\.local\bin\uv.exe" pip install -r requirements.txt --python $venvPython
 }
 
 # Check if manuals and index exist; if not, build them
@@ -29,6 +30,7 @@ $backendProcess = Start-Process -FilePath $venvPython -ArgumentList "-m uvicorn 
 Start-Sleep -Seconds 3
 
 Write-Host "[3/3] Starting Streamlit UI on http://localhost:8501..." -ForegroundColor Green
-& $venvPython -m streamlit run ui/app.py --server.port 8501
+$streamlitExe = Join-Path $scriptDir ".venv\Scripts\streamlit.exe"
+& $streamlitExe run ui/app.py --server.port 8501
 
 Stop-Process -Id $backendProcess.Id -Force -ErrorAction SilentlyContinue

@@ -1,16 +1,12 @@
 import json
 from pathlib import Path
-from typing import Optional
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from src.config import settings
 from src.api.schemas import QueryRequest, ClearSessionRequest, HealthResponse
 from src.pipeline.service import TroubleshootingService
 from src.pipeline.confidence_gate import TroubleshootingResponse
 from src.query.session_memory import session_manager
-
-PUBLIC_INDEX = Path(__file__).resolve().parent.parent.parent / "public" / "index.html"
 
 app = FastAPI(
     title="Factory Floor RAG Troubleshooting API",
@@ -32,8 +28,6 @@ service = TroubleshootingService()
 
 @app.get("/")
 def read_root():
-    if PUBLIC_INDEX.exists():
-        return FileResponse(PUBLIC_INDEX)
     return {
         "service": "Factory Floor RAG Troubleshooting Assistant",
         "docs": "/docs",
@@ -90,31 +84,14 @@ def get_session(session_id: str):
 
 @app.get("/api/manuals")
 def list_manuals():
-    manuals = [
-        {
-            "name": "ApexCNC UltraMill 500 Maintenance Manual",
-            "machine": "ApexCNC UltraMill 500",
-            "filename": "apexcnc_ultramill_500_manual.pdf",
-            "type": "Built-in",
-            "pages": 11,
-            "size_kb": 89.7
-        },
-        {
-            "name": "ThermaPress Pro 2000 Service Manual",
-            "machine": "ThermaPress Pro 2000",
-            "filename": "thermapress_pro_2000_manual.pdf",
-            "type": "Built-in",
-            "pages": 11,
-            "size_kb": 78.6
-        }
-    ]
-    try:
-        from api.index import load_custom_manuals
-        custom_data = load_custom_manuals()
-        for m in custom_data.get("manuals", []):
-            manuals.append(m)
-    except Exception:
-        pass
+    manuals = []
+    for pdf_file in settings.MANUALS_DIR.glob("*.pdf"):
+        manuals.append({
+            "name": pdf_file.stem.replace("_", " ").title(),
+            "filename": pdf_file.name,
+            "size_kb": round(pdf_file.stat().st_size / 1024, 1),
+            "type": "Manual"
+        })
     return {"manuals": manuals, "total_manuals": len(manuals)}
 
 @app.post("/api/upload")
@@ -125,10 +102,4 @@ async def upload_manual_local(
 ):
     from api.index import upload_manual as serverless_upload
     return await serverless_upload(file=file, machine_name=machine_name, session_id=session_id)
-
-@app.post("/api/upload/text")
-async def upload_manual_text_local(req: dict):
-    from api.index import upload_manual_text as serverless_upload_text, ManualUploadJSON
-    return serverless_upload_text(ManualUploadJSON(**req))
-
 

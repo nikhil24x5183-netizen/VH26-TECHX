@@ -33,31 +33,6 @@ class TroubleshootingService:
     ) -> TroubleshootingResponse:
         session = self.session_mgr.get_or_create_session(session_id)
 
-        clean_q = query.strip().lower()
-        if clean_q in ["hi", "hello", "hey", "help", "greetings", "good morning", "good afternoon", "good evening", "hi there", "hello there"]:
-            return TroubleshootingResponse(
-                insufficient_info=False,
-                status="SUCCESS",
-                machine_name="System Ready",
-                error_code=None,
-                error_meaning="Factory Floor Diagnostic Assistant Ready",
-                probable_causes=[
-                    "System operational: All verified machine manuals are indexed and ready.",
-                    "Active disambiguation and citation grounding protection enabled."
-                ],
-                corrective_actions=[
-                    "Ask an error code (e.g. 'What is error E101?')",
-                    "Describe machine symptoms (e.g. 'Why is ThermaPress overheating?')",
-                    "Or tap any quick scenario chip at the top of the interface."
-                ],
-                safety_warning=None,
-                citations=[],
-                escalation_notes=None,
-                confidence_score=1.0,
-                verification_passed=True,
-                message="Hello! I am your Factory Floor Diagnostic Assistant. You can ask me about error codes (e.g. `E101`), describe machine symptoms, or tap any quick scenario chip above to begin."
-            )
-
         # Step 1: Query Analysis & Routing with Context Inheritance
         route_res: QueryAnalysisResult = self.router.route_query(
             query=query,
