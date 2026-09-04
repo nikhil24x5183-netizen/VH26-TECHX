@@ -454,54 +454,6 @@ def get_registered_machines() -> List[Dict[str, Any]]:
                 "How do I perform maintenance?"
             ],
             "description": "Modular variable-speed frequency inverter for industrial AC induction motor drives."
-        },
-        {
-            "id": "apexcnc_500",
-            "manufacturer": "Apex CNC Dynamics",
-            "machine_name": "ApexCNC UltraMill 500",
-            "model": "ACM-500",
-            "manufacturing_year": "2023",
-            "firmware": "Rev 2.4",
-            "manual_count": 2,
-            "status": "Ready",
-            "status_label": "Evidence Ready",
-            "manuals": [
-                "ApexCNC UltraMill 500 Maintenance Manual",
-                "Spindle Inverter Diagnostic Guide"
-            ],
-            "error_codes": ["E101", "E102", "E103", "E104"],
-            "sample_queries": [
-                "E101",
-                "Spindle drive overload",
-                "Z-axis limit switch",
-                "What is this machine used for?",
-                "How do I perform maintenance?"
-            ],
-            "description": "5-axis high-speed CNC milling center for precision aerospace and automotive machining."
-        },
-        {
-            "id": "thermapress_2000",
-            "manufacturer": "ThermaPress Industrial",
-            "machine_name": "ThermaPress Pro 2000",
-            "model": "TPP-2000",
-            "manufacturing_year": "2022",
-            "firmware": "v3.11",
-            "manual_count": 2,
-            "status": "Ready",
-            "status_label": "Evidence Ready",
-            "manuals": [
-                "ThermaPress Pro 2000 Service Manual",
-                "Thermal & Hydraulic Platen Guide"
-            ],
-            "error_codes": ["E101", "E205", "E302", "E410"],
-            "sample_queries": [
-                "E101",
-                "Why is ThermaPress Pro 2000 overheating?",
-                "E205 Proportional Valve Drift",
-                "E302 Vacuum Seal",
-                "Maintenance procedures"
-            ],
-            "description": "Industrial hydraulic compression molding press with precision heated platens."
         }
     ]
 
@@ -557,37 +509,26 @@ def list_manuals():
             "codes": ["F30001", "F07800", "F07900", "F30002"]
         },
         {
-            "name": "ApexCNC UltraMill 500 Maintenance Manual",
-            "machine": "ApexCNC UltraMill 500",
-            "brand": "Apex CNC Dynamics",
-            "model_no": "ACM-500",
-            "year_of_manufacture": "2023",
-            "type": "Built-in",
-            "pages": 11,
-            "chunks": 14,
-            "codes": ["E101", "E102", "E103", "E104"]
-        },
-        {
-            "name": "ThermaPress Pro 2000 Service Manual",
-            "machine": "ThermaPress Pro 2000",
-            "brand": "ThermaPress Industrial",
-            "model_no": "TPP-2000",
-            "year_of_manufacture": "2022",
-            "type": "Built-in",
-            "pages": 11,
-            "chunks": 14,
-            "codes": ["E101", "E102", "E103", "E104"]
-        },
-        {
-            "name": "Equipment Manual",
-            "machine": "Equipment",
-            "brand": "STEM / Tinkering Labs",
-            "model_no": "ATL-100",
+            "name": "SINAMICS G120 Troubleshooting & Alarms Manual",
+            "machine": "SINAMICS G120",
+            "brand": "Siemens",
+            "model_no": "CU240B/E-2",
             "year_of_manufacture": "2021",
             "type": "Built-in",
-            "pages": 170,
-            "chunks": 166,
-            "codes": ["BREADBOARD", "CAPACITOR", "MOTOR", "REGULATOR", "BLOWER"]
+            "pages": 84,
+            "chunks": 7,
+            "codes": ["F30001", "F07800", "F07900", "F30002"]
+        },
+        {
+            "name": "SINAMICS G120 Parameter & Maintenance Manual",
+            "machine": "SINAMICS G120",
+            "brand": "Siemens",
+            "model_no": "CU240B/E-2",
+            "year_of_manufacture": "2021",
+            "type": "Built-in",
+            "pages": 96,
+            "chunks": 7,
+            "codes": ["P1120", "P1082", "P1300"]
         }
     ]
     for m in custom_data.get("manuals", []):
