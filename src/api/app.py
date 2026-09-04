@@ -82,6 +82,11 @@ def get_session(session_id: str):
     session = session_manager.get_or_create_session(session_id)
     return session
 
+@app.get("/api/machines")
+def list_machines():
+    from api.index import get_registered_machines
+    return {"status": "SUCCESS", "machines": get_registered_machines()}
+
 @app.get("/api/manuals")
 def list_manuals():
     manuals = []

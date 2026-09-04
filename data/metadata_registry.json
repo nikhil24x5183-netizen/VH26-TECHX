@@ -221,6 +221,38 @@
         "page": 4,
         "chunk_id": "manual_thermapress_2000_p4_tbl_23"
       }
+    ],
+    "F30001": [
+      {
+        "machine_name": "SINAMICS G120",
+        "manual_name": "SINAMICS G120 Troubleshooting & Alarms Manual",
+        "section": "Section 4.1: Power Unit Faults (F30000 - F30999)",
+        "page": 84
+      }
+    ],
+    "F07800": [
+      {
+        "machine_name": "SINAMICS G120",
+        "manual_name": "SINAMICS G120 Troubleshooting & Alarms Manual",
+        "section": "Section 3.2: Control Unit Interface Faults",
+        "page": 52
+      }
+    ],
+    "F07900": [
+      {
+        "machine_name": "SINAMICS G120",
+        "manual_name": "SINAMICS G120 Troubleshooting & Alarms Manual",
+        "section": "Section 3.4: Motor Speed & Stall Diagnostics",
+        "page": 67
+      }
+    ],
+    "F30002": [
+      {
+        "machine_name": "SINAMICS G120",
+        "manual_name": "SINAMICS G120 Troubleshooting & Alarms Manual",
+        "section": "Section 4.2: DC Link Voltage Diagnostics",
+        "page": 89
+      }
     ]
   },
   "ambiguous_codes": {
@@ -230,6 +262,7 @@
     ]
   },
   "machines": [
+    "SINAMICS G120",
     "ThermaPress Pro 2000",
     "ApexCNC UltraMill 500"
   ],

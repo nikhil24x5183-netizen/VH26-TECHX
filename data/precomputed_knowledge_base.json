@@ -224,6 +224,38 @@
           "page": 4,
           "chunk_id": "manual_thermapress_2000_p4_tbl_23"
         }
+      ],
+      "F30001": [
+        {
+          "machine_name": "SINAMICS G120",
+          "manual_name": "SINAMICS G120 Troubleshooting & Alarms Manual",
+          "section": "Section 4.1: Power Unit Faults (F30000 - F30999)",
+          "page": 84
+        }
+      ],
+      "F07800": [
+        {
+          "machine_name": "SINAMICS G120",
+          "manual_name": "SINAMICS G120 Troubleshooting & Alarms Manual",
+          "section": "Section 3.2: Control Unit Interface Faults",
+          "page": 52
+        }
+      ],
+      "F07900": [
+        {
+          "machine_name": "SINAMICS G120",
+          "manual_name": "SINAMICS G120 Troubleshooting & Alarms Manual",
+          "section": "Section 3.4: Motor Speed & Stall Diagnostics",
+          "page": 67
+        }
+      ],
+      "F30002": [
+        {
+          "machine_name": "SINAMICS G120",
+          "manual_name": "SINAMICS G120 Troubleshooting & Alarms Manual",
+          "section": "Section 4.2: DC Link Voltage Diagnostics",
+          "page": 89
+        }
       ]
     },
     "ambiguous_codes": {
@@ -233,6 +265,7 @@
       ]
     },
     "machines": [
+      "SINAMICS G120",
       "ThermaPress Pro 2000",
       "ApexCNC UltraMill 500",
       "Equipment"
@@ -15567,6 +15600,266 @@
       "unit_type": "standard_text",
       "codes_mentioned": [],
       "embedding": []
+    },
+    {
+      "chunk_id": "siemens_g120_op_p1",
+      "machine_name": "SINAMICS G120",
+      "manufacturer": "Siemens",
+      "brand": "Siemens",
+      "model": "CU240B/E-2",
+      "model_no": "CU240B/E-2",
+      "manufacturing_year": "2021",
+      "firmware": "FW v4.7 SP13",
+      "manual_name": "SINAMICS G120 Operating Instructions",
+      "manual_id": "manual_siemens_g120_op",
+      "manual_type": "Operating Instructions",
+      "section": "Section 1.1: Equipment Description & Industrial Applications",
+      "page": 12,
+      "unit_type": "text",
+      "codes_mentioned": [],
+      "text": "SINAMICS G120 is a modular frequency inverter designed for variable-speed AC induction and synchronous motor drives in industrial manufacturing.\nApplications: Conveyor belts, pumps, fans, compressors, extruders, and mixing machines.\nThe system comprises two functional units: the Control Unit (CU240B-2 or CU240E-2) and the Power Module (PM240-2).\nIntegrated Safety Functions: Safe Torque Off (STO) to EN ISO 13849-1 PL d / SIL 2.",
+      "embedding": [
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ]
+    },
+    {
+      "chunk_id": "siemens_g120_op_p2",
+      "machine_name": "SINAMICS G120",
+      "manufacturer": "Siemens",
+      "brand": "Siemens",
+      "model": "CU240B/E-2",
+      "model_no": "CU240B/E-2",
+      "manufacturing_year": "2021",
+      "firmware": "FW v4.7 SP13",
+      "manual_name": "SINAMICS G120 Operating Instructions",
+      "manual_id": "manual_siemens_g120_op",
+      "manual_type": "Operating Instructions",
+      "section": "Section 2.3: Electrical Ratings, Supply Voltage & Wiring",
+      "page": 28,
+      "unit_type": "text",
+      "codes_mentioned": [],
+      "text": "Line Supply Voltage: 380 V to 480 V 3AC \u00b110%, line frequency 47 Hz to 63 Hz.\nRated power range: 0.55 kW to 132 kW (0.75 hp to 175 hp).\nControl supply: 24 V DC \u00b115% external or internal power supply.\nEnvironmental limits: Operating temperature -10 \u00b0C to +50 \u00b0C without derating (up to 60 \u00b0C with derating).\nProtection rating: IP20 open type.",
+      "embedding": [
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ]
+    },
+    {
+      "chunk_id": "siemens_g120_tr_p84",
+      "machine_name": "SINAMICS G120",
+      "manufacturer": "Siemens",
+      "brand": "Siemens",
+      "model": "CU240B/E-2",
+      "model_no": "CU240B/E-2",
+      "manufacturing_year": "2021",
+      "firmware": "FW v4.7 SP13",
+      "manual_name": "SINAMICS G120 Troubleshooting & Alarms Manual",
+      "manual_id": "manual_siemens_g120_tr",
+      "manual_type": "Troubleshooting Manual",
+      "section": "Section 4.1: Power Unit Faults (F30000 - F30999)",
+      "page": 84,
+      "unit_type": "text",
+      "codes_mentioned": [
+        "F30001"
+      ],
+      "text": "Fault F30001: Power unit: Overcurrent\nMeaning: The inverter power unit has detected an output phase phase-to-phase or phase-to-ground overcurrent condition exceeding the permissible peak limit (200% rated current).\nLikely Causes:\n1. Motor ground fault or phase-to-phase short-circuit in motor power cable.\n2. Motor load inertia too high or acceleration ramp (parameter P1120) set too steep.\n3. Mechanical seizure or stall in the driven load.\n4. Defective IGBT power module in Power Module PM240-2.\nRecommended Checks:\n1. Measure insulation resistance of motor windings and motor cable with 500V/1000V Megger (minimum 1 M\u03a9 required).\n2. Verify parameter P1120 (ramp-up time); increase ramp time if tripping occurs during acceleration.\n3. Rotate motor shaft by hand with power isolated to verify free mechanical rotation.\n4. Inspect Power Module DC link terminals for signs of arcing or thermal discoloration.\nCorrective Action:\nDisconnect motor leads at terminals U2/V2/W2. Run inverter in V/f open-loop mode. If F30001 re-occurs without motor attached, replace Power Module PM240-2. If no fault occurs without motor, replace motor cable or repair motor winding.\nSafety Warning:\nHigh Voltage Hazard! Disconnect all 3AC input power and wait at least 5 minutes for the DC link capacitors to discharge below 50 V before touching any terminals or wiring.",
+      "embedding": [
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ]
+    },
+    {
+      "chunk_id": "siemens_g120_tr_p52",
+      "machine_name": "SINAMICS G120",
+      "manufacturer": "Siemens",
+      "brand": "Siemens",
+      "model": "CU240B/E-2",
+      "model_no": "CU240B/E-2",
+      "manufacturing_year": "2021",
+      "firmware": "FW v4.7 SP13",
+      "manual_name": "SINAMICS G120 Troubleshooting & Alarms Manual",
+      "manual_id": "manual_siemens_g120_tr",
+      "manual_type": "Troubleshooting Manual",
+      "section": "Section 3.2: Control Unit Interface Faults",
+      "page": 52,
+      "unit_type": "text",
+      "codes_mentioned": [
+        "F07800"
+      ],
+      "text": "Fault F07800: Drive: No power unit present\nMeaning: The Control Unit CU240B/E-2 cannot communicate with or detect the Power Module via the internal interface.\nLikely Causes:\n1. Control Unit is not correctly seated or latched on the Power Module.\n2. Defective or bent gold backplane connector pins.\n3. Firmware version on Control Unit incompatible with Power Module.\nRecommended Checks:\n1. Verify that the CU latch mechanism is fully locked.\n2. Inspect connector pins for mechanical distortion or foreign debris.\nCorrective Action: Isolate power, unlatch Control Unit, inspect backplane connector, reseat firmly until positive latch click, and re-energize.\nSafety Warning: Always power down line voltage before unlatching the Control Unit.",
+      "embedding": [
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ]
+    },
+    {
+      "chunk_id": "siemens_g120_tr_p67",
+      "machine_name": "SINAMICS G120",
+      "manufacturer": "Siemens",
+      "brand": "Siemens",
+      "model": "CU240B/E-2",
+      "model_no": "CU240B/E-2",
+      "manufacturing_year": "2021",
+      "firmware": "FW v4.7 SP13",
+      "manual_name": "SINAMICS G120 Troubleshooting & Alarms Manual",
+      "manual_id": "manual_siemens_g120_tr",
+      "manual_type": "Troubleshooting Manual",
+      "section": "Section 3.4: Motor Speed & Stall Diagnostics",
+      "page": 67,
+      "unit_type": "text",
+      "codes_mentioned": [
+        "F07900"
+      ],
+      "text": "Fault F07900: Drive: Motor blocked / speed controller at limit\nMeaning: The motor has operated at torque limit for longer than the stall detection time (parameter P2177, default 500 ms) and speed is below stall threshold.\nLikely Causes:\n1. Mechanical overload or jammed gearbox/conveyor.\n2. Holding brake fails to release.\n3. Incorrect motor nameplate commissioning data in parameters P0300 to P0311.\nRecommended Checks:\n1. Inspect mechanical drivetrain for obstructions.\n2. Measure brake coil voltage to verify brake release.\n3. Verify motor parameters match physical nameplate exactly.\nCorrective Action: Clear mechanical obstruction, verify brake release operation, and execute stationary motor data identification (P1910 = 1).\nSafety Warning: Lock out power before inspecting moving drivetrain elements.",
+      "embedding": [
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ]
+    },
+    {
+      "chunk_id": "siemens_g120_tr_p89",
+      "machine_name": "SINAMICS G120",
+      "manufacturer": "Siemens",
+      "brand": "Siemens",
+      "model": "CU240B/E-2",
+      "model_no": "CU240B/E-2",
+      "manufacturing_year": "2021",
+      "firmware": "FW v4.7 SP13",
+      "manual_name": "SINAMICS G120 Troubleshooting & Alarms Manual",
+      "manual_id": "manual_siemens_g120_tr",
+      "manual_type": "Troubleshooting Manual",
+      "section": "Section 4.2: DC Link Voltage Diagnostics",
+      "page": 89,
+      "unit_type": "text",
+      "codes_mentioned": [
+        "F30002"
+      ],
+      "text": "Fault F30002: Power unit: DC link overvoltage\nMeaning: The intermediate DC link circuit voltage has exceeded shutdown threshold (820 V DC for 400 V units).\nLikely Causes:\n1. High regenerative feedback energy during rapid motor deceleration.\n2. Braking resistor disconnected, damaged, or open-circuit.\n3. Mains line voltage surge or phase unbalance.\nRecommended Checks:\n1. Check parameter P1121 (ramp-down time).\n2. Measure braking resistor resistance across terminals DC+/R+ and R-.\n3. Measure AC supply line voltage.\nCorrective Action: Increase deceleration ramp time P1121, enable Vdc_max controller (P1240 = 1), or install external dynamic braking resistor.",
+      "embedding": [
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ]
+    },
+    {
+      "chunk_id": "siemens_g120_pm_p112",
+      "machine_name": "SINAMICS G120",
+      "manufacturer": "Siemens",
+      "brand": "Siemens",
+      "model": "CU240B/E-2",
+      "model_no": "CU240B/E-2",
+      "manufacturing_year": "2021",
+      "firmware": "FW v4.7 SP13",
+      "manual_name": "SINAMICS G120 Parameter & Maintenance Manual",
+      "manual_id": "manual_siemens_g120_pm",
+      "manual_type": "Maintenance Manual",
+      "section": "Section 6: Maintenance, Inspection & Parameter Reset",
+      "page": 112,
+      "unit_type": "text",
+      "codes_mentioned": [],
+      "text": "Maintenance & Service Procedures:\n1. Fan Replacement: Cooling fan has an operating life of 40,000 hours. Operating hours can be read from parameter r9514. Replace cooling fan module when service counter reaches threshold.\n2. Capacitor Reforming: If Power Module has been unpowered or in storage for over 12 months, reform DC link capacitors by applying line voltage without load for at least 2 hours.\n3. Factory Parameter Reset: To reset all parameters to default factory state, set P0010 = 30 (commissioning mode: factory setting) and P0970 = 1 (start parameter reset). The reset takes approximately 10 seconds.\n4. Clean air vents with clean dry compressed air (max 2 bar) semi-annually.",
+      "embedding": [
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ]
     }
   ]
 }
