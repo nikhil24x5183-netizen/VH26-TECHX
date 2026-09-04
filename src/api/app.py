@@ -2,12 +2,15 @@ import json
 from pathlib import Path
 from typing import Optional
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from src.config import settings
 from src.api.schemas import QueryRequest, ClearSessionRequest, HealthResponse
 from src.pipeline.service import TroubleshootingService
 from src.pipeline.confidence_gate import TroubleshootingResponse
 from src.query.session_memory import session_manager
+
+PUBLIC_INDEX = Path(__file__).resolve().parent.parent.parent / "public" / "index.html"
 
 app = FastAPI(
     title="Factory Floor RAG Troubleshooting API",
@@ -29,6 +32,8 @@ service = TroubleshootingService()
 
 @app.get("/")
 def read_root():
+    if PUBLIC_INDEX.exists():
+        return FileResponse(PUBLIC_INDEX)
     return {
         "service": "Factory Floor RAG Troubleshooting Assistant",
         "docs": "/docs",
@@ -103,4 +108,10 @@ async def upload_manual_local(
 ):
     from api.index import upload_manual as serverless_upload
     return await serverless_upload(file=file, machine_name=machine_name, session_id=session_id)
+
+@app.post("/api/upload/text")
+async def upload_manual_text_local(req: dict):
+    from api.index import upload_manual_text as serverless_upload_text, ManualUploadJSON
+    return serverless_upload_text(ManualUploadJSON(**req))
+
 
