@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+__pycache__/
+backend/__pycache__/
+*.pyc
+*.pyo
+
+# Build & Output
+frontend/dist/
+frontend/dist-ssr/
+*.local
+
+# Environment variables
+.env
+.env.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Vector DB & Storage Data
+data/manuals/*
+!data/manuals/.gitkeep
+data/sample_manuals/*
+!data/sample_manuals/.gitkeep
+
+# IDE / System
+.DS_Store
+.vscode/
+.idea/
