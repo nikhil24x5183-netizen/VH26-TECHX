@@ -1,5 +1,5 @@
 """
-Test script for MaintAI backend functionality using real-world machine manuals.
+Test script for MaintAI backend functionality using authentic OEM machine manuals.
 Executes all 4 required hackathon demo scenarios against the RAG engine.
 """
 
@@ -24,17 +24,17 @@ def test_scenarios():
     
     print("\n--- 2. Chunking & Indexing Manuals ---")
     sample_meta = {
-        "Siemens_S71500_PLC_Manual.pdf": ("Siemens S7-1500 PLC", "CPU 1516-3 PN/DP"),
-        "Cat_C15_Generator_Manual.pdf": ("Caterpillar C15 Generator", "C15-500kVA"),
-        "KUKA_KR210_Robot_Manual.pdf": ("KUKA KR 210 Robot", "KR 210 R2700-2"),
-        "Fanuc_Robodrill_CNC_Manual.pdf": ("Fanuc Robodrill CNC", "α-D21MiB5")
+        "Siemens_S71500_PLC_Manual.pdf": ("Siemens", "Siemens S7-1500 PLC", "CPU 1516-3 PN/DP"),
+        "Cat_C15_Generator_Manual.pdf": ("Caterpillar", "Caterpillar C15 Generator", "C15-500kVA"),
+        "KUKA_KR210_Robot_Manual.pdf": ("KUKA", "KUKA KR 210 Robot", "KR 210 R2700-2"),
+        "Fanuc_Robodrill_CNC_Manual.pdf": ("Fanuc", "Fanuc Robodrill CNC", "α-D21MiB5")
     }
     
     for fname in os.listdir(data_dir):
         if fname.endswith(".pdf") and fname in sample_meta:
             fpath = os.path.join(data_dir, fname)
-            m_name, model = sample_meta[fname]
-            chunks = processor.create_chunks(fpath, m_name, model, f"sample_{fname}")
+            mfr, m_name, model = sample_meta[fname]
+            chunks = processor.create_chunks(fpath, mfr, m_name, model, f"sample_{fname}")
             print(f"File {fname}: Created {len(chunks)} chunks.")
             engine.index_chunks(chunks)
 
