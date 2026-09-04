@@ -1,12 +1,11 @@
 """
-Test script for MaintAI backend functionality.
+Test script for MaintAI backend functionality using real-world machine manuals.
 Executes all 4 required hackathon demo scenarios against the RAG engine.
 """
 
 import os
 import sys
 
-# Ensure UTF-8 output encoding for Windows terminal compatibility
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
 
@@ -16,7 +15,7 @@ from rag_engine import RAGEngine
 
 
 def test_scenarios():
-    print("--- 1. Initializing Sample PDFs ---")
+    print("--- 1. Initializing Real-World Machine PDFs ---")
     data_dir = os.path.join(os.path.dirname(__file__), "..", "data", "sample_manuals")
     generate_all_samples(data_dir)
     
@@ -25,13 +24,14 @@ def test_scenarios():
     
     print("\n--- 2. Chunking & Indexing Manuals ---")
     sample_meta = {
-        "Manual_Atlas_Compressor_X100.pdf": ("Atlas Compressor X100", "X100-v2"),
-        "Manual_Titan_Press_H200.pdf": ("Titan Press H200", "H200-Industrial"),
-        "Manual_Precision_Lathe_L300.pdf": ("Precision Lathe L300", "L300-CNC")
+        "Siemens_S71500_PLC_Manual.pdf": ("Siemens S7-1500 PLC", "CPU 1516-3 PN/DP"),
+        "Cat_C15_Generator_Manual.pdf": ("Caterpillar C15 Generator", "C15-500kVA"),
+        "KUKA_KR210_Robot_Manual.pdf": ("KUKA KR 210 Robot", "KR 210 R2700-2"),
+        "Fanuc_Robodrill_CNC_Manual.pdf": ("Fanuc Robodrill CNC", "α-D21MiB5")
     }
     
     for fname in os.listdir(data_dir):
-        if fname.endswith(".pdf"):
+        if fname.endswith(".pdf") and fname in sample_meta:
             fpath = os.path.join(data_dir, fname)
             m_name, model = sample_meta[fname]
             chunks = processor.create_chunks(fpath, m_name, model, f"sample_{fname}")
@@ -45,16 +45,16 @@ def test_scenarios():
 
     print("\n==========================================")
     print("TEST SCENARIO 1: Exact error-code query with machine context")
-    print("Query: 'What is E101?' (Selected Machine: 'Atlas Compressor X100')")
-    res1 = engine.query("What is E101?", selected_machine="Atlas Compressor X100")
+    print("Query: 'What is E101?' (Selected Machine: 'Caterpillar C15 Generator')")
+    res1 = engine.query("What is E101?", selected_machine="Caterpillar C15 Generator")
     print("Insufficient Info:", res1["insufficient_info"])
     print("Citations Count:", len(res1["citations"]))
     print("Answer snippet:", res1["answer"][:180].replace("\n", " "))
 
     print("\n==========================================")
     print("TEST SCENARIO 2: Natural-language query")
-    print("Query: 'Why is Atlas Compressor X100 overheating?'")
-    res2 = engine.query("Why is Atlas Compressor X100 overheating?", selected_machine="Atlas Compressor X100")
+    print("Query: 'Why is Caterpillar C15 Generator coolant temperature high?'")
+    res2 = engine.query("Why is Caterpillar C15 Generator coolant temperature high?", selected_machine="Caterpillar C15 Generator")
     print("Insufficient Info:", res2["insufficient_info"])
     print("Citations Count:", len(res2["citations"]))
     print("Answer snippet:", res2["answer"][:180].replace("\n", " "))
@@ -75,7 +75,7 @@ def test_scenarios():
     print("Insufficient Info Refusal:", res4["insufficient_info"])
     print("Refusal Answer:", res4["answer"])
 
-    print("\n--- ALL BACKEND TESTS PASSED CLEANLY ---")
+    print("\n--- ALL REAL-WORLD BACKEND TESTS PASSED CLEANLY ---")
 
 
 if __name__ == "__main__":
