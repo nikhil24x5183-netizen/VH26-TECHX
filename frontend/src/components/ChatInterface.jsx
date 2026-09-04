@@ -73,27 +73,7 @@ export default function ChatInterface({
 
   const parseDiagnosis = (text) => {
     if (!text) return { problem: '', assessment: text, checks: [], safety: '' };
-    
-    let problem = '';
-    let assessment = text;
-    let checks = [];
-    let safety = "Follow standard lockout/tagout (LOTO) safety protocols before opening machine enclosure.";
-
-    if (text.includes("E101")) problem = "E101 · High Coolant Temperature";
-    else if (text.includes("E301")) problem = "E301 · PLC Profinet Bus Fault";
-    else if (text.includes("E202")) problem = "E202 · CNC Spindle Overload";
-    else if (text.includes("Error") || text.includes("Alarm")) {
-      const match = text.match(/(?:Error|Alarm)\s+[A-Z0-9-]+/i);
-      problem = match ? match[0] : "System Fault Detected";
-    }
-
-    const lines = text.split('\n').filter(l => l.trim());
-    const checkLines = lines.filter(l => /^[0-9]+\.|\*/.test(l.trim()));
-    if (checkLines.length > 0) {
-      checks = checkLines.map(l => l.replace(/^[0-9]+\.|\*/, '').trim());
-    }
-
-    return { problem, assessment, checks, safety };
+    return { problem: '', assessment: text, checks: [], safety: "Follow standard lockout/tagout (LOTO) safety protocols before opening machine enclosure." };
   };
 
   return (

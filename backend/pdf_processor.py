@@ -20,26 +20,32 @@ except ImportError:
     HAS_PYPDF = False
 
 
-def normalize_error_code(text: str) -> List[str]:
+def extract_error_codes(text: str) -> List[str]:
     """
-    Normalizes error codes (e.g., E101, E-101, Error E101, Alarm E101, F30001, ALM-401, SPN 110)
-    into standardized searchable strings.
+    Extracts and normalizes error codes (e.g., E101, E-101, F30001, F-30001, ALM-401, SPN 110, KSS01001)
+    from query or manual text into standardized searchable tokens.
     """
+    if not text:
+        return []
+
     patterns = [
         r'\b[eE][-\s]?\d{3,5}\b',          # E101, E-101, E1010
-        r'\b[fF][-\s]?\d{3,5}\b',          # F30001, F-0301
+        r'\b[fF][-\s]?\d{3,5}\b',          # F30001, F-30001, F03001
         r'\bALM-[A-Z0-9]+\b',             # ALM-401, ALM-100
         r'\bSPN\s?\d{2,4}\b',              # SPN 110, SPN 94
         r'\bKSS\d{5}\b'                    # KSS01001
     ]
-    matches = []
+    matches = set()
     for pat in patterns:
         found = re.findall(pat, text, re.IGNORECASE)
         for f in found:
             clean = re.sub(r'[-\s]', '', f).upper()
-            matches.append(clean)
-            matches.append(f.upper())
-    return list(set(matches))
+            matches.add(clean)
+            matches.add(f.upper())
+    return list(matches)
+
+def normalize_error_code(text: str) -> List[str]:
+    return extract_error_codes(text)
 
 
 class PDFProcessor:

@@ -50,7 +50,8 @@ def _index_directory(directory_path: str):
         "Siemens_S71500_PLC_Manual.pdf": ("Siemens", "Siemens S7-1500 PLC", "CPU 1516-3 PN/DP", "Rev. 2026.1"),
         "Cat_C15_Generator_Manual.pdf": ("Caterpillar", "Caterpillar C15 Generator", "C15-500kVA", "Rev. 2026.2"),
         "KUKA_KR210_Robot_Manual.pdf": ("KUKA Systems", "KUKA KR 210 Robot", "KR 210 R2700-2", "Rev. KSS 8.6"),
-        "Fanuc_Robodrill_CNC_Manual.pdf": ("Fanuc Automation", "Fanuc Robodrill CNC", "α-D21MiB5", "Rev. 31i-B5")
+        "Fanuc_Robodrill_CNC_Manual.pdf": ("Fanuc Automation", "Fanuc Robodrill CNC", "α-D21MiB5", "Rev. 31i-B5"),
+        "Siemens_SINAMICS_G120_Manual.pdf": ("Siemens", "SINAMICS G120", "CU240E-2 PN", "Rev. 2026.3")
     }
 
     for fname in os.listdir(directory_path):

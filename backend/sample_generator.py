@@ -134,11 +134,23 @@ def generate_all_samples(output_dir: str):
             {"type": "body", "text": "Description: Way lube oil pressure switch failed to reach 1.2 MPa within 30 seconds of pump cycle.\nRecommended Resolution: Top up reservoir with Mobil Vactra No. 2 Way Oil and manually cycle lube pump switch."}
         ]
     ]
+    # 5. Siemens SINAMICS G120 Converter / Inverter
+    siemens_g120_pages = [
+        [
+            {"type": "section", "text": "Section 1: Siemens SINAMICS G120 Technical Specifications & Overview"},
+            {"type": "body", "text": "Model: Siemens SINAMICS G120 Variable Frequency Drive / Frequency Converter.\nControl Unit: CU240E-2 PN / CU250S-2 Vector Control.\nPower Module: PM240-2 IP20 / PM250 Regenerative Power Module.\nOperating Voltage: 380V - 480V 3AC (±10% tolerance range).\nCooling: Internal forced air cooling fan with speed management."},
+            {"type": "section", "text": "Section 2: Fault and Alarm Messages (Troubleshooting Diagnostics)"},
+            {"type": "subsection", "text": "Fault F30001: Power Unit Overcurrent (F-30001 / F30001 Alarm)"},
+            {"type": "body", "text": "Description: Power unit has detected an overcurrent condition exceeding permissible inverter limit (r0209).\nPossible Causes:\n 1. Motor ground fault or phase-to-phase short circuit in motor power cable.\n 2. Acceleration ramp-up time (p1120) set too short for high inertia mechanical load.\n 3. V/f control voltage boost (p1310) set too high causing saturation.\n 4. Motor cable length exceeds maximum allowable unshielded cable limit.\n 5. Inverter power module IGBT breakdown or current sensor failure.\nRecommended Step-by-Step Resolution:\n 1. Initiate Lockout/Tagout (LOTO) and measure motor insulation resistance (Ph-Ph and Ph-Gnd > 50 MΩ).\n 2. Check motor cable connections at U/V/W terminals for loose strands or arc tracking.\n 3. Increase acceleration time parameter p1120 in SINAMICS Startdrive / IOP-2 operator panel.\n 4. Verify motor data parameterization (p0304-p0311) matches motor nameplate values.\n 5. Perform automatic motor identification routine (p1910 = 1)."},
+            {"type": "subsection", "text": "Fault F30002: Power Unit DC Link Overvoltage (F-30002)"},
+            {"type": "body", "text": "Description: DC link circuit voltage (r0070) exceeded upper shutdown threshold (DC 820V).\nRecommended Resolution: Check braking resistor connection (R1/R2 terminals) or increase deceleration ramp time (p1121)."}
+        ]
+    ]
     create_sample_pdf(
-        os.path.join(output_dir, "Fanuc_Robodrill_CNC_Manual.pdf"),
-        "Fanuc Robodrill CNC Manual",
-        "Model: α-D21MiB5 | CNC Control: Fanuc 31i-B5 | Manufacturer: Fanuc Automation",
-        fanuc_pages
+        os.path.join(output_dir, "Siemens_SINAMICS_G120_Manual.pdf"),
+        "Siemens SINAMICS G120 Converter Manual",
+        "Model: SINAMICS G120 | Control Unit: CU240E-2 PN | Manufacturer: Siemens AG",
+        siemens_g120_pages
     )
 
 

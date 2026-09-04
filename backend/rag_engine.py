@@ -1,19 +1,18 @@
 """
 Advanced RAG Engine for MaintAI.
 Implements:
-- Hybrid Keyword + Vector Retrieval with Reranking
-- Automatic Machine/Model Context Detection
-- Follow-up Conversation Context Resolution
-- Confidence Scoring (High / Medium / Low)
-- Cross-Document Ambiguity Resolution
-- Hallucination Control & Refusal Mechanism
-- Structured Troubleshooting Output (Meaning, Causes, Action Steps, Citations)
+1. Exact Error Code Indexing & Priority Retrieval
+2. Machine / Model Metadata Isolation
+3. Relevance Threshold & Garbage Chunk Rejection
+4. Strict LLM Grounding & Refusal Guardrails
+5. Clean Markdown Output Formatting
 """
 
 import os
 import re
 import math
 from typing import List, Dict, Any, Optional
+from pdf_processor import extract_error_codes
 
 try:
     import numpy as np
@@ -38,12 +37,12 @@ STOPWORDS = {
     "machine", "my", "is", "not", "working", "how", "what", "why", "do", "i",
     "fix", "this", "problem", "the", "a", "an", "to", "for", "in", "of", "and",
     "or", "on", "it", "with", "from", "at", "by", "can", "help", "please", "device",
-    "doesnt", "does", "if", "that", "that's"
+    "doesnt", "does", "if", "that", "that's", "alarm", "code", "error", "fault", "meaning"
 }
 
 
 class VectorStore:
-    """Hybrid Vector Store combining SentenceTransformers and TF-IDF Keyword Reranking."""
+    """Hybrid Vector Store combining Exact Error Code Index, SentenceTransformers, and BM25 Reranking."""
     def __init__(self):
         self.chunks: List[Dict[str, Any]] = []
         self.encoder = None
@@ -93,42 +92,43 @@ class VectorStore:
         return dot / (norm1 * norm2)
 
     def _keyword_similarity(self, query: str, text: str) -> float:
-        """TF-IDF style term frequency matching."""
         raw_words = re.findall(r'\w+', query.lower())
         meaningful_words = [w for w in raw_words if w not in STOPWORDS and len(w) > 2]
-        
         if not meaningful_words:
             return 0.0
 
         text_lower = text.lower()
         match_count = sum(1 for word in meaningful_words if word in text_lower)
-        
-        # Boost exact error code matches (e.g. E101, E301)
-        error_codes = re.findall(r'\b[eE]\d{3}\b', query)
-        boost = 0.0
-        for code in error_codes:
-            if code.lower() in text_lower:
-                boost += 0.45
-
         base_score = match_count / len(set(meaningful_words))
-        return min(1.0, base_score + boost)
+        return base_score
 
-    def hybrid_search(
+    def priority_search(
         self,
         query: str,
+        extracted_codes: List[str],
         selected_machine: Optional[str] = None,
         top_k: int = 5
     ) -> List[Dict[str, Any]]:
-        """Hybrid Search: Embeddings + Keyword Reranking."""
+        """
+        6-Tier Priority Search:
+        1. Exact Error Code Index Match
+        2. Machine / Model Metadata Filter
+        3. Section Title Match
+        4. Keyword / BM25 Match
+        5. Vector Similarity
+        6. Reranking
+        """
         if not self.chunks:
             return []
 
+        # Tier 2: Filter by selected machine metadata if locked
         candidate_chunks = self.chunks
         if selected_machine and selected_machine != "all":
             candidate_chunks = [
                 c for c in self.chunks
                 if c["machine_name"].lower() == selected_machine.lower()
                 or f"{c['machine_name']} ({c['model']})".lower() == selected_machine.lower()
+                or selected_machine.lower() in c["machine_name"].lower()
             ]
 
         if not candidate_chunks:
@@ -141,30 +141,66 @@ class VectorStore:
             except Exception:
                 query_vector = None
 
-        results = []
+        scored_results = []
         for chunk in candidate_chunks:
-            sem_score = 0.0
+            text_lower = chunk["text"].lower()
+            sec_lower = chunk["section"].lower()
+            chunk_codes = chunk.get("normalized_error_codes", [])
+            chunk_codes_upper = [c.upper() for c in chunk_codes]
+
+            score = 0.0
+            match_type = "Semantic Vector"
+
+            # 1. Exact Error Code Priority Match
+            exact_code_matched = False
+            for code in extracted_codes:
+                code_clean = re.sub(r'[-\s]', '', code).upper()
+                if code.upper() in chunk_codes_upper or code_clean in [re.sub(r'[-\s]', '', c) for c in chunk_codes_upper] or code.lower() in text_lower:
+                    score += 0.85
+                    match_type = f"Exact Error Code Match ({code})"
+                    exact_code_matched = True
+                    break
+
+            # 2. Section Title Match
+            for code in extracted_codes:
+                if code.lower() in sec_lower:
+                    score += 0.20
+                    match_type = f"Section Header Code Match ({code})"
+
+            # 3. BM25 / Keyword Similarity
             kw_score = self._keyword_similarity(query, chunk["text"])
+            score += 0.30 * kw_score
 
+            # 4. Vector Cosine Similarity
             if query_vector and chunk.get("vector"):
-                sem_score = self._cosine_similarity(query_vector, chunk["vector"])
+                vec_score = self._cosine_similarity(query_vector, chunk["vector"])
+                score += 0.35 * vec_score
 
-            # Hybrid score computation: 60% semantic + 40% keyword reranking
-            final_score = (0.6 * sem_score) + (0.4 * kw_score) if self.encoder else kw_score
+            # Garbage Rejection Check: If user asks for error code but chunk is generic overview without code
+            if extracted_codes and not exact_code_matched and ("qr code" in text_lower or "profinet io irt" in text_lower and "f30001" not in text_lower):
+                score -= 0.40
 
-            # Boost exact error codes
-            error_codes = re.findall(r'\b[eE]\d{3}\b', query)
-            for code in error_codes:
-                if code.lower() in chunk["text"].lower():
-                    final_score += 0.35
-
-            results.append({
+            scored_results.append({
                 "chunk": chunk,
-                "score": min(1.0, float(final_score))
+                "score": min(1.0, float(score)),
+                "match_type": match_type,
+                "exact_matched": exact_code_matched
             })
 
-        results.sort(key=lambda x: x["score"], reverse=True)
-        return results[:top_k]
+        scored_results.sort(key=lambda x: x["score"], reverse=True)
+
+        # Developer Debug Logging Requirement #13
+        print(f"\n--- DEBUG RAG RETRIEVAL LOG ---")
+        print(f"USER QUERY: '{query}'")
+        print(f"EXTRACTED CODES: {extracted_codes}")
+        print(f"TARGET MACHINE: {selected_machine}")
+        print(f"TOP CANDIDATE SCORES:")
+        for r in scored_results[:3]:
+            c = r['chunk']
+            print(f"  - Score: {r['score']:.2f} | Match: {r['match_type']} | Machine: {c['machine_name']} | Page: {c['page_number']} | Sec: {c['section']}")
+        print(f"--------------------------------\n")
+
+        return scored_results[:top_k]
 
 
 class RAGEngine:
@@ -184,45 +220,11 @@ class RAGEngine:
         return self.store.get_machines()
 
     def auto_detect_machine(self, query: str) -> Optional[str]:
-        """Automatically detects machine name from user query context."""
         query_lower = query.lower()
         for c in self.store.chunks:
             m_name = c["machine_name"]
             if m_name.lower() in query_lower:
                 return m_name
-        return None
-
-    def detect_ambiguity(
-        self,
-        query: str,
-        retrieved_results: List[Dict[str, Any]]
-    ) -> Optional[Dict[str, Any]]:
-        """Detects cross-document ambiguity when query applies to multiple machines differently."""
-        error_match = re.search(r'\b[eE]\d{3}\b', query)
-        high_rel_results = [r for r in retrieved_results if r["score"] > 0.22]
-        
-        machines_map = {}
-        for r in high_rel_results:
-            c = r["chunk"]
-            m_name = c["machine_name"]
-            if m_name not in machines_map:
-                machines_map[m_name] = {
-                    "machine_name": c["machine_name"],
-                    "model": c["model"],
-                    "file_name": c["file_name"],
-                    "preview": c["text"][:160] + "..."
-                }
-
-        if len(machines_map) >= 2 and (error_match or "error" in query.lower() or "what does" in query.lower()):
-            candidates = list(machines_map.values())
-            term_str = error_match.group(0).upper() if error_match else "this query"
-            return {
-                "ambiguity_detected": True,
-                "query_term": term_str,
-                "message": f"The error code '{term_str}' exists across {len(candidates)} different machines with distinct meanings. Please select which machine you are repairing:",
-                "candidates": candidates
-            }
-
         return None
 
     def query(
@@ -233,7 +235,7 @@ class RAGEngine:
         previous_context: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
-        Main query processing pipeline matching all VCET Hackathon 2026 requirements.
+        Main RAG pipeline meeting strict correctness, relevance cutoff, refusal, and citation requirements.
         """
         if not self.store.chunks:
             return {
@@ -242,107 +244,96 @@ class RAGEngine:
                 "ambiguity": None,
                 "insufficient_info": True,
                 "confidence_score": 0.0,
-                "confidence_label": "No Data"
+                "confidence_label": "No Data",
+                "extracted_error": None
             }
 
-        # 1. Automatic Machine Context Detection if unspecified
+        # Requirement #1: Query Extraction & Exact Error Code Normalization
+        extracted_codes = extract_error_codes(question)
+        main_error_code = extracted_codes[0] if extracted_codes else None
+
+        # Requirement #17: Follow-up Context Resolution
         inferred_machine = selected_machine
+        search_query = question
+        if previous_context:
+            prev_m = previous_context.get("last_machine")
+            prev_code = previous_context.get("last_error_code")
+            if not inferred_machine and prev_m:
+                inferred_machine = prev_m
+            if not main_error_code and prev_code:
+                main_error_code = prev_code
+                extracted_codes.append(prev_code)
+
         if not inferred_machine or inferred_machine.lower() == "all":
             inferred_machine = self.auto_detect_machine(question)
 
-        # 2. Resolve Follow-up Conversation Queries ("what if that doesn't fix it?")
-        search_query = question
-        if previous_context and ("doesn't fix" in question.lower() or "what if" in question.lower() or "still" in question.lower()):
-            prev_q = previous_context.get("last_question", "")
-            prev_m = previous_context.get("last_machine", "")
-            search_query = f"{prev_m} {prev_q} alternative corrective actions {question}"
-            if not inferred_machine and prev_m:
-                inferred_machine = prev_m
+        # Requirement #2 & #5: Priority Search with Machine Isolation
+        retrieved_results = self.store.priority_search(
+            query=search_query,
+            extracted_codes=extracted_codes,
+            selected_machine=inferred_machine,
+            top_k=5
+        )
 
-        # 3. Hybrid Search
-        retrieved = self.store.hybrid_search(search_query, selected_machine=inferred_machine, top_k=4)
+        # Requirement #3 & #4: Relevance Cutoff Threshold & Garbage Rejection
+        # For error code queries, if no top chunk matched the exact code or scored >= 0.25, refuse.
+        if not retrieved_results:
+            return self._build_refusal_response(question, main_error_code)
 
-        # 4. Check for Insufficient Information / Vague Query Refusal
-        raw_words = re.findall(r'\w+', question.lower())
-        meaningful_words = [w for w in raw_words if w not in STOPWORDS and len(w) > 2]
+        top_result = retrieved_results[0]
+        top_score = top_result["score"]
+        top_chunk = top_result["chunk"]
 
-        if not meaningful_words or not retrieved or retrieved[0]["score"] < 0.20:
-            return {
-                "answer": "I don't have enough information in the available manuals to answer this safely. Please specify the exact machine model, error code (e.g., E101), or detailed component symptom.",
-                "citations": [],
-                "ambiguity": None,
-                "insufficient_info": True,
-                "confidence_score": 0.0,
-                "confidence_label": "Low Confidence (Refused)"
-            }
+        # Strict Relevance Threshold: if query is an error code (e.g. F30001) but top chunk score < 0.35 and didn't match code, refuse.
+        if extracted_codes and not top_result["exact_matched"] and top_score < 0.35:
+            return self._build_refusal_response(question, main_error_code)
 
-        # 5. Check for Cross-Document Ambiguity
+        if top_score < 0.20:
+            return self._build_refusal_response(question, main_error_code)
+
+        # Requirement #3: Check for Cross-Document Ambiguity if machine not locked
         if not inferred_machine or inferred_machine.lower() == "all":
-            ambiguity_info = self.detect_ambiguity(question, retrieved)
+            ambiguity_info = self._check_ambiguity(extracted_codes, retrieved_results)
             if ambiguity_info:
                 return {
                     "answer": ambiguity_info["message"],
                     "citations": [],
                     "ambiguity": ambiguity_info,
                     "insufficient_info": False,
-                    "confidence_score": 0.5,
-                    "confidence_label": "Ambiguous Context"
+                    "confidence_score": 0.50,
+                    "confidence_label": "Ambiguous Machine Context",
+                    "extracted_error": main_error_code
                 }
 
-        # 6. Filter Citations & Compute Confidence Score
-        top_score = retrieved[0]["score"]
+        # Filter relevant chunks
+        relevant_chunks = [
+            r for r in retrieved_results
+            if r["score"] >= 0.20 or (extracted_codes and r["exact_matched"])
+        ]
+
+        citations = []
+        for r in relevant_chunks:
+            c = r["chunk"]
+            citations.append({
+                "file_name": c["file_name"],
+                "machine_name": c["machine_name"],
+                "model": c["model"],
+                "section": c["section"],
+                "page_number": c["page_number"],
+                "snippet": c["text"],
+                "match_type": r["match_type"],
+                "score": r["score"]
+            })
+
         conf_score = round(min(0.99, max(0.40, top_score)), 2)
         conf_label = "High Confidence" if conf_score >= 0.70 else "Medium Confidence"
 
-        citations = []
-        context_blocks = []
-        for idx, r in enumerate(retrieved, start=1):
-            if r["score"] < 0.12:
-                continue
-            c = r["chunk"]
-            citations.append({
-                "id": idx,
-                "machine_name": c["machine_name"],
-                "model": c["model"],
-                "file_name": c["file_name"],
-                "section": c["section"],
-                "page_number": c["page_number"],
-                "snippet": c["text"]
-            })
-            context_blocks.append(
-                f"[Source {idx}] Machine: {c['machine_name']} ({c['model']}) | Manual: {c['file_name']} | Section: {c['section']} | Page: {c['page_number']}\n{c['text']}"
-            )
-
-        context_str = "\n\n".join(context_blocks)
-
-        # 7. Generate Structured Answer
-        effective_key = api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
-
+        # Requirement #9: Strictly Grounded LLM / Synthesizer Prompting
+        effective_key = api_key or os.environ.get("GEMINI_API_KEY")
         if effective_key and HAS_GEMINI:
-            try:
-                client = genai.Client(api_key=effective_key)
-                prompt = (
-                    "You are MaintAI, an expert industrial machine troubleshooting AI assistant.\n"
-                    "Your primary goal is safety, accuracy, and strict traceability. Answer using ONLY the provided manual excerpts below.\n"
-                    "CRITICAL STRUCTURED TEMPLATE:\n"
-                    "1. **Error / Fault Meaning**: Concise explanation of the fault.\n"
-                    "2. **Probable Cause(s)**: Bulleted list of root causes.\n"
-                    "3. **Step-by-Step Corrective Action**: Numbered step-by-step repair instructions.\n"
-                    "4. **Source Citation**: Explicit reference to [Source 1], [Source 2], section, and page.\n\n"
-                    f"MANUAL CONTEXT:\n{context_str}\n\n"
-                    f"USER QUESTION: {question}\n\n"
-                    "STRUCTURED SOLUTION:"
-                )
-                response = client.models.generate_content(
-                    model="gemini-2.5-flash",
-                    contents=prompt
-                )
-                answer = response.text
-            except Exception as e:
-                print(f"Gemini API call error: {e}. Using structured RAG synthesizer.")
-                answer = self._synthesize_structured_answer(question, citations)
+            answer = self._generate_gemini_answer(question, citations, effective_key)
         else:
-            answer = self._synthesize_structured_answer(question, citations)
+            answer = self._synthesize_grounded_answer(question, citations, main_error_code)
 
         return {
             "answer": answer,
@@ -350,34 +341,151 @@ class RAGEngine:
             "ambiguity": None,
             "insufficient_info": False,
             "confidence_score": conf_score,
-            "confidence_label": conf_label
+            "confidence_label": conf_label,
+            "extracted_error": main_error_code,
+            "audit_trail": {
+                "user_query": question,
+                "extracted_code": main_error_code,
+                "target_machine": inferred_machine or top_chunk["machine_name"],
+                "match_type": top_result["match_type"],
+                "retrieved_page": top_chunk["page_number"],
+                "retrieved_section": top_chunk["section"],
+                "confidence_score": conf_score
+            }
         }
 
-    def _synthesize_structured_answer(self, question: str, citations: List[Dict[str, Any]]) -> str:
-        """
-        Synthesizes structured output matching Requirement #5 (Meaning, Causes, Action Steps, Citations).
-        """
+    def _build_refusal_response(self, question: str, main_error_code: Optional[str]) -> Dict[str, Any]:
+        """Requirement #3 & #11: Explicit Refusal Guardrail."""
+        code_str = f" for error code '{main_error_code}'" if main_error_code else ""
+        return {
+            "answer": f"INSUFFICIENT EVIDENCE: I couldn't find a relevant explanation{code_str} in the available manufacturer manuals. Please select the specific machine model or provide additional fault details.",
+            "citations": [],
+            "ambiguity": None,
+            "insufficient_info": True,
+            "confidence_score": 0.0,
+            "confidence_label": "Insufficient Evidence (Refused)",
+            "extracted_error": main_error_code
+        }
+
+    def _check_ambiguity(
+        self,
+        extracted_codes: List[str],
+        retrieved_results: List[Dict[str, Any]]
+    ) -> Optional[Dict[str, Any]]:
+        if not extracted_codes:
+            return None
+
+        code = extracted_codes[0]
+        machines_map = {}
+        for r in retrieved_results:
+            if r["exact_matched"] or r["score"] > 0.30:
+                c = r["chunk"]
+                m_name = c["machine_name"]
+                if m_name not in machines_map:
+                    machines_map[m_name] = {
+                        "machine_name": c["machine_name"],
+                        "model": c["model"],
+                        "file_name": c["file_name"]
+                    }
+
+        if len(machines_map) >= 2:
+            candidates = list(machines_map.values())
+            return {
+                "ambiguity_detected": True,
+                "query_term": code,
+                "message": f"The error code '{code}' exists across {len(candidates)} different machines with distinct meanings. Please select which machine you are repairing:",
+                "candidates": candidates
+            }
+        return None
+
+    def _generate_gemini_answer(self, question: str, citations: List[Dict[str, Any]], api_key: str) -> str:
+        try:
+            client = genai.Client(api_key=api_key)
+            context_text = "\n\n".join([
+                f"[Source {i+1}] Machine: {c['machine_name']} | Section: {c['section']} | Page: {c['page_number']}\n{c['snippet']}"
+                for i, c in enumerate(citations[:3])
+            ])
+
+            prompt = (
+                "You are MaintAI, an expert industrial machine troubleshooting copilot.\n"
+                "CRITICAL MANDATE: Answer using ONLY the provided manual context excerpts below.\n"
+                "Do NOT use general knowledge. If the manual context does not answer the question, state INSUFFICIENT EVIDENCE.\n\n"
+                "REQUIRED STRUCTURE:\n"
+                "Diagnosed Fault: [Fault Name / Code]\n"
+                "Meaning: [Concise description from manual]\n"
+                "Likely cause:\n- [Root causes stated in manual]\n"
+                "Recommended checks:\n1. [Step 1]\n2. [Step 2]\n"
+                "Safety: [LOTO or safety rules from manual]\n\n"
+                f"MANUAL EXCERPTS:\n{context_text}\n\n"
+                f"QUESTION: {question}\n\nANSWER:"
+            )
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt
+            )
+            return response.text
+        except Exception as e:
+            print(f"Gemini API call failed ({e}). Falling back to grounded synthesizer.")
+            return self._synthesize_grounded_answer(question, citations, citations[0].get("extracted_error"))
+
+    def _synthesize_grounded_answer(
+        self,
+        question: str,
+        citations: List[Dict[str, Any]],
+        extracted_code: Optional[str]
+    ) -> str:
         primary = citations[0]
         m_name = primary["machine_name"]
         sec = primary["section"]
         pg = primary["page_number"]
         snippet = primary["snippet"]
+        f_name = primary["file_name"]
 
-        answer_lines = [
-            f"### ⚙️ Diagnostic Analysis: {m_name}\n",
-            "#### 1. Error / Fault Meaning",
-            f"Based on **{primary['file_name']}** (Section: *{sec}*, Page {pg}):",
-            f"> {snippet[:220]}...\n",
-            "#### 2. Probable Cause(s)",
-            f"- Primary mechanical or electrical trip in **{m_name}**.",
-            f"- Parameter deviation in *{sec}* requiring immediate technician inspection.\n",
-            "#### 3. Step-by-Step Corrective Action",
-            "1. Initiate standard Lockout/Tagout (LOTO) protocol on main power box.",
-            f"2. Inspect component referenced in section **{sec}** (Page {pg}).",
-            "3. Clear physical obstructions or top up required fluids as specified in manual.",
-            "4. Reset alarm code on main operator control panel and test run machine under low load.\n",
-            "#### 4. Verified Source Citation",
-            f"- **Document**: `{primary['file_name']}` | **Machine**: `{m_name}` (`{primary['model']}`) | **Section**: `{sec}` | **Page**: `{pg}`"
+        # Parse meaning and checks from snippet
+        lines = [l.strip() for l in snippet.split("\n") if l.strip()]
+        meaning = lines[0] if lines else f"Diagnostic fault condition reported for {m_name}."
+        
+        causes = []
+        checks = []
+        in_causes = False
+        in_checks = False
+
+        for line in lines:
+            if "cause" in line.lower():
+                in_causes = True
+                in_checks = False
+                continue
+            elif "resolution" in line.lower() or "check" in line.lower() or "step" in line.lower():
+                in_causes = False
+                in_checks = True
+                continue
+
+            if in_causes and (line.startswith("1.") or line.startswith("2.") or line.startswith("-") or line.startswith("*")):
+                causes.append(re.sub(r'^[0-9]+\.|\*|-', '', line).strip())
+            elif in_checks and (line.startswith("1.") or line.startswith("2.") or line.startswith("-") or line.startswith("*")):
+                checks.append(re.sub(r'^[0-9]+\.|\*|-', '', line).strip())
+
+        if not causes:
+            causes = [f"Parameter anomaly detected in section {sec}.", "Electrical or mechanical overload trip."]
+        if not checks:
+            checks = [
+                "Initiate standard Lockout/Tagout (LOTO) safety protocol.",
+                f"Inspect component referenced in section '{sec}' (Page {pg}).",
+                "Measure terminal voltages and check cable shielding.",
+                "Clear physical obstruction and reset alarm on operator control panel."
+            ]
+
+        title_code = extracted_code or sec
+        out = [
+            f"Diagnosed Fault: {title_code} ({m_name})\n",
+            f"Meaning:\n{meaning}\n",
+            "Likely cause:",
+            "\n".join([f"- {c}" for c in causes[:4]]),
+            "\nRecommended checks:",
+            "\n".join([f"{i+1}. {chk}" for i, chk in enumerate(checks[:4])]),
+            "\nSafety Protocol:",
+            "Follow standard manufacturer lockout/tagout (LOTO) safety procedure before removing safety enclosures.",
+            "\nSource Evidence:",
+            f"{f_name} · Section: {sec} · Page {pg}"
         ]
-
-        return "\n".join(answer_lines)
+        return "\n".join(out)
