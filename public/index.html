@@ -8,8 +8,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <!-- Mozilla PDF.js for client-side extraction to bypass Serverless limits -->
+  <!-- Mozilla PDF.js & Tesseract.js for OCR & PDF parsing -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script>
     if (typeof pdfjsLib !== 'undefined') {
       pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -355,9 +356,26 @@
       <!-- BOTTOM CHAT INPUT BAR -->
       <div class="bg-white border-t border-slate-200 p-3 sm:p-4 shrink-0 shadow-lg">
         <form id="query-form" onsubmit="submitTroubleshootingQuery(event)" class="flex items-center space-x-2">
+          
+          <!-- Photo Error Scan Button -->
+          <button type="button" onclick="triggerPhotoUpload()" id="photo-upload-btn" title="Upload or snap photo of error screen" 
+                  class="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition flex items-center justify-center space-x-1 shrink-0 border border-slate-300 shadow-2xs">
+            <span class="text-base">📷</span>
+            <span class="hidden sm:inline">Photo</span>
+          </button>
+          <input type="file" id="error-photo-input" accept="image/*" capture="environment" class="hidden" onchange="handleErrorPhotoUpload(event)" />
+
+          <!-- Voice Microphone Button -->
+          <button type="button" onclick="toggleVoiceSearch()" id="mic-btn" title="Speak error code or symptom" 
+                  class="px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition flex items-center justify-center space-x-1 shrink-0 border border-slate-300 shadow-2xs">
+            <span id="mic-icon" class="text-base">🎙️</span>
+            <span class="hidden sm:inline" id="mic-text">Voice</span>
+          </button>
+
+          <!-- Input Box -->
           <div class="relative flex-1">
             <input type="text" id="query-input" 
-                   placeholder="Enter an error/alarm code or describe the problem..." 
+                   placeholder="Type, speak, or snap photo of error code..." 
                    class="w-full pl-3.5 pr-8 py-2.5 bg-slate-50 border border-slate-300 focus:border-blue-600 focus:bg-white rounded-xl text-xs sm:text-sm font-medium text-slate-900 outline-none transition"
                    autocomplete="off" />
             <button type="button" onclick="clearInput()" id="clear-input-btn" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs p-1">
@@ -371,7 +389,7 @@
         </form>
         <div class="flex items-center justify-between text-[11px] text-slate-400 font-medium mt-1.5 px-1">
           <span>🔒 Retrieval locked exclusively to <span id="locked-footer-label" class="font-bold text-slate-600">Active Machine</span></span>
-          <span id="query-status-indicator">Ready</span>
+          <span id="query-status-indicator" class="font-bold text-slate-600">Ready</span>
         </div>
       </div>
 
@@ -708,6 +726,167 @@
       input.value = '';
       input.focus();
       document.getElementById('clear-input-btn').classList.add('hidden');
+    }
+
+    // ----------------------------------------------------
+    // OPTION 1: PHOTO UPLOAD & OCR ERROR SCANNER
+    // ----------------------------------------------------
+    function triggerPhotoUpload() {
+      const photoInput = document.getElementById('error-photo-input');
+      if (photoInput) photoInput.click();
+    }
+
+    async function handleErrorPhotoUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const statusInd = document.getElementById('query-status-indicator');
+      const photoBtn = document.getElementById('photo-upload-btn');
+      const queryInput = document.getElementById('query-input');
+
+      if (statusInd) statusInd.textContent = '📷 Reading error code from photo...';
+      if (photoBtn) {
+        photoBtn.disabled = true;
+        photoBtn.innerHTML = '<span class="text-xs animate-spin">⚪</span><span class="hidden sm:inline"> Reading...</span>';
+      }
+
+      try {
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+          const imgSrc = e.target.result;
+          let extractedText = '';
+
+          if (window.Tesseract) {
+            try {
+              const worker = await Tesseract.createWorker('eng');
+              const ret = await worker.recognize(imgSrc);
+              extractedText = ret.data.text || '';
+              await worker.terminate();
+            } catch(tErr) {
+              console.warn('Tesseract OCR warning:', tErr);
+            }
+          }
+
+          let detectedCode = '';
+          if (extractedText.trim()) {
+            const matches = extractedText.match(/\b(?:E|F|ERR|ALARM|FAULT|CODE)?\s*[-:_]?\s*\d{2,6}[A-Z]?\b/gi) || [];
+            if (matches.length > 0) {
+              detectedCode = matches.map(m => m.trim()).join(' ');
+            } else {
+              detectedCode = extractedText.replace(/[\n\r]+/g, ' ').substring(0, 80).trim();
+            }
+          }
+
+          if (!detectedCode) {
+            const fnameMatch = file.name.match(/\b[A-Za-z0-9_-]{2,15}\b/);
+            if (fnameMatch && fnameMatch[0].length >= 3) {
+              detectedCode = fnameMatch[0];
+            }
+          }
+
+          if (detectedCode) {
+            queryInput.value = detectedCode;
+            const clearBtn = document.getElementById('clear-input-btn');
+            if (clearBtn) clearBtn.classList.remove('hidden');
+            if (statusInd) statusInd.textContent = '✓ Error code scanned from photo!';
+          } else {
+            if (statusInd) statusInd.textContent = 'Photo loaded. Please type specific error code.';
+          }
+        };
+        reader.readAsDataURL(file);
+      } catch(err) {
+        console.error('Photo scan error:', err);
+        if (statusInd) statusInd.textContent = 'Could not scan photo. Enter code manually.';
+      } finally {
+        if (photoBtn) {
+          photoBtn.disabled = false;
+          photoBtn.innerHTML = '<span class="text-base">📷</span><span class="hidden sm:inline">Photo</span>';
+        }
+        event.target.value = '';
+      }
+    }
+
+    // ----------------------------------------------------
+    // OPTION 2: VOICE MICROPHONE INPUT (WEB SPEECH API)
+    // ----------------------------------------------------
+    let voiceRecognition = null;
+    let isVoiceListening = false;
+
+    function toggleVoiceSearch() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const statusInd = document.getElementById('query-status-indicator');
+      const micBtn = document.getElementById('mic-btn');
+      const micIcon = document.getElementById('mic-icon');
+      const micText = document.getElementById('mic-text');
+      const queryInput = document.getElementById('query-input');
+
+      if (!SpeechRecognition) {
+        alert("Speech recognition is not supported in your current browser. Please type or upload a photo of the error.");
+        return;
+      }
+
+      if (isVoiceListening && voiceRecognition) {
+        voiceRecognition.stop();
+        return;
+      }
+
+      try {
+        voiceRecognition = new SpeechRecognition();
+        voiceRecognition.continuous = false;
+        voiceRecognition.interimResults = true;
+        voiceRecognition.lang = 'en-US';
+
+        voiceRecognition.onstart = function() {
+          isVoiceListening = true;
+          if (micBtn) {
+            micBtn.classList.add('bg-rose-600', 'text-white', 'animate-pulse', 'border-rose-700');
+            micBtn.classList.remove('bg-slate-100', 'text-slate-700', 'hover:bg-slate-200');
+          }
+          if (micIcon) micIcon.textContent = '🔴';
+          if (micText) micText.textContent = 'Listening...';
+          if (statusInd) statusInd.textContent = '🎙️ Listening... Speak error code or symptom now.';
+        };
+
+        voiceRecognition.onresult = function(event) {
+          let interim = '';
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            interim += event.results[i][0].transcript;
+          }
+          if (interim && queryInput) {
+            queryInput.value = interim;
+            const clearBtn = document.getElementById('clear-input-btn');
+            if (clearBtn) clearBtn.classList.remove('hidden');
+          }
+        };
+
+        voiceRecognition.onerror = function(event) {
+          console.warn('Speech recognition error:', event.error);
+          resetVoiceUI();
+          if (statusInd) statusInd.textContent = 'Voice error: ' + event.error;
+        };
+
+        voiceRecognition.onend = function() {
+          resetVoiceUI();
+          if (statusInd && queryInput && queryInput.value.trim()) {
+            statusInd.textContent = '✓ Voice captured! Click Diagnose to search.';
+          }
+        };
+
+        function resetVoiceUI() {
+          isVoiceListening = false;
+          if (micBtn) {
+            micBtn.classList.remove('bg-rose-600', 'text-white', 'animate-pulse', 'border-rose-700');
+            micBtn.classList.add('bg-slate-100', 'text-slate-700', 'hover:bg-slate-200');
+          }
+          if (micIcon) micIcon.textContent = '🎙️';
+          if (micText) micText.textContent = 'Voice';
+        }
+
+        voiceRecognition.start();
+      } catch(e) {
+        console.error("Speech recognition startup error:", e);
+        if (statusInd) statusInd.textContent = "Could not activate microphone.";
+      }
     }
 
     document.getElementById('query-input')?.addEventListener('input', (e) => {
