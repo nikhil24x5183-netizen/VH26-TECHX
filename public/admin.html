@@ -50,8 +50,11 @@
   </div>
   <script>
   (function() {
+    const overlay = document.getElementById('auth-loading-overlay');
+    // Failsafe safety timeout: guarantees overlay NEVER gets stuck
+    setTimeout(() => { if (overlay) overlay.style.display = 'none'; }, 1200);
+
     firebase.auth().onAuthStateChanged(async function(user) {
-      const overlay = document.getElementById('auth-loading-overlay');
       if (!user) {
         window.location.href = '/login.html';
         return;
@@ -60,22 +63,32 @@
         const token = await user.getIdToken();
         window.__maintai_token = token;
 
-        // Verify role in Firestore or Realtime Database
         let userData = null;
-        try {
-          const db = firebase.firestore();
-          const userDoc = await db.collection('users').doc(user.uid).get();
-          if (userDoc && userDoc.exists) userData = userDoc.data();
-        } catch(fe) {
-          console.warn("Firestore user read warning:", fe);
-        }
 
-        if (!userData && firebase.database) {
+        // 1. Try Realtime Database first (fastest and active)
+        if (window.firebase && firebase.database) {
           try {
-            const snap = await firebase.database().ref('users/' + user.uid).once('value');
-            if (snap.exists()) userData = snap.val();
+            const snap = await Promise.race([
+              firebase.database().ref('users/' + user.uid).once('value'),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('rtdb timeout')), 1000))
+            ]);
+            if (snap && snap.exists()) userData = snap.val();
           } catch(re) {
             console.warn("RTDB user read warning:", re);
+          }
+        }
+
+        // 2. Try Firestore if RTDB didn't return data
+        if (!userData && window.firebase && firebase.apps.length) {
+          try {
+            const db = firebase.firestore();
+            const userDoc = await Promise.race([
+              db.collection('users').doc(user.uid).get(),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('firestore timeout')), 1000))
+            ]);
+            if (userDoc && userDoc.exists) userData = userDoc.data();
+          } catch(fe) {
+            console.warn("Firestore user read warning:", fe);
           }
         }
 
@@ -99,12 +112,6 @@
             role: 'company_admin',
             companyId: user.uid
           };
-          try {
-            await firebase.firestore().collection('users').doc(user.uid).set({
-              ...userData,
-              createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
-          } catch(e) {}
           if (firebase.database) {
             try {
               await firebase.database().ref('users/' + user.uid).update({
@@ -113,6 +120,12 @@
               });
             } catch(e) {}
           }
+          try {
+            await firebase.firestore().collection('users').doc(user.uid).set({
+              ...userData,
+              createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+          } catch(e) {}
           window.__maintai_role = 'company_admin';
           window.__maintai_companyId = user.uid;
         }

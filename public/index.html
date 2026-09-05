@@ -113,28 +113,36 @@
         const token = await user.getIdToken();
         window.__maintai_token = token;
 
-        // Verify role and companyId in Firestore or Realtime Database
-        const db = firebase.firestore();
-        let userDoc = null;
-        try {
-          userDoc = await db.collection('users').doc(user.uid).get();
-        } catch(uErr) {
-          console.warn("User doc fetch warning:", uErr);
-        }
+        let userData = null;
 
-        if ((!userDoc || !userDoc.exists) && firebase.database) {
+        // 1. Try Realtime Database first (fastest & active)
+        if (window.firebase && firebase.database) {
           try {
-            const snap = await firebase.database().ref('users/' + user.uid).once('value');
-            if (snap.exists()) {
-              userDoc = { exists: true, data: () => snap.val() };
-            }
+            const snap = await Promise.race([
+              firebase.database().ref('users/' + user.uid).once('value'),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('rtdb timeout')), 1000))
+            ]);
+            if (snap && snap.exists()) userData = snap.val();
           } catch(rtdbErr) {
             console.warn("RTDB user fetch warning:", rtdbErr);
           }
         }
 
-        if (userDoc && userDoc.exists) {
-          const userData = userDoc.data() || {};
+        // 2. Try Firestore if RTDB didn't return data
+        if (!userData && window.firebase && firebase.apps.length) {
+          try {
+            const db = firebase.firestore();
+            const userDoc = await Promise.race([
+              db.collection('users').doc(user.uid).get(),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('firestore timeout')), 1000))
+            ]);
+            if (userDoc && userDoc.exists) userData = userDoc.data();
+          } catch(uErr) {
+            console.warn("User doc fetch warning:", uErr);
+          }
+        }
+
+        if (userData) {
           // If logged in as company_admin, redirect to company dashboard
           if (userData.role === 'company_admin') {
             window.location.href = '/company/dashboard';
