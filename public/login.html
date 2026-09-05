@@ -448,40 +448,52 @@
         const rtdb = firebase.database ? firebase.database() : null;
 
         async function saveUserProfile(uid, data) {
-            if (db) {
-                try {
-                    await db.collection('users').doc(uid).set(data, { merge: true });
-                } catch(e) {
-                    console.warn("Firestore save user warning:", e);
-                }
-            }
+            // Write to RTDB first (active database)
             if (rtdb) {
                 try {
                     const cleanData = { ...data };
                     delete cleanData.createdAt;
                     cleanData.updatedAt = Date.now();
-                    await rtdb.ref('users/' + uid).update(cleanData);
+                    const rtdbPromise = rtdb.ref('users/' + uid).update(cleanData);
+                    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('RTDB save timeout')), 1000));
+                    await Promise.race([rtdbPromise, timeout]);
                 } catch(e) {
                     console.warn("RTDB save user warning:", e);
+                }
+            }
+            if (db) {
+                try {
+                    const fsPromise = db.collection('users').doc(uid).set(data, { merge: true });
+                    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore save timeout')), 1000));
+                    await Promise.race([fsPromise, timeout]);
+                } catch(e) {
+                    console.warn("Firestore save user warning:", e);
                 }
             }
         }
 
         async function getUserProfile(uid) {
+            // Check RTDB first (active database) with fast 1s timeout
+            if (rtdb) {
+                try {
+                    const snapPromise = rtdb.ref('users/' + uid).once('value');
+                    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('RTDB get timeout')), 1000));
+                    const snap = await Promise.race([snapPromise, timeout]);
+                    if (snap && snap.exists() && snap.val()) {
+                        return snap.val();
+                    }
+                } catch(e) {
+                    console.warn("RTDB get user warning:", e);
+                }
+            }
             if (db) {
                 try {
-                    const doc = await db.collection('users').doc(uid).get();
+                    const docPromise = db.collection('users').doc(uid).get();
+                    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore get timeout')), 1000));
+                    const doc = await Promise.race([docPromise, timeout]);
                     if (doc && doc.exists) return doc.data();
                 } catch(e) {
                     console.warn("Firestore get user warning:", e);
-                }
-            }
-            if (rtdb) {
-                try {
-                    const snap = await rtdb.ref('users/' + uid).once('value');
-                    if (snap.exists()) return snap.val();
-                } catch(e) {
-                    console.warn("RTDB get user warning:", e);
                 }
             }
             return null;
@@ -610,13 +622,29 @@
             if (user) {
                 if (overlay) overlay.classList.remove('hidden');
 
+                let redirected = false;
+                const forceRedirect = (targetRole) => {
+                    if (redirected) return;
+                    redirected = true;
+                    const role = targetRole || activeSelectedRole || 'employee';
+                    window.location.href = role === 'company_admin' ? '/company/dashboard' : '/employee/dashboard';
+                };
+
+                // Hard safety fallback timer: max 1.5s on overlay
+                const safetyTimer = setTimeout(() => {
+                    console.warn("Auth redirect safety timer triggered");
+                    forceRedirect();
+                }, 1500);
+
                 try {
                     const userData = await getUserProfile(user.uid);
                     const role = (userData && userData.role) || activeSelectedRole || 'employee';
 
+                    clearTimeout(safetyTimer);
+
                     if (role === 'company_admin') {
                         if (!userData) {
-                            await saveUserProfile(user.uid, {
+                            saveUserProfile(user.uid, {
                                 userId: user.uid,
                                 name: user.displayName || 'Company Admin',
                                 email: user.email,
@@ -626,12 +654,12 @@
                                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
                             });
                         }
-                        window.location.href = '/company/dashboard';
+                        forceRedirect('company_admin');
                         return;
                     } else {
                         // Employee role: ensure active status and assigned company workspace
                         const companyId = (userData && userData.companyId) || '3LeD63WOa9QUThnDrABAIcH5F6a2';
-                        await saveUserProfile(user.uid, {
+                        saveUserProfile(user.uid, {
                             userId: user.uid,
                             name: (userData && userData.name) || user.displayName || 'Operator',
                             email: user.email,
@@ -640,17 +668,13 @@
                             status: 'active',
                             createdAt: firebase.firestore.FieldValue.serverTimestamp()
                         });
-                        window.location.href = '/employee/dashboard';
+                        forceRedirect('employee');
                         return;
                     }
                 } catch(e) {
+                    clearTimeout(safetyTimer);
                     console.warn("Fast fallback redirect on auth:", e);
-                    const role = activeSelectedRole || 'employee';
-                    if (role === 'company_admin') {
-                        window.location.href = '/company/dashboard';
-                    } else {
-                        window.location.href = '/employee/dashboard';
-                    }
+                    forceRedirect();
                 }
             } else {
                 if (overlay) overlay.classList.add('hidden');
@@ -782,12 +806,24 @@
 
                 // Create company record
                 const companyId = user.uid;
-                await db.collection('companies').doc(companyId).set({
-                    companyId: companyId,
-                    companyName: companyName,
-                    adminId: user.uid,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
+                if (rtdb) {
+                    try {
+                        await rtdb.ref('companies/' + companyId).set({ companyId, companyName, adminId: user.uid, createdAt: Date.now() });
+                    } catch(e) { console.warn("RTDB company save warning:", e); }
+                }
+                if (db) {
+                    try {
+                        await Promise.race([
+                            db.collection('companies').doc(companyId).set({
+                                companyId: companyId,
+                                companyName: companyName,
+                                adminId: user.uid,
+                                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                            }),
+                            new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 1000))
+                        ]);
+                    } catch(e) { console.warn("Firestore company save warning:", e); }
+                }
 
                 // Create company_admin user record
                 await saveUserProfile(user.uid, {
