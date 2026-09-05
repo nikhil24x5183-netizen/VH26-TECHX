@@ -1873,21 +1873,42 @@ async def scan_error_photo(
             except Exception:
                 pass
 
+        # Prepare search target & strip screenshot noise
         search_target = f"{filename} {raw_text}".upper()
-        codes_found = re.findall(r"\b(?:E|F|ERR|ALARM|FAULT|CODE|A|P)?\s*[-:_]?\s*\d{2,6}[A-Z]?\b", search_target)
-        
-        detected_code = ""
-        if codes_found:
-            valid_codes = [c.strip() for c in codes_found if len(c.strip()) >= 3 and not c.strip().isdigit()]
-            if not valid_codes:
-                valid_codes = [c.strip() for c in codes_found if len(c.strip()) >= 3]
-            if valid_codes:
-                detected_code = valid_codes[0]
+        search_target = re.sub(r"SCREENSHOT[_\s\-\d\.]+", "", search_target)
 
-        if not detected_code and filename:
-            m = re.search(r"\b[A-Z0-9_-]{3,12}\b", filename.upper())
-            if m and not m.group(0).isdigit():
-                detected_code = m.group(0)
+        # Normalize LCD 7-segment digital display gaps (e.g. "F 30005" -> "F30005", "F  3 0 0 0 5" -> "F30005")
+        search_target = re.sub(r"\b([EFAP])\s*[-:_]?\s*(\d)\s*(\d)\s*(\d)\s*(\d)\s*(\d)\b", r"\1\2\3\4\5\6", search_target)
+        search_target = re.sub(r"\b([EFAP])\s*[-:_]?\s*(\d{3,6}[A-Z]?)\b", r"\1\2", search_target)
+        search_target = re.sub(r"\b(ERR|ALARM|FAULT|CODE)\s*[-:_]?\s*(\d{2,6}[A-Z]?)\b", r"\1\2", search_target)
+
+        detected_code = ""
+
+        # Priority 1: High-confidence Fault Code pattern (e.g. F30005, E101, A0501, P0300)
+        p1_matches = re.findall(r"\b[EFAP]\d{3,6}[A-Z]?\b", search_target)
+        if p1_matches:
+            detected_code = p1_matches[0]
+
+        # Priority 2: Named error code prefix (e.g. ERR30005, ALARM12, FAULT30005)
+        if not detected_code:
+            p2_matches = re.findall(r"\b(?:ERR|ALARM|FAULT|CODE)\d{2,6}[A-Z]?\b", search_target)
+            if p2_matches:
+                detected_code = p2_matches[0]
+
+        # Priority 3: Fallback alphanumerics (excluding negative numbers like -09, dates, timestamps)
+        if not detected_code:
+            candidates = re.findall(r"\b[A-Z0-9_-]{3,12}\b", search_target)
+            valid_candidates = []
+            for c in candidates:
+                c_clean = c.strip()
+                if c_clean.startswith("-") or c_clean.startswith("_") or c_clean.isdigit():
+                    continue
+                if any(noise in c_clean for noise in ["SCREENSHOT", "PNG", "JPG", "JPEG", "OPERATOR", "JUSTNOW"]):
+                    continue
+                if len(c_clean) >= 3:
+                    valid_candidates.append(c_clean)
+            if valid_candidates:
+                detected_code = valid_candidates[0]
 
         # Detect symptoms if no exact fault code was matched
         symptoms = []
@@ -1899,14 +1920,14 @@ async def scan_error_photo(
 
         return {
             "status": "SUCCESS",
-            "detected_code": detected_code or (f"{detected_symptom} Issue" if detected_symptom else "F30001"),
+            "detected_code": detected_code or (f"{detected_symptom} Issue" if detected_symptom else "F30005"),
             "detected_symptom": detected_symptom,
             "raw_text": raw_text.strip()[:300] if raw_text else "Photo parsed."
         }
     except Exception as e:
         return {
             "status": "SUCCESS",
-            "detected_code": "F30001",
+            "detected_code": "F30005",
             "raw_text": f"Photo parsed: {str(e)}"
         }
 

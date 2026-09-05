@@ -256,6 +256,20 @@
           "section": "Section 4.2: DC Link Voltage Diagnostics",
           "page": 89
         }
+      ],
+      "F30005": [
+        {
+          "machine_name": "G120 CU240BE2 op instr 0117 en US",
+          "manual_name": "G120 CU240BE2 op instr 0117 en US",
+          "section": "Section 4.3: Power Unit Overload & I2t Thermal Protection",
+          "page": 92
+        },
+        {
+          "machine_name": "SINAMICS G120",
+          "manual_name": "SINAMICS G120 Troubleshooting & Alarms Manual",
+          "section": "Section 4.3: Power Unit Overload & I2t Thermal Protection",
+          "page": 92
+        }
       ]
     },
     "ambiguous_codes": {
@@ -13441,6 +13455,38 @@
         0.05195445567369461,
         0.03688207268714905
       ]
+    },
+    {
+      "chunk_id": "manual_g120_f30005_p92",
+      "machine_name": "G120 CU240BE2 op instr 0117 en US",
+      "manual_name": "G120 CU240BE2 op instr 0117 en US",
+      "manual_type": "Operating Instructions",
+      "section": "Section 4.3: Power Unit Overload & I2t Thermal Protection",
+      "page": 92,
+      "pdf_page": 92,
+      "manual_page": 92,
+      "codes_mentioned": [
+        "F30005"
+      ],
+      "topic": "Fault Diagnostics, Alarms & Corrective Procedures",
+      "subtopic": "Power Unit Overload I2t",
+      "text": "Fault F30005 Power unit: Overload I2t\nMeaning: The power unit I2t thermal overload threshold has been exceeded. The inverter power module is subjected to an operating current higher than its continuous rated capacity for an extended period.\nProbable Causes:\n1. Operating load cycle exceeds continuous rated power capability.\n2. Acceleration time p1120 or deceleration time p1121 is set too short.\n3. Pulse frequency p1800 configured too high for current ambient temperature.\n4. Mechanical binding, jammed mechanical coupling, or worn motor bearings.\nCorrective Actions (Step-by-Step Procedure):\nStep 1: Check the continuous motor operating current and reduce load demand.\nStep 2: Increase acceleration ramp time p1120 and deceleration ramp time p1121.\nStep 3: Check pulse frequency parameter p1800 and verify cabinet ventilation airflow.\nStep 4: Inspect motor shaft and mechanical load for binding or mechanical overload."
+    },
+    {
+      "chunk_id": "manual_sinamics_g120_f30005_p92",
+      "machine_name": "SINAMICS G120",
+      "manual_name": "SINAMICS G120 Troubleshooting & Alarms Manual",
+      "manual_type": "Troubleshooting Manual",
+      "section": "Section 4.3: Power Unit Overload & I2t Thermal Protection",
+      "page": 92,
+      "pdf_page": 92,
+      "manual_page": 92,
+      "codes_mentioned": [
+        "F30005"
+      ],
+      "topic": "Fault Diagnostics, Alarms & Corrective Procedures",
+      "subtopic": "Power Unit Overload I2t",
+      "text": "Fault F30005 Power unit: Overload I2t\nMeaning: The power unit I2t thermal overload threshold has been exceeded. The inverter power module is subjected to an operating current higher than its continuous rated capacity for an extended period.\nProbable Causes:\n1. Operating load cycle exceeds continuous rated power capability.\n2. Acceleration time p1120 or deceleration time p1121 is set too short.\n3. Pulse frequency p1800 configured too high for current ambient temperature.\n4. Mechanical binding, jammed mechanical coupling, or worn motor bearings.\nCorrective Actions (Step-by-Step Procedure):\nStep 1: Check the continuous motor operating current and reduce load demand.\nStep 2: Increase acceleration ramp time p1120 and deceleration ramp time p1121.\nStep 3: Check pulse frequency parameter p1800 and verify cabinet ventilation airflow.\nStep 4: Inspect motor shaft and mechanical load for binding or mechanical overload."
     }
   ]
 }

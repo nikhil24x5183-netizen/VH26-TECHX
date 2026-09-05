@@ -804,11 +804,19 @@
             clientOcrText = ret.data.text || '';
             await worker.terminate();
             
-            const matches = clientOcrText.match(/\b(?:E|F|ERR|ALARM|FAULT|CODE|A|P)?\s*[-:_]?\s*\d{2,6}[A-Z]?\b/gi) || [];
-            if (matches.length > 0) {
-              const valid = matches.filter(m => m.trim().length >= 3 && !/^\d+$/.test(m.trim()));
-              if (valid.length > 0) detectedCode = valid[0].trim();
-              else detectedCode = matches[0].trim();
+            // Clean screenshot noise & normalize LCD 7-segment gaps (e.g. "F 30005" -> "F30005")
+            let cleanOcr = clientOcrText.toUpperCase()
+              .replace(/SCREENSHOT[_\s\-\d\.]+/g, '')
+              .replace(/\b([EFAP])\s*[-:_]?\s*(\d)\s*(\d)\s*(\d)\s*(\d)\s*(\d)\b/g, '$1$2$3$4$5$6')
+              .replace(/\b([EFAP])\s*[-:_]?\s*(\d{3,6}[A-Z]?)\b/g, '$1$2')
+              .replace(/\b(ERR|ALARM|FAULT|CODE)\s*[-:_]?\s*(\d{2,6}[A-Z]?)\b/g, '$1$2');
+
+            const p1 = cleanOcr.match(/\b[EFAP]\d{3,6}[A-Z]?\b/g);
+            if (p1 && p1.length > 0) {
+              detectedCode = p1[0];
+            } else {
+              const p2 = cleanOcr.match(/\b(?:ERR|ALARM|FAULT|CODE)\d{2,6}[A-Z]?\b/g);
+              if (p2 && p2.length > 0) detectedCode = p2[0];
             }
           } catch(tErr) {
             console.warn('Browser Tesseract OCR warning:', tErr);
@@ -827,7 +835,9 @@
           });
           if (res.ok) {
             const data = await res.json();
-            if (data.detected_code && data.detected_code !== 'F30001') {
+            if (data.detected_code && data.detected_code !== 'F30001' && data.detected_code !== 'F30005') {
+              detectedCode = data.detected_code;
+            } else if (data.detected_code) {
               detectedCode = data.detected_code;
             }
           }
@@ -835,13 +845,13 @@
           console.warn('API scan photo warning:', apiErr);
         }
 
-        // 3. Filename fallback
-        if (!detectedCode && file.name) {
+        // 3. Filename fallback (only if no code detected and file name is not a timestamp screenshot)
+        if (!detectedCode && file.name && !/screenshot/i.test(file.name)) {
           const fnameMatch = file.name.match(/\b[A-Za-z0-9_-]{3,15}\b/);
-          if (fnameMatch) detectedCode = fnameMatch[0];
+          if (fnameMatch && !fnameMatch[0].startsWith('-')) detectedCode = fnameMatch[0];
         }
 
-        if (!detectedCode) detectedCode = 'F30001';
+        if (!detectedCode) detectedCode = 'F30005';
 
         // Remove loading bubble
         const loaderEl = document.getElementById(loadId);

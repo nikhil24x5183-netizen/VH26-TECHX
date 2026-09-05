@@ -253,6 +253,20 @@
         "section": "Section 4.2: DC Link Voltage Diagnostics",
         "page": 89
       }
+    ],
+    "F30005": [
+      {
+        "machine_name": "G120 CU240BE2 op instr 0117 en US",
+        "manual_name": "G120 CU240BE2 op instr 0117 en US",
+        "section": "Section 4.3: Power Unit Overload & I2t Thermal Protection",
+        "page": 92
+      },
+      {
+        "machine_name": "SINAMICS G120",
+        "manual_name": "SINAMICS G120 Troubleshooting & Alarms Manual",
+        "section": "Section 4.3: Power Unit Overload & I2t Thermal Protection",
+        "page": 92
+      }
     ]
   },
   "ambiguous_codes": {
