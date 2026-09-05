@@ -1919,17 +1919,26 @@ async def scan_error_photo(
 
         detected_symptom = " ".join(symptoms[:2]) if symptoms else ""
 
-        return {
-            "status": "SUCCESS",
-            "detected_code": detected_code or (f"{detected_symptom} Issue" if detected_symptom else "F30005"),
-            "detected_symptom": detected_symptom,
-            "raw_text": raw_text.strip()[:300] if raw_text else "Photo parsed."
-        }
+        if detected_code or detected_symptom:
+            return {
+                "status": "SUCCESS",
+                "detected_code": detected_code or f"{detected_symptom} Issue",
+                "detected_symptom": detected_symptom,
+                "raw_text": raw_text.strip()[:300] if raw_text else "Photo parsed."
+            }
+        else:
+            return {
+                "status": "NO_CODE_FOUND",
+                "detected_code": None,
+                "detected_symptom": None,
+                "message": "No clear machine error code or alarm text detected in photo.",
+                "raw_text": raw_text.strip()[:300] if raw_text else "No text detected."
+            }
     except Exception as e:
         return {
-            "status": "SUCCESS",
-            "detected_code": "F30005",
-            "raw_text": f"Photo parsed: {str(e)}"
+            "status": "ERROR",
+            "detected_code": None,
+            "raw_text": f"Photo scan error: {str(e)}"
         }
 
 @app.get("/api/manual_page")

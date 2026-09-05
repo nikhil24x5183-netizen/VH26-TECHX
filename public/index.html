@@ -836,9 +836,7 @@
             });
             if (res.ok) {
               const data = await res.json();
-              if (data.detected_code && data.detected_code !== 'F30001' && data.detected_code !== 'F30005') {
-                detectedCode = data.detected_code;
-              } else if (data.detected_code) {
+              if (data.status === 'SUCCESS' && data.detected_code) {
                 detectedCode = data.detected_code;
               }
             }
@@ -846,22 +844,44 @@
             console.warn('API scan photo warning:', apiErr);
           }
 
-          // 3. Filename fallback (only if no code detected and file name is not a timestamp screenshot)
-          if (!detectedCode && file.name && !/screenshot/i.test(file.name)) {
-            const fnameMatch = file.name.match(/\b[A-Za-z0-9_-]{3,15}\b/);
-            if (fnameMatch && !fnameMatch[0].startsWith('-')) detectedCode = fnameMatch[0];
+          // 3. Filename fallback (only if file name contains an explicit fault code pattern like E101 or F30005, NOT screenshots)
+          if (!detectedCode && file.name && !/screenshot|img|image|photo/i.test(file.name)) {
+            const fnameMatch = file.name.match(/\b[EFAP]\d{3,6}\b/i);
+            if (fnameMatch) detectedCode = fnameMatch[0].toUpperCase();
           }
-
-          if (!detectedCode) detectedCode = 'F30005';
 
           // Remove loading bubble
           const loaderEl = document.getElementById(loadId);
           if (loaderEl) loaderEl.remove();
 
-          // 4. Populate input and submit query automatically into chat
-          queryInput.value = detectedCode;
-          if (statusInd) statusInd.textContent = `✓ Photo Read: Error / Query '${detectedCode}' Found!`;
-          await submitTroubleshootingQuery();
+          if (detectedCode) {
+            // 4A. Valid code found: Populate input and submit query automatically into chat
+            queryInput.value = detectedCode;
+            if (statusInd) statusInd.textContent = `✓ Photo Read: Error '${detectedCode}' Found!`;
+            await submitTroubleshootingQuery();
+          } else {
+            // 4B. No valid code found (Random photo uploaded): Display friendly guidance card directly in chat
+            if (statusInd) statusInd.textContent = '⚠️ No error code detected in photo.';
+            const noCodeDiv = document.createElement('div');
+            noCodeDiv.className = 'flex justify-start w-full my-3';
+            noCodeDiv.innerHTML = `
+              <div class="max-w-xl rounded-2xl bg-amber-50 border border-amber-200 p-4 shadow-xs text-amber-900 text-xs font-semibold space-y-2">
+                <div class="flex items-center space-x-2 font-bold text-amber-950">
+                  <span class="text-base">📷</span>
+                  <span>No Error Code Detected in Photo</span>
+                </div>
+                <p class="leading-relaxed font-medium">
+                  I couldn't read a clear machine error code or alarm display from this image. 
+                  Please ensure the digital HMI screen, control unit readout, or alarm tag is clearly visible and well-lit.
+                </p>
+                <div class="pt-1 text-[11px] text-amber-800 font-bold">
+                  💡 Tip: You can also type your error code (e.g., F30005, E101) or describe physical symptoms directly in the chat box below!
+                </div>
+              </div>
+            `;
+            msgs.appendChild(noCodeDiv);
+            scrollToBottom();
+          }
         } catch(photoErr) {
           console.error("Photo processing error:", photoErr);
           const loaderEl = document.getElementById(loadId);
