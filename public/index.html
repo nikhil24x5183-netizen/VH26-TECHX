@@ -793,82 +793,90 @@
         if (statusInd) statusInd.textContent = '📷 Reading error code and text from photo...';
         if (photoBtn) photoBtn.disabled = true;
 
-        let detectedCode = '';
-        let clientOcrText = '';
-
-        // 1. Run Browser Tesseract OCR
-        if (window.Tesseract) {
-          try {
-            const worker = await Tesseract.createWorker('eng');
-            const ret = await worker.recognize(imgSrc);
-            clientOcrText = ret.data.text || '';
-            await worker.terminate();
-            
-            // Clean screenshot noise & normalize LCD 7-segment gaps (e.g. "F 30005" -> "F30005")
-            let cleanOcr = clientOcrText.toUpperCase()
-              .replace(/SCREENSHOT[_\s\-\d\.]+/g, '')
-              .replace(/\b([EFAP])\s*[-:_]?\s*(\d)\s*(\d)\s*(\d)\s*(\d)\s*(\d)\b/g, '$1$2$3$4$5$6')
-              .replace(/\b([EFAP])\s*[-:_]?\s*(\d{3,6}[A-Z]?)\b/g, '$1$2')
-              .replace(/\b(ERR|ALARM|FAULT|CODE)\s*[-:_]?\s*(\d{2,6}[A-Z]?)\b/g, '$1$2');
-
-            const p1 = cleanOcr.match(/\b[EFAP]\d{3,6}[A-Z]?\b/g);
-            if (p1 && p1.length > 0) {
-              detectedCode = p1[0];
-            } else {
-              const p2 = cleanOcr.match(/\b(?:ERR|ALARM|FAULT|CODE)\d{2,6}[A-Z]?\b/g);
-              if (p2 && p2.length > 0) detectedCode = p2[0];
-            }
-          } catch(tErr) {
-            console.warn('Browser Tesseract OCR warning:', tErr);
-          }
-        }
-
-        // 2. Call Backend /api/scan_photo with File and OCR Text
         try {
-          const formData = new FormData();
-          formData.append('file', file);
-          if (clientOcrText) formData.append('ocr_text', clientOcrText);
+          let detectedCode = '';
+          let clientOcrText = '';
 
-          const res = await fetch('/api/scan_photo', {
-            method: 'POST',
-            body: formData
-          });
-          if (res.ok) {
-            const data = await res.json();
-            if (data.detected_code && data.detected_code !== 'F30001' && data.detected_code !== 'F30005') {
-              detectedCode = data.detected_code;
-            } else if (data.detected_code) {
-              detectedCode = data.detected_code;
+          // 1. Run Browser Tesseract OCR
+          if (window.Tesseract) {
+            try {
+              const worker = await Tesseract.createWorker('eng');
+              const ret = await worker.recognize(imgSrc);
+              clientOcrText = ret.data.text || '';
+              await worker.terminate();
+              
+              // Clean screenshot noise & normalize LCD 7-segment gaps (e.g. "F 30005" -> "F30005")
+              let cleanOcr = clientOcrText.toUpperCase()
+                .replace(/SCREENSHOT[_\s\-\d\.]+/g, '')
+                .replace(/\b([EFAP])\s*[-:_]?\s*(\d)\s*(\d)\s*(\d)\s*(\d)\s*(\d)\b/g, '$1$2$3$4$5$6')
+                .replace(/\b([EFAP])\s*[-:_]?\s*(\d{3,6}[A-Z]?)\b/g, '$1$2')
+                .replace(/\b(ERR|ALARM|FAULT|CODE)\s*[-:_]?\s*(\d{2,6}[A-Z]?)\b/g, '$1$2');
+
+              const p1 = cleanOcr.match(/\b[EFAP]\d{3,6}[A-Z]?\b/g);
+              if (p1 && p1.length > 0) {
+                detectedCode = p1[0];
+              } else {
+                const p2 = cleanOcr.match(/\b(?:ERR|ALARM|FAULT|CODE)\d{2,6}[A-Z]?\b/g);
+                if (p2 && p2.length > 0) detectedCode = p2[0];
+              }
+            } catch(tErr) {
+              console.warn('Browser Tesseract OCR warning:', tErr);
             }
           }
-        } catch(apiErr) {
-          console.warn('API scan photo warning:', apiErr);
+
+          // 2. Call Backend /api/scan_photo with File and OCR Text
+          try {
+            const formData = new FormData();
+            formData.append('file', file);
+            if (clientOcrText) formData.append('ocr_text', clientOcrText);
+
+            const res = await fetch('/api/scan_photo', {
+              method: 'POST',
+              body: formData
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (data.detected_code && data.detected_code !== 'F30001' && data.detected_code !== 'F30005') {
+                detectedCode = data.detected_code;
+              } else if (data.detected_code) {
+                detectedCode = data.detected_code;
+              }
+            }
+          } catch(apiErr) {
+            console.warn('API scan photo warning:', apiErr);
+          }
+
+          // 3. Filename fallback (only if no code detected and file name is not a timestamp screenshot)
+          if (!detectedCode && file.name && !/screenshot/i.test(file.name)) {
+            const fnameMatch = file.name.match(/\b[A-Za-z0-9_-]{3,15}\b/);
+            if (fnameMatch && !fnameMatch[0].startsWith('-')) detectedCode = fnameMatch[0];
+          }
+
+          if (!detectedCode) detectedCode = 'F30005';
+
+          // Remove loading bubble
+          const loaderEl = document.getElementById(loadId);
+          if (loaderEl) loaderEl.remove();
+
+          // 4. Populate input and submit query automatically into chat
+          queryInput.value = detectedCode;
+          if (statusInd) statusInd.textContent = `✓ Photo Read: Error / Query '${detectedCode}' Found!`;
+          await submitTroubleshootingQuery();
+        } catch(photoErr) {
+          console.error("Photo processing error:", photoErr);
+          const loaderEl = document.getElementById(loadId);
+          if (loaderEl) loaderEl.remove();
+          if (statusInd) statusInd.textContent = "Error scanning photo. Please retry or type query.";
+        } finally {
+          if (photoBtn) {
+            photoBtn.disabled = false;
+            photoBtn.innerHTML = '<span class="text-base">📷</span><span class="hidden sm:inline">Photo</span>';
+          }
+          const pInput = document.getElementById('error-photo-input');
+          if (pInput) pInput.value = '';
         }
-
-        // 3. Filename fallback (only if no code detected and file name is not a timestamp screenshot)
-        if (!detectedCode && file.name && !/screenshot/i.test(file.name)) {
-          const fnameMatch = file.name.match(/\b[A-Za-z0-9_-]{3,15}\b/);
-          if (fnameMatch && !fnameMatch[0].startsWith('-')) detectedCode = fnameMatch[0];
-        }
-
-        if (!detectedCode) detectedCode = 'F30005';
-
-        // Remove loading bubble
-        const loaderEl = document.getElementById(loadId);
-        if (loaderEl) loaderEl.remove();
-
-        // 4. Populate input and submit query automatically into chat
-        queryInput.value = detectedCode;
-        if (statusInd) statusInd.textContent = `✓ Photo Read: Error / Query '${detectedCode}' Found!`;
-        await submitTroubleshootingQuery();
       };
       reader.readAsDataURL(file);
-
-      if (photoBtn) {
-        photoBtn.disabled = false;
-        photoBtn.innerHTML = '<span class="text-base">📷</span><span class="hidden sm:inline">Photo</span>';
-      }
-      event.target.value = '';
     }
 
     // ----------------------------------------------------
