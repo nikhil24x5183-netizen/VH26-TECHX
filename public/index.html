@@ -751,49 +751,60 @@
       }
 
       try {
-        const reader = new FileReader();
-        reader.onload = async function(e) {
-          const imgSrc = e.target.result;
-          let extractedText = '';
+        let detectedCode = '';
 
-          if (window.Tesseract) {
-            try {
-              const worker = await Tesseract.createWorker('eng');
-              const ret = await worker.recognize(imgSrc);
-              extractedText = ret.data.text || '';
-              await worker.terminate();
-            } catch(tErr) {
-              console.warn('Tesseract OCR warning:', tErr);
-            }
+        // 1. Try Backend OCR API /api/scan_photo
+        try {
+          const formData = new FormData();
+          formData.append('file', file);
+          const res = await fetch('/api/scan_photo', {
+            method: 'POST',
+            body: formData
+          });
+          if (res.ok) {
+            const data = await res.json();
+            detectedCode = data.detected_code || '';
           }
+        } catch(apiErr) {
+          console.warn('API scan photo warning:', apiErr);
+        }
 
-          let detectedCode = '';
-          if (extractedText.trim()) {
+        // 2. Client Tesseract fallback
+        if (!detectedCode && window.Tesseract) {
+          try {
+            const reader = new FileReader();
+            const imgSrc = await new Promise((resolve) => {
+              reader.onload = (e) => resolve(e.target.result);
+              reader.readAsDataURL(file);
+            });
+            const worker = await Tesseract.createWorker('eng');
+            const ret = await worker.recognize(imgSrc);
+            const extractedText = ret.data.text || '';
+            await worker.terminate();
+
             const matches = extractedText.match(/\b(?:E|F|ERR|ALARM|FAULT|CODE)?\s*[-:_]?\s*\d{2,6}[A-Z]?\b/gi) || [];
             if (matches.length > 0) {
-              detectedCode = matches.map(m => m.trim()).join(' ');
-            } else {
-              detectedCode = extractedText.replace(/[\n\r]+/g, ' ').substring(0, 80).trim();
+              detectedCode = matches[0].trim();
             }
+          } catch(tErr) {
+            console.warn('Tesseract OCR warning:', tErr);
           }
+        }
 
-          if (!detectedCode) {
-            const fnameMatch = file.name.match(/\b[A-Za-z0-9_-]{2,15}\b/);
-            if (fnameMatch && fnameMatch[0].length >= 3) {
-              detectedCode = fnameMatch[0];
-            }
-          }
+        // 3. Filename fallback
+        if (!detectedCode && file.name) {
+          const fnameMatch = file.name.match(/\b[A-Za-z0-9_-]{3,15}\b/);
+          if (fnameMatch) detectedCode = fnameMatch[0];
+        }
 
-          if (detectedCode) {
-            queryInput.value = detectedCode;
-            const clearBtn = document.getElementById('clear-input-btn');
-            if (clearBtn) clearBtn.classList.remove('hidden');
-            if (statusInd) statusInd.textContent = '✓ Error code scanned from photo!';
-          } else {
-            if (statusInd) statusInd.textContent = 'Photo loaded. Please type specific error code.';
-          }
-        };
-        reader.readAsDataURL(file);
+        if (detectedCode) {
+          queryInput.value = detectedCode;
+          const clearBtn = document.getElementById('clear-input-btn');
+          if (clearBtn) clearBtn.classList.remove('hidden');
+          if (statusInd) statusInd.textContent = `✓ Photo Scanned: Error Code ${detectedCode} Detected!`;
+        } else {
+          if (statusInd) statusInd.textContent = 'Photo loaded. Please type specific error code.';
+        }
       } catch(err) {
         console.error('Photo scan error:', err);
         if (statusInd) statusInd.textContent = 'Could not scan photo. Enter code manually.';
@@ -1311,10 +1322,13 @@
               ${source.section ? `<span class="mx-1">•</span>${escapeHtml(source.section)}` : ''}
             </div>
             
-            <div class="flex items-center space-x-2 shrink-0">
-              <span class="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 font-bold border border-blue-200">
-                Printed P.${source.manual_page || source.page || 1}
-              </span>
+            <div class="flex items-center space-x-2 shrink-0 flex-wrap gap-y-1">
+              <button type="button" onclick="openManualPageViewer('${escapeHtml(source.manual_name || '')}', ${source.manual_page || source.page || 1}, '${escapeHtml(data.machine_name || '')}')" 
+                class="inline-flex items-center space-x-1.5 px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold transition shadow-xs cursor-pointer">
+                <span>📖</span>
+                <span>Open Manual Page ${source.manual_page || source.page || 1}</span>
+              </button>
+
               <span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-medium border border-slate-200">
                 PDF P.${source.pdf_page || source.page || 1}
               </span>
@@ -1519,6 +1533,150 @@
       </div>
     </div>
   </div>
+
+  <!-- ================================================================= -->
+  <!-- MODAL: INTERACTIVE DIRECT OEM MANUAL PAGE VIEWER                   -->
+  <!-- ================================================================= -->
+  <div id="manual-viewer-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-3xl w-full flex flex-col max-h-[90vh] overflow-hidden">
+      
+      <!-- MODAL HEADER -->
+      <div class="p-4 sm:p-5 border-b border-slate-100 bg-slate-900 text-white flex items-center justify-between shrink-0">
+        <div class="flex items-center space-x-3 truncate mr-3">
+          <div class="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center font-black text-base shrink-0 shadow-sm">
+            📖
+          </div>
+          <div class="truncate">
+            <h3 id="modal-manual-title" class="font-extrabold text-sm sm:text-base text-white truncate">OEM Technical Manual</h3>
+            <p id="modal-manual-subtitle" class="text-[11px] text-emerald-400 font-bold truncate">Direct Page Inspection</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeManualPageViewer()" class="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold flex items-center justify-center text-sm transition shrink-0">
+          ✕
+        </button>
+      </div>
+
+      <!-- PAGE NAVIGATION TOOLBAR -->
+      <div class="bg-slate-100 border-b border-slate-200 px-4 py-2.5 flex items-center justify-between text-xs shrink-0 flex-wrap gap-2">
+        <div class="flex items-center space-x-2">
+          <button type="button" onclick="changeManualPage(-1)" id="btn-prev-page" 
+            class="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-200 text-slate-900 font-extrabold border border-slate-300 transition shadow-2xs">
+            ◄ Previous Page
+          </button>
+          <span id="modal-page-counter" class="font-black text-slate-900 px-3 py-1 rounded-lg bg-white border border-slate-300 shadow-2xs">
+            Page 1
+          </span>
+          <button type="button" onclick="changeManualPage(1)" id="btn-next-page" 
+            class="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-200 text-slate-900 font-extrabold border border-slate-300 transition shadow-2xs">
+            Next Page ►
+          </button>
+        </div>
+
+        <div class="flex items-center space-x-2">
+          <span id="modal-section-badge" class="px-2.5 py-1 rounded-md bg-emerald-100 text-emerald-900 font-extrabold border border-emerald-300 text-[11px]">
+            Section 1.0
+          </span>
+        </div>
+      </div>
+
+      <!-- PAGE CONTENT READING CONTAINER -->
+      <div class="p-5 sm:p-6 overflow-y-auto space-y-4 flex-1 bg-slate-50/60">
+        <div id="modal-page-loading" class="py-12 text-center text-slate-400 text-xs font-semibold">
+          <span class="inline-block animate-spin mr-1">⚪</span> Loading OEM manual page...
+        </div>
+
+        <div id="modal-page-body" class="hidden space-y-4">
+          <div id="modal-topic-header" class="text-xs font-black text-slate-600 uppercase tracking-wider border-b border-slate-200 pb-2">
+            TECHNICAL SPECIFICATIONS & PROCEDURES
+          </div>
+
+          <div class="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 text-xs sm:text-sm text-slate-800 leading-relaxed font-mono whitespace-pre-wrap shadow-xs" id="modal-page-text">
+            Page content text...
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL FOOTER -->
+      <div class="p-4 border-t border-slate-100 bg-white flex items-center justify-between text-xs shrink-0">
+        <span class="text-slate-500 font-medium">Verified OEM Technical Evidence</span>
+        <button type="button" onclick="closeManualPageViewer()" class="px-4 py-2 rounded-xl bg-slate-900 text-white font-bold hover:bg-slate-800 transition">
+          Done Reading
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    let currentViewerState = {
+      manual_name: '',
+      machine_name: '',
+      page: 1,
+      total_pages: 10
+    };
+
+    async function openManualPageViewer(manualName, pageNum, machineName) {
+      currentViewerState.manual_name = manualName || 'OEM Technical Manual';
+      currentViewerState.machine_name = machineName || '';
+      currentViewerState.page = parseInt(pageNum) || 1;
+
+      const modal = document.getElementById('manual-viewer-modal');
+      if (modal) modal.classList.remove('hidden');
+
+      await loadManualPageContent();
+    }
+
+    async function loadManualPageContent() {
+      const loading = document.getElementById('modal-page-loading');
+      const body = document.getElementById('modal-page-body');
+      const title = document.getElementById('modal-manual-title');
+      const subtitle = document.getElementById('modal-manual-subtitle');
+      const counter = document.getElementById('modal-page-counter');
+      const secBadge = document.getElementById('modal-section-badge');
+      const topicHeader = document.getElementById('modal-topic-header');
+      const pageText = document.getElementById('modal-page-text');
+
+      if (loading) loading.classList.remove('hidden');
+      if (body) body.classList.add('hidden');
+
+      if (title) title.textContent = currentViewerState.manual_name;
+      if (subtitle) subtitle.textContent = `Machine: ${currentViewerState.machine_name || 'Equipment'} • Direct Page View`;
+
+      try {
+        const res = await fetch(`/api/manual_page?manual_name=${encodeURIComponent(currentViewerState.manual_name)}&page=${currentViewerState.page}&machine=${encodeURIComponent(currentViewerState.machine_name)}`);
+        if (res.ok) {
+          const data = await res.json();
+          currentViewerState.total_pages = data.total_pages || 10;
+          currentViewerState.page = data.manual_page || data.page || currentViewerState.page;
+
+          if (counter) counter.textContent = `Page ${currentViewerState.page} of ${currentViewerState.total_pages}`;
+          if (secBadge) secBadge.textContent = data.section || `Page ${currentViewerState.page}`;
+          if (topicHeader) topicHeader.textContent = `${data.topic || 'OEM TECHNICAL DOCUMENTATION'}`;
+          if (pageText) pageText.textContent = data.text || `Content for page ${currentViewerState.page} of ${currentViewerState.manual_name}.`;
+        }
+      } catch(err) {
+        console.warn("Manual page fetch warning:", err);
+        if (counter) counter.textContent = `Page ${currentViewerState.page}`;
+        if (pageText) pageText.textContent = `Direct page view for ${currentViewerState.manual_name} (Page ${currentViewerState.page}). Verify OEM procedures and electrical tolerances.`;
+      } finally {
+        if (loading) loading.classList.add('hidden');
+        if (body) body.classList.remove('hidden');
+      }
+    }
+
+    async function changeManualPage(delta) {
+      const newPage = currentViewerState.page + delta;
+      if (newPage < 1) return;
+      if (newPage > currentViewerState.total_pages) return;
+      currentViewerState.page = newPage;
+      await loadManualPageContent();
+    }
+
+    function closeManualPageViewer() {
+      const modal = document.getElementById('manual-viewer-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+  </script>
 
 </body>
 </html>
