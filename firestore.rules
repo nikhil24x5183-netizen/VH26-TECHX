@@ -1,0 +1,73 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function isActive() {
+      return isAuthenticated() && (
+        !('status' in getUserData()) || getUserData().status == 'active'
+      );
+    }
+    
+    function isCompanyAdmin() {
+      return isAuthenticated() && isActive() && getUserData().role == 'company_admin';
+    }
+    
+    function isEmployee() {
+      return isAuthenticated() && isActive() && getUserData().role == 'employee';
+    }
+    
+    function userCompanyId() {
+      return getUserData().companyId;
+    }
+
+    // USERS COLLECTION
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == userId || 
+        (isCompanyAdmin() && resource.data.companyId == userCompanyId())
+      );
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (
+        request.auth.uid == userId ||
+        (isCompanyAdmin() && resource.data.companyId == userCompanyId())
+      );
+      allow delete: if isCompanyAdmin() && resource.data.companyId == userCompanyId();
+    }
+
+    // COMPANIES COLLECTION
+    match /companies/{companyId} {
+      allow read: if isAuthenticated() && (userCompanyId() == companyId || !('companyId' in getUserData()));
+      allow create: if isAuthenticated();
+      allow update, delete: if isCompanyAdmin() && userCompanyId() == companyId;
+    }
+
+    // MACHINES COLLECTION
+    match /machines/{machineId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // MANUALS COLLECTION
+    match /manuals/{manualId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // CHUNKS COLLECTION
+    match /chunks/{chunkId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // DIAGNOSTICS AUDIT LOGS
+    match /diagnostics/{diagId} {
+      allow read, write: if isAuthenticated();
+    }
+  }
+}
+

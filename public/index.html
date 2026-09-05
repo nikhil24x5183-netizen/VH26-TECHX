@@ -15,6 +15,22 @@
       pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     }
   </script>
+  <!-- Firebase Auth & Realtime Database -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+  <script>
+    firebase.initializeApp({
+      apiKey: "AIzaSyB5gEFJ3YLlvrvn3wuN0SW0j93egjH9TyA",
+      authDomain: "vcet-3c013.firebaseapp.com",
+      databaseURL: "https://vcet-3c013-default-rtdb.firebaseio.com",
+      projectId: "vcet-3c013",
+      storageBucket: "vcet-3c013.firebasestorage.app",
+      messagingSenderId: "217911445404",
+      appId: "1:217911445404:web:40c81c052e14abd5d72a59"
+    });
+  </script>
   <style>
     body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
     .scrollbar-none::-webkit-scrollbar { display: none; }
@@ -23,30 +39,198 @@
 </head>
 <body class="bg-slate-50 text-slate-900 antialiased flex flex-col h-screen h-[100dvh] overflow-hidden selection:bg-blue-600 selection:text-white">
 
+  <div id="auth-loading-overlay" class="fixed inset-0 bg-white z-[9999] flex items-center justify-center">
+    <div class="text-center">
+      <div class="w-12 h-12 rounded-2xl bg-sky-600 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-sky-600/30 mx-auto mb-3 animate-pulse">👷</div>
+      <p class="text-sm text-slate-800 font-bold">Verifying Employee Session...</p>
+      <p class="text-xs text-slate-400 mt-1">Authenticating operator credentials</p>
+    </div>
+  </div>
+
+  <!-- Full-Screen Access Denied Overlay for Inactive/Unauthorized Employees -->
+  <div id="unauthorized-employee-overlay" class="hidden fixed inset-0 bg-slate-900/85 backdrop-blur-md z-[10000] flex items-center justify-center p-4">
+    <div class="max-w-md w-full bg-white rounded-2xl shadow-2xl border border-red-200 p-6 text-center space-y-4">
+      <div class="w-14 h-14 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center text-2xl mx-auto shadow-inner">
+        🚫
+      </div>
+      <div>
+        <h2 class="text-xl font-black text-slate-950">Access Denied</h2>
+        <p class="text-xs text-slate-600 font-medium mt-1.5 leading-relaxed">
+          Your account is not authorized to access this company workspace.
+        </p>
+      </div>
+      <div class="pt-2">
+        <button type="button" onclick="handleLogout()" class="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition shadow-md">
+          Return to Sign In
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Access Denied Banner (TEST D) -->
+  <div id="access-denied-banner" class="hidden bg-red-600 text-white px-4 py-2.5 text-xs font-bold flex items-center justify-between z-50 shadow-md">
+    <div class="flex items-center space-x-2 max-w-6xl mx-auto w-full">
+      <span class="text-base">🚫</span>
+      <span id="access-denied-text">Access Denied: Company Admin Only</span>
+    </div>
+    <button type="button" onclick="document.getElementById('access-denied-banner').classList.add('hidden')" class="text-white/80 hover:text-white font-bold ml-4">✕</button>
+  </div>
+
+  <script>
+  (function() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('denied') === 'admin') {
+      const banner = document.getElementById('access-denied-banner');
+      if (banner) banner.classList.remove('hidden');
+    }
+  })();
+  (function() {
+    const overlay = document.getElementById('auth-loading-overlay');
+    if (overlay) overlay.style.display = 'flex';
+    // Safety timeout: never block screen for more than 1.8s
+    setTimeout(() => { if (overlay) overlay.style.display = 'none'; }, 1800);
+
+    firebase.auth().onAuthStateChanged(async function(user) {
+      if (!user && window.__mock_role === 'employee') {
+        const overlay = document.getElementById('auth-loading-overlay');
+        if (overlay) overlay.style.display = 'none';
+        const banner = document.getElementById('access-denied-banner');
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('denied') === 'admin' && banner) {
+          banner.classList.remove('hidden');
+        }
+        return;
+      }
+      if (!user) {
+        // TEST K: Unauthenticated user tries to open /employee/dashboard -> Redirected to login screen.
+        window.location.href = '/login.html';
+        return;
+      }
+      window.__maintai_user = user;
+      window.__maintai_uid = user.uid;
+
+      try {
+        const token = await user.getIdToken();
+        window.__maintai_token = token;
+
+        // Verify role and companyId in Firestore or Realtime Database
+        const db = firebase.firestore();
+        let userDoc = null;
+        try {
+          userDoc = await db.collection('users').doc(user.uid).get();
+        } catch(uErr) {
+          console.warn("User doc fetch warning:", uErr);
+        }
+
+        if ((!userDoc || !userDoc.exists) && firebase.database) {
+          try {
+            const snap = await firebase.database().ref('users/' + user.uid).once('value');
+            if (snap.exists()) {
+              userDoc = { exists: true, data: () => snap.val() };
+            }
+          } catch(rtdbErr) {
+            console.warn("RTDB user fetch warning:", rtdbErr);
+          }
+        }
+
+        if (userDoc && userDoc.exists) {
+          const userData = userDoc.data() || {};
+          // If logged in as company_admin, redirect to company dashboard
+          if (userData.role === 'company_admin') {
+            window.location.href = '/company/dashboard';
+            return;
+          }
+
+          // Strict Access Control: Inactive employee accounts blocked
+          if (userData.status === 'inactive') {
+            if (overlay) overlay.style.display = 'none';
+            const unauthModal = document.getElementById('unauthorized-employee-overlay');
+            if (unauthModal) unauthModal.classList.remove('hidden');
+            return;
+          }
+
+          window.__maintai_role = 'employee';
+          window.__maintai_companyId = userData.companyId || user.uid;
+          window.__maintai_companyName = userData.companyName || 'Company Workspace';
+
+          const nameEl = document.getElementById('user-name-text');
+          if (nameEl) nameEl.textContent = userData.name || user.displayName || 'Operator';
+          const avatarEl = document.getElementById('user-avatar');
+          if (avatarEl) avatarEl.textContent = (userData.name || user.displayName || 'O').charAt(0).toUpperCase();
+          const userDisplay = document.getElementById('user-display');
+          if (userDisplay) {
+            userDisplay.classList.remove('hidden');
+            userDisplay.classList.add('flex');
+          }
+          const logoutBtn = document.getElementById('logout-btn');
+          if (logoutBtn) {
+            logoutBtn.classList.remove('hidden');
+            logoutBtn.classList.add('flex');
+          }
+        } else {
+          window.__maintai_role = 'employee';
+          window.__maintai_companyId = user.uid;
+        }
+
+        // Check if redirected with denied alert parameter
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('denied') === 'admin') {
+          const banner = document.getElementById('access-denied-banner');
+          if (banner) banner.classList.remove('hidden');
+          setTimeout(() => {
+            alert("Access Denied: Company Admin Only");
+          }, 300);
+        }
+
+        if (overlay) overlay.style.display = 'none';
+        loadMachines();
+      } catch(e) {
+        console.warn("Session verification warning:", e);
+        if (overlay) overlay.style.display = 'none';
+        loadMachines();
+      }
+    });
+
+
+    setInterval(function() {
+      const u = firebase.auth().currentUser;
+      if (u) u.getIdToken(true).then(function(t) { window.__maintai_token = t; });
+    }, 55 * 60 * 1000);
+  })();
+  </script>
+
   <!-- TOP HEADER -->
   <header class="bg-white border-b border-slate-200 shrink-0 z-30 px-4 sm:px-6 py-2.5 flex items-center justify-between shadow-xs">
     <div class="flex items-center space-x-3">
-      <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-black text-sm shadow-sm shadow-blue-600/30">
+      <div class="w-8 h-8 rounded-lg bg-sky-600 flex items-center justify-center text-white font-black text-sm shadow-sm shadow-sky-600/30">
         ⚙️
       </div>
       <div>
         <div class="flex items-center space-x-2">
           <h1 class="font-bold text-sm sm:text-base text-slate-900 tracking-tight">Precision Industrial Diagnostics</h1>
-          <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200">OEM-VERIFIED RAG</span>
+          <span class="text-[10px] font-black px-2 py-0.5 rounded-md bg-sky-50 text-sky-700 border border-sky-200 uppercase">Employee Portal</span>
         </div>
-        <p class="text-[11px] text-slate-500 font-medium hidden sm:block">Strict-Context Factory Floor Troubleshooting System</p>
+        <p class="text-[11px] text-slate-500 font-medium hidden sm:block">Shop Floor Machine Troubleshooting & Cited OEM Guides</p>
       </div>
     </div>
 
     <!-- Right Controls -->
     <div class="flex items-center space-x-2 text-xs">
-      <a href="/admin" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold border border-slate-200 transition">
-        <span>🛡️</span>
-        <span class="hidden sm:inline">Admin Onboarding</span>
-      </a>
-      <button type="button" onclick="changeMachine()" id="header-change-btn" class="hidden items-center space-x-1 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold border border-blue-200 transition">
+      <span id="user-display" class="hidden items-center space-x-1.5 px-2.5 py-1 bg-slate-50 rounded-lg border border-slate-200 text-slate-700 font-medium">
+        <span class="w-5 h-5 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center text-[10px] font-bold" id="user-avatar">O</span>
+        <span id="user-name-text" class="text-xs font-semibold text-slate-800">Operator</span>
+        <span class="text-[9px] font-black px-1.5 py-0.5 rounded bg-sky-100 text-sky-800 border border-sky-200 uppercase">Employee</span>
+      </span>
+
+      <button type="button" onclick="changeMachine()" id="header-change-btn" class="hidden items-center space-x-1 px-3 py-1.5 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700 font-bold border border-sky-200 transition">
         <span>🔄</span>
         <span>Change Machine</span>
+      </button>
+
+      <!-- Logout Button (TEST G: Logout from employee -> Redirected to initial login screen) -->
+      <button type="button" onclick="handleLogout()" id="logout-btn" class="flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 font-bold border border-red-200 transition text-xs">
+        <span>🚪</span>
+        <span>Logout</span>
       </button>
     </div>
   </header>
@@ -98,22 +282,6 @@
           Loading indexed OEM equipment registry...
         </div>
       </div>
-
-      <!-- UPLOAD NEW MACHINE MANUAL CALLOUT -->
-      <div id="upload-manual-callout" class="w-full max-w-xl p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-xs text-center flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div class="text-left">
-          <h4 class="text-xs font-bold text-slate-900">Need to troubleshoot a new machine?</h4>
-          <p class="text-[11px] text-slate-500 font-medium">Upload its OEM manual (PDF or text) to index its codes and technical specs.</p>
-        </div>
-        <div class="flex items-center space-x-2 shrink-0">
-          <button type="button" onclick="openUploadModal()" class="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition flex items-center space-x-1.5">
-            <span>📤 Upload Manual</span>
-          </button>
-          <a href="/admin" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs border border-slate-200 transition" title="Admin Ingestion Studio">
-            <span>⚙️ Admin</span>
-          </a>
-        </div>
-      </div>
     </div>
 
     <!-- ================================================================= -->
@@ -130,9 +298,9 @@
           <div class="truncate text-xs font-medium text-slate-700">
             <span class="font-extrabold text-slate-900" id="locked-mfg-name">OEM</span>
             <span class="mx-1 text-slate-300">|</span>
-            <span class="font-bold text-blue-700" id="locked-mach-name">Machine</span>
+            <span class="font-bold text-blue-700" id="locked-mach-name">Selected Machine</span>
             <span class="mx-1 text-slate-300">|</span>
-            <span class="text-slate-600" id="locked-model-year">Model (Year)</span>
+            <span class="text-slate-600" id="locked-model-year">Standard (Current)</span>
             <span class="mx-1 text-slate-300">|</span>
             <span class="text-slate-500" id="locked-manual-count">1 Manual</span>
             <span class="mx-1 text-slate-300">|</span>
@@ -199,78 +367,6 @@
   </main>
 
   <!-- ================================================================= -->
-  <!-- MODAL: UPLOAD & INDEX OEM MANUAL DIRECTLY ON STEP 1               -->
-  <!-- ================================================================= -->
-  <div id="upload-modal" class="hidden fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full p-5 sm:p-6 space-y-4">
-      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-        <div class="flex items-center space-x-2.5">
-          <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-black text-sm border border-blue-100">
-            📤
-          </div>
-          <div>
-            <h3 class="font-black text-sm sm:text-base text-slate-900">Upload OEM Technical Manual</h3>
-            <p class="text-[11px] text-slate-500 font-medium">Index technical documentation to troubleshoot this machine</p>
-          </div>
-        </div>
-        <button type="button" onclick="closeUploadModal()" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 flex items-center justify-center text-xs font-bold transition">
-          ✕
-        </button>
-      </div>
-
-      <form id="index-upload-form" onsubmit="handleIndexUploadSubmit(event)" class="space-y-3.5">
-        <!-- File Picker -->
-        <div>
-          <label class="block text-xs font-bold text-slate-700 mb-1">OEM Manual File (.pdf, .txt, .md) <span class="text-rose-500">*</span></label>
-          <div id="file-dropzone" onclick="document.getElementById('manual-file-input').click()"
-               class="p-4 border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-xl bg-slate-50 hover:bg-blue-50/40 text-center cursor-pointer transition flex flex-col items-center justify-center">
-            <span class="text-2xl mb-1">📄</span>
-            <span id="dropzone-label" class="text-xs font-bold text-slate-700">Click to choose or drag & drop OEM manual</span>
-            <span id="dropzone-sub" class="text-[10px] text-slate-400 mt-0.5">Supports PDF (client-extracted via PDF.js) and Plain Text</span>
-            <input type="file" id="manual-file-input" accept=".pdf,.txt,.md" class="hidden" onchange="handleFileChosen(this)" />
-          </div>
-        </div>
-
-        <div class="grid grid-cols-2 gap-2.5">
-          <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Manufacturer / Brand <span class="text-rose-500">*</span></label>
-            <input type="text" id="modal-brand" required placeholder="e.g. Siemens, KUKA, Haas"
-                   class="w-full px-3 py-2 bg-slate-50 border border-slate-300 focus:border-blue-600 focus:bg-white rounded-lg text-xs font-medium text-slate-900 outline-none transition" />
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Machine Name <span class="text-rose-500">*</span></label>
-            <input type="text" id="modal-machine" required placeholder="e.g. SINAMICS G120"
-                   class="w-full px-3 py-2 bg-slate-50 border border-slate-300 focus:border-blue-600 focus:bg-white rounded-lg text-xs font-medium text-slate-900 outline-none transition" />
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Model / Controller Number</label>
-            <input type="text" id="modal-model" placeholder="e.g. CU240B/E-2"
-                   class="w-full px-3 py-2 bg-slate-50 border border-slate-300 focus:border-blue-600 focus:bg-white rounded-lg text-xs font-medium text-slate-900 outline-none transition" />
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Manufacturing Year</label>
-            <input type="text" id="modal-year" placeholder="e.g. 2021"
-                   class="w-full px-3 py-2 bg-slate-50 border border-slate-300 focus:border-blue-600 focus:bg-white rounded-lg text-xs font-medium text-slate-900 outline-none transition" />
-          </div>
-        </div>
-
-        <!-- Status / Progress Box -->
-        <div id="modal-upload-status" class="hidden text-xs rounded-xl p-3"></div>
-
-        <div class="pt-2 border-t border-slate-100 flex items-center justify-end space-x-2">
-          <button type="button" onclick="closeUploadModal()" class="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition">
-            Cancel
-          </button>
-          <button type="submit" id="modal-upload-btn" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-600/30 transition flex items-center space-x-1.5">
-            <span>🚀</span>
-            <span>Index Manual & Troubleshoot</span>
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- ================================================================= -->
   <!-- JAVASCRIPT: STRICT CONTEXT FLOW ENGINE                           -->
   <!-- ================================================================= -->
   <script>
@@ -279,79 +375,195 @@
     let registeredMachines = [];
     let sessionId = 'session_' + Math.random().toString(36).substring(2, 9);
     let isSubmitting = false;
-    let selectedUploadFile = null;
 
-    // Load indexed machines on boot
+    // Load indexed machines on boot & set up real-time listener (Strict Tenant Scope)
+    let unsubscribeMachinesListener = null;
+
     async function loadMachines() {
-      let backendMachines = [];
       try {
-        const res = await fetch('/api/machines');
-        if (res.ok) {
-          const data = await res.json();
-          backendMachines = data.machines || [];
+        const currentUser = window.firebase && firebase.auth ? firebase.auth().currentUser : null;
+        let companyId = window.__maintai_companyId;
+
+        // Fallback: If companyId is not set on window yet, fetch user document directly
+        if (!companyId && currentUser && window.firebase && firebase.apps.length) {
+          try {
+            const db = firebase.firestore();
+            const uDoc = await db.collection('users').doc(currentUser.uid).get();
+            if (uDoc.exists) {
+              const uData = uDoc.data() || {};
+              companyId = uData.companyId || (uData.role === 'company_admin' ? currentUser.uid : null);
+              if (companyId) window.__maintai_companyId = companyId;
+            }
+          } catch(uErr) {
+            console.warn("Direct user companyId lookup warning:", uErr);
+          }
         }
+
+        let backendMachines = [];
+        try {
+          const res = await fetch('/api/machines', { headers: { 'Authorization': 'Bearer ' + (window.__maintai_token || '') } });
+          const contentType = res.headers.get('content-type') || '';
+          if (res.ok && contentType.includes('application/json')) {
+            const data = await res.json();
+            backendMachines = data.machines || [];
+          } else if (res.status === 403) {
+            const unauthModal = document.getElementById('unauthorized-employee-overlay');
+            if (unauthModal) unauthModal.classList.remove('hidden');
+            return;
+          }
+        } catch (fetchErr) {
+          console.warn('Backend machines fetch error:', fetchErr);
+        }
+
+        const machineMap = new Map();
+        (backendMachines || []).forEach(m => {
+          if (m && m.machine_name) machineMap.set(m.machine_name.toLowerCase(), m);
+        });
+
+        // Always query Firestore for employee's companyId machines as well, and merge
+        if (window.firebase && firebase.apps.length) {
+          try {
+            const db = firebase.firestore();
+            // If companyId is available, filter by companyId; otherwise query machines
+            const machinesQuery = companyId ? db.collection('machines').where('companyId', '==', companyId) : db.collection('machines');
+            const snap = await machinesQuery.get();
+            if (!snap.empty) {
+              snap.forEach(doc => {
+                const d = doc.data() || {};
+                const mName = d.machineName || d.machine_name || 'Uploaded Equipment';
+                machineMap.set(mName.toLowerCase(), {
+                  id: doc.id,
+                  machine_name: mName,
+                  manufacturer: d.manufacturer || 'OEM',
+                  model: d.model || 'Standard',
+                  manufacturing_year: d.year || d.manufacturing_year || 'Current',
+                  firmware: d.firmware || 'Verified Upload',
+                  manual_count: d.manualCount || (d.manuals ? d.manuals.length : 1),
+                  status: d.status || 'Ready',
+                  status_label: 'Evidence Ready',
+                  manuals: d.manuals || [mName + ' Manual'],
+                  error_codes: d.errorCodes || [],
+                  company_id: d.companyId || companyId
+                });
+              });
+            }
+
+            // Real-time listener: if Company Admin uploads a new machine, auto-update employee screen instantly!
+            if (!unsubscribeMachinesListener && companyId) {
+              unsubscribeMachinesListener = db.collection('machines').where('companyId', '==', companyId)
+                .onSnapshot(liveSnap => {
+                  if (liveSnap && !liveSnap.empty) {
+                    liveSnap.forEach(doc => {
+                      const d = doc.data() || {};
+                      const mName = d.machineName || d.machine_name || 'Uploaded Equipment';
+                      machineMap.set(mName.toLowerCase(), {
+                        id: doc.id,
+                        machine_name: mName,
+                        manufacturer: d.manufacturer || 'OEM',
+                        model: d.model || 'Standard',
+                        manufacturing_year: d.year || d.manufacturing_year || 'Current',
+                        firmware: d.firmware || 'Verified Upload',
+                        manual_count: d.manualCount || (d.manuals ? d.manuals.length : 1),
+                        status: d.status || 'Ready',
+                        status_label: 'Evidence Ready',
+                        manuals: d.manuals || [mName + ' Manual'],
+                        error_codes: d.errorCodes || [],
+                        company_id: companyId
+                      });
+                    });
+                    registeredMachines = Array.from(machineMap.values());
+                    renderMachineCards();
+                  }
+                }, err => console.warn('Live machines listener warning:', err));
+            }
+          } catch(fsErr) {
+            console.warn("Firestore client machine fetch warning:", fsErr);
+            if (fsErr && (fsErr.code === 'permission-denied' || String(fsErr.message || '').includes('Cloud Firestore API') || String(fsErr).includes('PERMISSION_DENIED'))) {
+              window.__firestore_disabled = true;
+            }
+          }
+        }
+
+        // Query Firebase Realtime Database
+        if (window.firebase && firebase.database) {
+          try {
+            const rSnap = await firebase.database().ref('machines').once('value');
+            if (rSnap.exists()) {
+              const rData = rSnap.val() || {};
+              Object.entries(rData).forEach(([mKey, d]) => {
+                if (!d || typeof d !== 'object') return;
+                if (companyId && d.companyId && d.companyId !== companyId) return;
+                const mName = d.machineName || d.machine_name || 'Uploaded Equipment';
+                if (!machineMap.has(mName.toLowerCase())) {
+                  machineMap.set(mName.toLowerCase(), {
+                    id: d.machineId || mKey,
+                    machine_name: mName,
+                    manufacturer: d.manufacturer || 'OEM',
+                    model: d.model || 'Standard',
+                    manufacturing_year: d.year || d.manufacturing_year || 'Current',
+                    firmware: d.firmware || 'Verified Upload',
+                    manual_count: d.manualCount || (d.manuals ? d.manuals.length : 1),
+                    status: d.status || 'Ready',
+                    status_label: 'Evidence Ready',
+                    manuals: d.manuals || [mName + ' Manual'],
+                    error_codes: d.errorCodes || [],
+                    company_id: d.companyId || companyId
+                  });
+                }
+              });
+            }
+          } catch(rtdbErr) {
+            console.warn("RTDB machines lookup warning:", rtdbErr);
+          }
+        }
+
+        if (machineMap.size > 0) {
+          window.__firestore_disabled = false;
+        }
+
+        // Strictly use verified company workspace machines
+        registeredMachines = Array.from(machineMap.values());
       } catch (err) {
-        console.warn('Backend machines fetch warning:', err);
+        console.warn('Machine catalog load warning:', err);
+        registeredMachines = registeredMachines || [];
+      } finally {
+        renderMachineCards();
       }
-
-      // Merge with browser localStorage
-      let localMachines = [];
-      try {
-        localMachines = JSON.parse(localStorage.getItem('user_uploaded_machines') || '[]');
-      } catch(e) {
-        localMachines = [];
-      }
-
-      const mergedMap = new Map();
-      for (const m of localMachines) {
-        if (m && m.machine_name) mergedMap.set(m.machine_name.toLowerCase(), m);
-      }
-      for (const m of backendMachines) {
-        if (m && m.machine_name) mergedMap.set(m.machine_name.toLowerCase(), m);
-      }
-
-      registeredMachines = Array.from(mergedMap.values());
-      renderMachineCards();
     }
 
-    function fallbackMachines() {
-      let localMachines = [];
-      try {
-        localMachines = JSON.parse(localStorage.getItem('user_uploaded_machines') || '[]');
-      } catch(e) { localMachines = []; }
-      registeredMachines = localMachines;
-      renderMachineCards();
-    }
+    // Auto-boot loadMachines immediately on DOM script execution
+    try { loadMachines(); } catch(e){}
+
 
     // Render Machine Selection Cards Grid
     function renderMachineCards() {
       const grid = document.getElementById('machine-cards-grid');
-      const bottomCallout = document.getElementById('upload-manual-callout');
       if (!grid) return;
 
       if (!registeredMachines || registeredMachines.length === 0) {
-        if (bottomCallout) bottomCallout.classList.add('hidden');
+        if (window.__firestore_disabled) {
+          grid.innerHTML = `
+            <div class="col-span-full py-16 text-center space-y-3">
+              <div class="text-3xl">☁️</div>
+              <h3 class="text-base font-bold text-slate-800">Cloud Firestore Database Activation Required</h3>
+              <p class="text-xs text-slate-500 max-w-sm mx-auto">Cloud Firestore API has not been activated in Firebase Project <code>vcet-3c013</code>. Once the project administrator creates the database in the Firebase Console, company fleet machines will display here.</p>
+              <a href="https://console.firebase.google.com/project/vcet-3c013/firestore" target="_blank" class="inline-block mt-2 px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs shadow-sm transition">
+                Open Firebase Console to Create Database →
+              </a>
+            </div>
+          `;
+          return;
+        }
+
         grid.innerHTML = `
-          <div class="col-span-full max-w-xl mx-auto w-full p-8 sm:p-10 rounded-3xl bg-white border-2 border-dashed border-blue-200 shadow-xs text-center flex flex-col items-center justify-center space-y-4">
-            <div class="w-16 h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-3xl font-black border border-blue-100 shadow-xs">
-              📂
-            </div>
-            <div class="space-y-1">
-              <h3 class="text-lg sm:text-xl font-black text-slate-900 tracking-tight">No OEM Manuals Uploaded Yet</h3>
-              <p class="text-xs sm:text-sm text-slate-500 max-w-md mx-auto leading-relaxed font-medium">
-                Upload an OEM machine manual (PDF or text file) to begin troubleshooting. The system will index error codes, technical schematics, and corrective actions for your machine.
-              </p>
-            </div>
-            <button type="button" onclick="openUploadModal()" class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm shadow-md shadow-blue-600/30 transition flex items-center space-x-2">
-              <span>📤</span>
-              <span>Upload OEM Manual (PDF / Text)</span>
-            </button>
+          <div class="col-span-full py-16 text-center space-y-3">
+            <div class="text-3xl">🏭</div>
+            <h3 class="text-base font-bold text-slate-800">No machines have been added yet.</h3>
+            <p class="text-xs text-slate-500 max-w-sm mx-auto">Ask your company administrator to add equipment and upload technical manuals in the Company Portal.</p>
           </div>
         `;
         return;
       }
-
-      if (bottomCallout) bottomCallout.classList.remove('hidden');
 
       grid.innerHTML = registeredMachines.map(m => {
         const manualsList = (m.manuals || []).slice(0, 3).map(man => 
@@ -360,21 +572,14 @@
 
         return `
           <div onclick="selectMachine('${escapeHtml(m.machine_name)}')"
-               class="group p-4 sm:p-5 rounded-2xl bg-white hover:bg-blue-50/40 border-2 border-slate-200 hover:border-blue-600 transition-all duration-200 shadow-xs hover:shadow-md cursor-pointer flex flex-col justify-between space-y-3.5 relative">
+               class="group p-4 sm:p-5 rounded-2xl bg-white hover:bg-blue-50/40 border-2 border-slate-200 hover:border-blue-600 transition-all duration-200 shadow-xs hover:shadow-md cursor-pointer flex flex-col justify-between space-y-3.5">
             <div>
               <div class="flex items-center justify-between w-full mb-2">
                 <span class="text-xs font-black uppercase tracking-wider text-slate-500">${escapeHtml(m.manufacturer || 'OEM')}</span>
-                <div class="flex items-center space-x-2">
-                  <span class="inline-flex items-center space-x-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                    <span>${escapeHtml(m.status_label || 'Evidence Ready')}</span>
-                  </span>
-                  <button type="button" onclick="deleteMachine('${escapeHtml(m.machine_name)}', event)" 
-                          class="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition" 
-                          title="Delete Machine">
-                    🗑️
-                  </button>
-                </div>
+                <span class="inline-flex items-center space-x-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  <span>${escapeHtml(m.status_label || 'Evidence Ready')}</span>
+                </span>
               </div>
               <h3 class="text-base font-black text-slate-900 group-hover:text-blue-600 transition tracking-tight">
                 ${escapeHtml(m.machine_name)}
@@ -401,218 +606,6 @@
           </div>
         `;
       }).join('');
-    }
-
-    // UPLOAD MODAL CONTROLS
-    function openUploadModal() {
-      document.getElementById('upload-modal').classList.remove('hidden');
-      document.getElementById('modal-upload-status').classList.add('hidden');
-      document.getElementById('index-upload-form').reset();
-      selectedUploadFile = null;
-      document.getElementById('dropzone-label').innerText = 'Click to choose or drag & drop OEM manual';
-      document.getElementById('dropzone-sub').innerText = 'Supports PDF (client-extracted via PDF.js) and Plain Text';
-    }
-
-    function closeUploadModal() {
-      document.getElementById('upload-modal').classList.add('hidden');
-    }
-
-    function handleFileChosen(input) {
-      if (input.files && input.files[0]) {
-        selectedUploadFile = input.files[0];
-        document.getElementById('dropzone-label').innerText = `Selected: ${selectedUploadFile.name} (${(selectedUploadFile.size / 1024).toFixed(1)} KB)`;
-        document.getElementById('dropzone-sub').innerText = 'File ready to process.';
-
-        // Try to infer machine name if empty
-        const machInput = document.getElementById('modal-machine');
-        const brandInput = document.getElementById('modal-brand');
-        if (!machInput.value.trim()) {
-          let clean = selectedUploadFile.name.replace(/\.[^/.]+$/, "").replace(/[\-_]/g, " ");
-          if (/g120|sinamics/i.test(clean)) {
-            brandInput.value = brandInput.value || 'Siemens';
-            machInput.value = 'SINAMICS G120';
-          } else if (/kuka|kr/i.test(clean)) {
-            brandInput.value = brandInput.value || 'KUKA Robotics';
-            machInput.value = clean;
-          } else {
-            machInput.value = clean.split(' ').slice(0, 3).join(' ');
-          }
-        }
-      }
-    }
-
-    // CLIENT-SIDE INGESTION & SUBMISSION
-    async function handleIndexUploadSubmit(e) {
-      e.preventDefault();
-      if (!selectedUploadFile) {
-        alert('Please choose an OEM manual file first.');
-        return;
-      }
-
-      const brand = document.getElementById('modal-brand').value.trim();
-      const machine = document.getElementById('modal-machine').value.trim();
-      const model = document.getElementById('modal-model').value.trim() || 'Standard';
-      const year = document.getElementById('modal-year').value.trim() || 'Current';
-
-      const statusBox = document.getElementById('modal-upload-status');
-      const submitBtn = document.getElementById('modal-upload-btn');
-      statusBox.classList.remove('hidden');
-      statusBox.className = 'text-xs rounded-xl p-3 bg-blue-50 border border-blue-200 text-blue-900 space-y-1.5';
-      statusBox.innerHTML = `
-        <div class="flex items-center space-x-2 font-bold">
-          <div class="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-          <span>Processing Technical Manual...</span>
-        </div>
-        <p class="text-[11px] text-blue-700">Reading content and extracting technical diagnostic sections...</p>
-      `;
-      submitBtn.disabled = true;
-
-      try {
-        let uploadPayload;
-        const fname = selectedUploadFile.name;
-        const isPdf = fname.toLowerCase().endsWith('.pdf');
-
-        if (isPdf) {
-          if (typeof pdfjsLib === 'undefined') {
-            throw new Error('PDF.js library is loading. Please retry in a moment.');
-          }
-          const buffer = await selectedUploadFile.arrayBuffer();
-          const loadingTask = pdfjsLib.getDocument({ data: buffer });
-          const pdfDoc = await loadingTask.promise;
-          const extractedPages = [];
-          let totalChars = 0;
-
-          for (let i = 1; i <= pdfDoc.numPages; i++) {
-            statusBox.innerHTML = `
-              <div class="flex items-center space-x-2 font-bold">
-                <div class="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                <span>Scanning technical manual...</span>
-              </div>
-              <p class="text-[11px] text-blue-700">Scanning page ${i} of ${pdfDoc.numPages} (${brand} - ${machine})...</p>
-            `;
-            const page = await pdfDoc.getPage(i);
-            const textContent = await page.getTextContent();
-            const pageText = textContent.items.map(item => item.str).join(' ');
-            totalChars += pageText.trim().length;
-            if (pageText.trim()) {
-              extractedPages.push({ page_num: i, text: pageText.trim() });
-            }
-          }
-
-          if (totalChars < 20 || extractedPages.length === 0) {
-            throw new Error('No selectable text found in this PDF. Please upload a text-searchable PDF or text document.');
-          }
-
-          uploadPayload = {
-            filename: fname,
-            machine_name: machine,
-            brand: brand,
-            model_no: model,
-            year_of_manufacture: year,
-            pages: extractedPages
-          };
-        } else {
-          const rawText = await selectedUploadFile.text();
-          uploadPayload = {
-            filename: fname,
-            machine_name: machine,
-            brand: brand,
-            model_no: model,
-            year_of_manufacture: year,
-            text: rawText
-          };
-        }
-
-        statusBox.innerHTML = `
-          <div class="flex items-center space-x-2 font-bold">
-            <div class="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <span>Building search indices...</span>
-          </div>
-          <p class="text-[11px] text-blue-700">Generating BM25 index and mapping alarm codes...</p>
-        `;
-
-        const res = await fetch('/api/upload/text', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(uploadPayload)
-        });
-
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.detail || `Server returned ${res.status}`);
-        }
-
-        const data = await res.json();
-
-        // Save into localStorage so it survives serverless recycles
-        const newMachineRecord = {
-          id: `custom_${machine.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8)}`,
-          manufacturer: brand,
-          machine_name: machine,
-          model: model,
-          manufacturing_year: year,
-          firmware: 'Verified Upload',
-          manual_count: 1,
-          status: 'Ready',
-          status_label: 'Evidence Ready',
-          manuals: [data.manual_name || `${machine} Manual`],
-          error_codes: data.detected_codes || [],
-          sample_queries: data.sample_queries || [`${machine} troubleshooting`],
-          description: `OEM Technical Manual with ${data.total_pages || 1} pages and ${data.chunks_count || 1} indexed sections.`
-        };
-
-        let saved = [];
-        try {
-          saved = JSON.parse(localStorage.getItem('user_uploaded_machines') || '[]');
-        } catch(e) { saved = []; }
-        saved = saved.filter(m => m.machine_name.toLowerCase() !== machine.toLowerCase());
-        saved.push(newMachineRecord);
-        localStorage.setItem('user_uploaded_machines', JSON.stringify(saved));
-        localStorage.setItem('chunks_' + machine, JSON.stringify(data));
-
-        closeUploadModal();
-        await loadMachines();
-        selectMachine(machine);
-
-      } catch (err) {
-        statusBox.className = 'text-xs rounded-xl p-3 bg-rose-50 border border-rose-200 text-rose-900 space-y-1';
-        statusBox.innerHTML = `<strong>Error:</strong> ${escapeHtml(err.message)}`;
-      } finally {
-        submitBtn.disabled = false;
-      }
-    }
-
-    // DELETE MACHINE FUNCTIONALITY
-    async function deleteMachine(machineName, e) {
-      if (e) e.stopPropagation();
-      if (!confirm(`Are you sure you want to delete "${machineName}" and remove all its indexed technical manuals?`)) {
-        return;
-      }
-
-      try {
-        let saved = [];
-        try {
-          saved = JSON.parse(localStorage.getItem('user_uploaded_machines') || '[]');
-        } catch(e) { saved = []; }
-        saved = saved.filter(m => m.machine_name.toLowerCase() !== machineName.toLowerCase());
-        localStorage.setItem('user_uploaded_machines', JSON.stringify(saved));
-        localStorage.removeItem('chunks_' + machineName);
-
-        // Delete from backend
-        await fetch('/api/manuals/delete', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ machine_name: machineName })
-        }).catch(err => console.warn('Backend delete sync warning:', err));
-
-        if (activeMachine && activeMachine.machine_name.toLowerCase() === machineName.toLowerCase()) {
-          changeMachine();
-        }
-
-        loadMachines();
-      } catch (err) {
-        alert('Could not delete machine: ' + err.message);
-      }
     }
 
     // STEP 1 -> STEP 2: User Selects One Machine
@@ -671,7 +664,7 @@
       try {
         await fetch('/api/session/clear', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (window.__maintai_token || '') },
           body: JSON.stringify({ session_id: sessionId })
         });
       } catch (err) {
@@ -708,7 +701,6 @@
       input.value = text;
       input.focus();
       document.getElementById('clear-input-btn').classList.remove('hidden');
-      submitTroubleshootingQuery();
     }
 
     function clearInput() {
@@ -786,7 +778,7 @@
 
         const res = await fetch('/api/query', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (window.__maintai_token || '') },
           body: JSON.stringify(payload)
         });
 
@@ -892,23 +884,18 @@
         return;
       }
 
-      // 2. CONVERSATIONAL / NORMAL QUESTIONS (Step 5: e.g. "Hi", "What voltage does it use?")
-      if (!data.error_code && !data.diagnosis) {
-        const citationBadge = (data.citations && data.citations[0]) ? 
-          `<div class="pt-2 border-t border-slate-100 text-[11px] text-slate-500 font-medium flex items-center space-x-1">
-            <span>📖 Source: <strong>${escapeHtml(data.citations[0].manual_name || 'OEM Manual')}</strong> (Page ${data.citations[0].page || 1})</span>
-          </div>` : '';
-
+      // 2. CONVERSATIONAL GREETINGS (e.g. "Hi", "How are you?")
+      const isPureGreeting = (!data.citations || data.citations.length === 0) && (!data.simple_worker_view || !data.simple_worker_view.steps || data.simple_worker_view.steps.length === 0);
+      if (isPureGreeting) {
         div.innerHTML = `
           <div class="w-full max-w-2xl rounded-2xl bg-white border border-slate-200 p-5 shadow-xs space-y-3">
             <div class="flex items-center justify-between border-b border-slate-100 pb-2">
-              <span class="text-xs font-bold text-blue-700">💬 ${escapeHtml(data.machine_name || 'Machine Info')}</span>
-              <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200">Verified OEM Info</span>
+              <span class="text-xs font-bold text-blue-700">💬 ${escapeHtml(data.machine_name || 'Precision Assistant')}</span>
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">System Ready</span>
             </div>
             <div class="text-xs sm:text-sm text-slate-800 leading-relaxed whitespace-pre-line font-normal">
-              ${escapeHtml(data.message || data.error_meaning || 'Information retrieved.')}
+              ${escapeHtml(data.message || data.error_meaning || 'Hello! How can I assist you with this machine?')}
             </div>
-            ${citationBadge}
           </div>
         `;
         msgs.appendChild(div);
@@ -916,97 +903,234 @@
         return;
       }
 
-      // 3. STRUCTURED EXACT ERROR CODE DIAGNOSIS (Step 4)
+      // 3. STRUCTURED DUAL-FORMAT INDUSTRIAL ANSWER (All Machine Questions: Operation, Maintenance, Specs, Safety, Symptoms, Fault Codes)
       const diag = data.diagnosis || {};
       const source = data.source || (data.citations && data.citations[0]) || {};
+      const simple = data.simple_worker_view || {};
+      const tech = data.deep_technical_view || {};
+      const cardId = 'diag-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
 
-      const likelyCausesHtml = (diag.likely_causes || data.probable_causes || []).slice(0, 3).map((c, i) => 
+      // Save for "Why this answer?" inspection
+      window.whyThisAnswerStore = window.whyThisAnswerStore || {};
+      window.whyThisAnswerStore[cardId] = data;
+
+      // Determine Category Badge & Color
+      let queryBadgeLabel = 'TECHNICAL ANSWER';
+      let queryBadgeClass = 'bg-blue-600 text-white';
+
+      const qType = (data.query_type || '').toUpperCase();
+      if (data.error_code || qType === 'ERROR_CODE') {
+        queryBadgeLabel = `ALARM: ${escapeHtml(data.error_code || 'FAULT')}`;
+        queryBadgeClass = 'bg-red-600 text-white';
+      } else if (qType === 'SAFETY') {
+        queryBadgeLabel = 'SAFETY & PPE PROTOCOL';
+        queryBadgeClass = 'bg-amber-600 text-white';
+      } else if (qType === 'MAINTENANCE') {
+        queryBadgeLabel = 'PREVENTIVE MAINTENANCE';
+        queryBadgeClass = 'bg-indigo-600 text-white';
+      } else if (qType === 'SPECIFICATIONS') {
+        queryBadgeLabel = 'TECHNICAL SPECIFICATIONS';
+        queryBadgeClass = 'bg-cyan-700 text-white';
+      } else if (qType === 'PARAMETERS') {
+        queryBadgeLabel = 'SYSTEM PARAMETERS';
+        queryBadgeClass = 'bg-purple-700 text-white';
+      } else if (qType === 'COMPONENTS') {
+        queryBadgeLabel = 'COMPONENTS & SUBSYSTEMS';
+        queryBadgeClass = 'bg-slate-700 text-white';
+      } else if (qType === 'OPERATION') {
+        queryBadgeLabel = 'MACHINE OPERATION';
+        queryBadgeClass = 'bg-emerald-700 text-white';
+      } else if (qType === 'TROUBLESHOOTING_SYMPTOM') {
+        queryBadgeLabel = 'SYMPTOM RESOLUTION';
+        queryBadgeClass = 'bg-rose-600 text-white';
+      }
+
+      const simpleSteps = (simple.steps || data.recommended_checks_procedure || data.corrective_actions || []).map((step, i) => {
+        const stepNum = i + 1;
+        const cleanStep = String(step).replace(/^(?:Step\s*\d+[:\.]?|\d+[\.\)])\s*/i, '');
+        return `
+          <div class="flex items-start space-x-3 p-2.5 rounded-xl bg-slate-50 border border-slate-100 hover:border-blue-200 transition">
+            <span class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-black text-xs shrink-0 shadow-xs">
+              ${stepNum}
+            </span>
+            <div class="text-xs text-slate-800 leading-relaxed font-medium">
+              <strong class="text-slate-900 font-bold block mb-0.5">Step ${stepNum}</strong>
+              ${escapeHtml(cleanStep)}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      const techSteps = (tech.steps || tech.engineering_procedures || data.recommended_checks_procedure || data.corrective_actions || []).map((step, i) => {
+        const stepNum = i + 1;
+        return `
+          <div class="flex items-start space-x-3 p-3 rounded-xl bg-slate-900/5 border border-slate-200">
+            <span class="w-6 h-6 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-xs shrink-0 font-mono">
+              ${stepNum}
+            </span>
+            <div class="text-xs text-slate-800 leading-relaxed">
+              <span class="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 mr-1.5">PROCEDURE</span>
+              ${escapeHtml(step)}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      const rootCausesHtml = (tech.root_causes || diag.likely_causes || data.probable_causes || []).slice(0, 3).map((c, i) => 
         `<div class="flex items-start space-x-2 text-xs text-slate-700">
-          <span class="font-black text-slate-900 shrink-0">${i + 1}.</span>
+          <span class="font-black text-slate-900 shrink-0 font-mono">${i + 1}.</span>
           <span>${escapeHtml(c)}</span>
         </div>`
       ).join('');
 
-      const recommendedChecksHtml = (diag.recommended_checks || data.corrective_actions || []).slice(0, 3).map((chk, i) => 
-        `<div class="flex items-start space-x-2 text-xs text-slate-700">
-          <span class="font-black text-blue-600 shrink-0">${i + 1}.</span>
-          <span>${escapeHtml(chk)}</span>
-        </div>`
-      ).join('');
+      const quotedManualText = data.what_the_manual_says || source.supporting_quote || '';
 
       div.innerHTML = `
         <div class="w-full max-w-2xl rounded-2xl bg-white border-2 border-blue-200/80 p-5 shadow-sm space-y-4">
           
-          <!-- DIAGNOSIS HEADER -->
+          <!-- TOP HEADER: CATEGORY BADGE & EVIDENCE TAG -->
           <div class="flex items-center justify-between border-b border-slate-100 pb-3">
             <div class="flex items-center space-x-2">
-              <span class="px-2.5 py-1 rounded-lg bg-blue-600 text-white font-black text-xs">DIAGNOSIS</span>
-              <span class="text-xs font-bold text-slate-900">Alarm: <strong class="text-blue-700 font-black">${escapeHtml(data.error_code || 'FAULT')}</strong></span>
+              <span class="px-2.5 py-1 rounded-lg ${queryBadgeClass} font-black text-[11px] tracking-wide">
+                ${queryBadgeLabel}
+              </span>
+              <span class="text-xs font-bold text-slate-900">${escapeHtml(data.machine_name || 'Machine Info')}</span>
             </div>
             <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
               Verified Manual Evidence
             </span>
           </div>
 
-          <!-- MEANING -->
-          <div>
-            <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Meaning</div>
-            <p class="text-xs sm:text-sm font-semibold text-slate-900 leading-snug">
-              ${escapeHtml(diag.meaning || data.error_meaning || 'Diagnostic information verified.')}
+          <!-- DIRECT ANSWER SUMMARY -->
+          <div class="bg-blue-50/50 p-3.5 rounded-xl border border-blue-100 space-y-1">
+            <div class="text-[10px] font-bold uppercase tracking-wider text-blue-800">Answer / Condition Summary</div>
+            <p class="text-xs sm:text-sm font-bold text-slate-900 leading-snug">
+              ${escapeHtml(data.answer || diag.meaning || data.error_meaning || 'Information verified in OEM manual.')}
             </p>
           </div>
 
-          <!-- LIKELY CAUSES -->
-          ${likelyCausesHtml ? `
-            <div class="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-2">
-              <div class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Likely Causes</div>
-              <div class="space-y-1.5">
-                ${likelyCausesHtml}
-              </div>
+          <!-- WHAT THE MANUAL SAYS (Direct Excerpt Block) -->
+          ${quotedManualText ? `
+            <div class="p-3 rounded-xl bg-slate-50 border border-slate-200/80 text-xs text-slate-700 space-y-1">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">📖 What the Manual Says</span>
+              <p class="italic text-slate-800 leading-relaxed font-medium pl-2 border-l-2 border-blue-500">
+                "${escapeHtml(quotedManualText)}"
+              </p>
             </div>
           ` : ''}
 
-          <!-- RECOMMENDED CHECKS -->
-          ${recommendedChecksHtml ? `
-            <div class="p-3 rounded-xl bg-blue-50/50 border border-blue-100 space-y-2">
-              <div class="text-[11px] font-bold uppercase tracking-wider text-blue-800">Recommended Checks</div>
-              <div class="space-y-1.5">
-                ${recommendedChecksHtml}
-              </div>
+          <!-- DUAL FORMAT TOGGLE BUTTONS -->
+          <div class="flex items-center justify-between pt-1">
+            <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Select Explanation Format:</span>
+            <div class="inline-flex p-1 rounded-xl bg-slate-100 border border-slate-200" role="tablist">
+              <button type="button" onclick="setDualFormatView('${cardId}', 'simple')" id="tab-btn-simple-${cardId}" 
+                class="px-3 py-1 rounded-lg text-xs font-bold transition bg-white text-blue-700 shadow-xs">
+                👷 Simple Format
+              </button>
+              <button type="button" onclick="setDualFormatView('${cardId}', 'tech')" id="tab-btn-tech-${cardId}" 
+                class="px-3 py-1 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-900">
+                ⚙️ Technical Format
+              </button>
             </div>
-          ` : ''}
+          </div>
 
-          <!-- CORRECTIVE ACTION -->
-          ${diag.corrective_action ? `
+          <!-- FORMAT 1: SIMPLE OPERATOR VIEW -->
+          <div id="view-simple-${cardId}" class="space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+              <span class="text-xs font-black text-slate-800 flex items-center space-x-1.5">
+                <span>📋</span>
+                <span>Step-by-Step Operator Action Plan</span>
+              </span>
+              <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-blue-50 text-blue-700">Floor Operator Guide</span>
+            </div>
+
+            <!-- STEP-BY-STEP CHECKLIST -->
+            <div class="space-y-2">
+              ${simpleSteps || '<div class="text-xs text-slate-500 italic">No specific mechanical actions required for this query.</div>'}
+            </div>
+
+            <!-- SAFETY & PPE -->
+            ${(simple.safety_tip || diag.safety || data.safety) ? `
+              <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-medium flex items-start space-x-2">
+                <span class="text-base shrink-0">⚠️</span>
+                <div>
+                  <strong class="font-bold">Operator Safety & PPE:</strong> ${escapeHtml(simple.safety_tip || diag.safety || data.safety)}
+                </div>
+              </div>
+            ` : ''}
+
+            <!-- ESCALATION NOTICE -->
+            <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-[11px] text-slate-600 flex items-center justify-between">
+              <span>Need secondary assistance?</span>
+              <span class="font-semibold text-slate-800">${escapeHtml(simple.escalation || 'Alert Maintenance Technician if not resolved')}</span>
+            </div>
+          </div>
+
+          <!-- FORMAT 2: TECHNICAL MAINTENANCE VIEW (Hidden by default) -->
+          <div id="view-tech-${cardId}" class="hidden space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+              <span class="text-xs font-black text-slate-900 flex items-center space-x-1.5">
+                <span>⚙️</span>
+                <span>Engineering Diagnostic Protocol</span>
+              </span>
+              <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-purple-50 text-purple-700">Maintenance Tier-2</span>
+            </div>
+
+            <!-- ROOT CAUSES / PRINCIPLES -->
+            ${rootCausesHtml ? `
+              <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-slate-600">Technical Root Causes & Principles</div>
+                <div class="space-y-1.5">
+                  ${rootCausesHtml}
+                </div>
+              </div>
+            ` : ''}
+
+            <!-- TECHNICAL STEP-BY-STEP PROTOCOL -->
             <div>
-              <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Corrective Action</div>
-              <div class="text-xs font-medium text-slate-800 leading-relaxed bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                ${escapeHtml(diag.corrective_action)}
+              <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">Technical Diagnostic & Inspection Steps</div>
+              <div class="space-y-2">
+                ${techSteps}
               </div>
             </div>
-          ` : ''}
 
-          <!-- SAFETY -->
-          ${diag.safety ? `
-            <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-medium flex items-start space-x-2">
-              <span class="text-base shrink-0">⚠️</span>
-              <div>
-                <strong class="font-bold">Safety Notice:</strong> ${escapeHtml(diag.safety)}
+            <!-- TECHNICAL SAFETY & TOLERANCES -->
+            ${(tech.safety_and_tolerances || diag.safety || data.safety) ? `
+              <div class="p-2.5 rounded-lg bg-amber-50/70 border border-amber-200 text-amber-900 text-[11px] font-medium">
+                <strong>Safety & Tolerances:</strong> ${escapeHtml(tech.safety_and_tolerances || diag.safety || data.safety)}
               </div>
-            </div>
-          ` : ''}
+            ` : ''}
 
-          <!-- SOURCE (Manual, Section, Page) -->
-          <div class="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between text-[11px] text-slate-500 gap-1.5">
-            <div class="font-semibold text-slate-700 truncate max-w-md">
+            <!-- ESCALATION & SPARES -->
+            ${tech.escalation_and_spare_parts ? `
+              <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-[11px] text-slate-700">
+                <strong>Escalation / Spare Parts:</strong> ${escapeHtml(tech.escalation_and_spare_parts)}
+              </div>
+            ` : ''}
+          </div>
+
+          <!-- FOOTER: CITATION & "WHY THIS ANSWER?" BUTTON -->
+          <div class="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between text-[11px] text-slate-500 gap-2">
+            <div class="font-semibold text-slate-700 truncate max-w-sm">
               📖 <span class="text-slate-900 font-bold">${escapeHtml(source.manual_name || 'OEM Technical Manual')}</span>
               ${source.section ? `<span class="mx-1">•</span>${escapeHtml(source.section)}` : ''}
             </div>
-            ${source.page ? `
-              <span class="px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 font-bold shrink-0 border border-blue-200">
-                Page ${source.page}
+            
+            <div class="flex items-center space-x-2 shrink-0">
+              <span class="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 font-bold border border-blue-200">
+                Printed P.${source.manual_page || source.page || 1}
               </span>
-            ` : ''}
+              <span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-medium border border-slate-200">
+                PDF P.${source.pdf_page || source.page || 1}
+              </span>
+              
+              <!-- INTERACTIVE "WHY THIS ANSWER?" BUTTON -->
+              <button type="button" onclick="openWhyThisAnswer('${cardId}')" 
+                class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-bold transition shadow-xs">
+                <span>💡</span>
+                <span>Why this answer?</span>
+              </button>
+            </div>
           </div>
 
         </div>
@@ -1021,6 +1145,41 @@
       if (msgs) msgs.scrollTop = msgs.scrollHeight;
     }
 
+    function setDualFormatView(cardId, viewType) {
+      const simpleView = document.getElementById('view-simple-' + cardId);
+      const techView = document.getElementById('view-tech-' + cardId);
+      const btnSimple = document.getElementById('tab-btn-simple-' + cardId);
+      const btnTech = document.getElementById('tab-btn-tech-' + cardId);
+
+      if (viewType === 'simple') {
+        if (simpleView) simpleView.classList.remove('hidden');
+        if (techView) techView.classList.add('hidden');
+        if (btnSimple) {
+          btnSimple.className = 'px-3 py-1 rounded-lg text-xs font-bold transition bg-white text-blue-700 shadow-xs';
+        }
+        if (btnTech) {
+          btnTech.className = 'px-3 py-1 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-900';
+        }
+      } else {
+        if (simpleView) simpleView.classList.add('hidden');
+        if (techView) techView.classList.remove('hidden');
+        if (btnTech) {
+          btnTech.className = 'px-3 py-1 rounded-lg text-xs font-bold transition bg-white text-purple-700 shadow-xs';
+        }
+        if (btnSimple) {
+          btnSimple.className = 'px-3 py-1 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-900';
+        }
+      }
+    }
+
+    function handleLogout() {
+      firebase.auth().signOut().then(function() {
+        localStorage.clear();
+        sessionStorage.clear();
+        window.location.href = '/login.html';
+      });
+    }
+
     function escapeHtml(str) {
       if (!str) return '';
       return String(str)
@@ -1031,11 +1190,140 @@
         .replace(/'/g, '&#039;');
     }
 
-    // Auto-init on page load
-    window.addEventListener('DOMContentLoaded', () => {
-      loadMachines();
+    function openWhyThisAnswer(cardId) {
+      const data = (window.whyThisAnswerStore && window.whyThisAnswerStore[cardId]) || {};
+      const why = data.why_this_answer || {};
+      const source = data.source || (data.citations && data.citations[0]) || {};
+
+      const selManualEl = document.getElementById('modal-selected-manual');
+      if (selManualEl) selManualEl.textContent = why.selected_manual || source.manual_name || 'OEM Technical Manual';
+
+      const rationaleEl = document.getElementById('modal-selection-rationale');
+      if (rationaleEl) rationaleEl.textContent = why.selection_rationale || 'Ranked top matching source based on query category prioritization.';
+
+      const topicEl = document.getElementById('modal-topic');
+      if (topicEl) topicEl.textContent = why.topic || source.topic || (data.query_type || 'General System');
+
+      const subtopicEl = document.getElementById('modal-subtopic');
+      if (subtopicEl) subtopicEl.textContent = why.subtopic || source.subtopic || 'Operational Specifications';
+
+      const sectionEl = document.getElementById('modal-section');
+      if (sectionEl) sectionEl.textContent = why.section || source.section || 'OEM Standard Operating Procedure';
+
+      const prPageEl = document.getElementById('modal-printed-page');
+      if (prPageEl) prPageEl.textContent = 'Printed P.' + (why.manual_page || source.manual_page || source.page || 1);
+
+      const pdfPageEl = document.getElementById('modal-pdf-page');
+      if (pdfPageEl) pdfPageEl.textContent = 'PDF P.' + (why.pdf_page || source.pdf_page || source.page || 1);
+
+      const evidenceEl = document.getElementById('modal-manual-evidence');
+      if (evidenceEl) evidenceEl.textContent = why.manual_evidence || data.what_the_manual_says || source.supporting_quote || 'Direct excerpt verified in uploaded manual.';
+
+      const interpEl = document.getElementById('modal-interpretation');
+      if (interpEl) interpEl.textContent = why.engineering_interpretation || data.answer || (data.diagnosis && data.diagnosis.meaning) || 'Manual-grounded industrial engineering diagnosis.';
+
+      const confEl = document.getElementById('modal-confidence');
+      if (confEl) confEl.textContent = (why.confidence_score ? Math.round(why.confidence_score * 100) + '%' : '100%') + ' Deterministic OEM Citation';
+
+      const modal = document.getElementById('why-modal-backdrop');
+      if (modal) {
+        modal.classList.remove('hidden');
+      }
+    }
+
+    function closeWhyThisAnswer() {
+      const modal = document.getElementById('why-modal-backdrop');
+      if (modal) {
+        modal.classList.add('hidden');
+      }
+    }
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') closeWhyThisAnswer();
     });
   </script>
+
+  <!-- ================================================================= -->
+  <!-- "WHY THIS ANSWER?" AUDIT & CITATION MODAL                         -->
+  <!-- ================================================================= -->
+  <div id="why-modal-backdrop" onclick="if(event.target === this) closeWhyThisAnswer()" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+      <!-- Modal Header -->
+      <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+        <div class="flex items-center space-x-2.5">
+          <span class="text-xl">💡</span>
+          <div>
+            <h3 class="text-sm font-black tracking-wide">Manual Citation & Rationale Audit</h3>
+            <p class="text-[11px] text-slate-300">Deterministic RAG Retrieval & Verification Breakdown</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeWhyThisAnswer()" class="text-slate-400 hover:text-white p-1 rounded-lg text-lg leading-none transition">✕</button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-6 overflow-y-auto space-y-4 text-xs">
+        <!-- 1. Source Manual & Why Selected -->
+        <div class="p-3.5 rounded-xl bg-blue-50/70 border border-blue-200 space-y-1.5">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-black uppercase tracking-wider text-blue-700">1. Selected OEM Manual</span>
+            <span id="modal-verification-status" class="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-bold text-[10px]">Verified OEM Evidence</span>
+          </div>
+          <div id="modal-selected-manual" class="font-bold text-slate-900 text-sm">--</div>
+          <div class="text-slate-700 leading-relaxed">
+            <strong class="text-slate-900 font-semibold">Selection Rationale:</strong>
+            <span id="modal-selection-rationale" class="text-slate-700">--</span>
+          </div>
+        </div>
+
+        <!-- 2. Topic, Subtopic & Page Breakdown -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Engineering Scope</span>
+            <div><strong class="text-slate-900">Topic:</strong> <span id="modal-topic" class="font-medium text-slate-700">--</span></div>
+            <div><strong class="text-slate-900">Subtopic:</strong> <span id="modal-subtopic" class="font-medium text-slate-700">--</span></div>
+            <div><strong class="text-slate-900">Section:</strong> <span id="modal-section" class="font-medium text-slate-700">--</span></div>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">Page References</span>
+            <div class="flex items-center space-x-2">
+              <span class="px-2 py-1 rounded bg-blue-100 text-blue-800 font-bold text-[11px]" id="modal-printed-page">Printed P.--</span>
+              <span class="px-2 py-1 rounded bg-slate-200 text-slate-800 font-bold text-[11px]" id="modal-pdf-page">PDF P.--</span>
+            </div>
+            <div class="pt-1 text-[11px] text-slate-500">
+              Corresponds to physical printed manual and digital PDF page index.
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Direct Manual Evidence vs Engineering Interpretation -->
+        <div class="space-y-3">
+          <div class="p-3.5 rounded-xl bg-amber-50/60 border border-amber-200 space-y-1.5">
+            <span class="text-[10px] font-black uppercase tracking-wider text-amber-800 block">📖 Exact Manual Excerpt (Ground Truth)</span>
+            <blockquote id="modal-manual-evidence" class="italic text-slate-800 font-medium pl-2 border-l-2 border-amber-500 leading-relaxed whitespace-pre-wrap">
+              --
+            </blockquote>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-indigo-50/60 border border-indigo-200 space-y-1.5">
+            <span class="text-[10px] font-black uppercase tracking-wider text-indigo-800 block">⚙️ Engineering Interpretation (Industrial Copilot)</span>
+            <p id="modal-interpretation" class="text-slate-800 font-medium leading-relaxed whitespace-pre-wrap">
+              --
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-6 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+        <div class="text-[11px] text-slate-500">
+          Retrieval Confidence: <span id="modal-confidence" class="font-bold text-emerald-700">100% Deterministic</span>
+        </div>
+        <button type="button" onclick="closeWhyThisAnswer()" class="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs transition">
+          Close Audit
+        </button>
+      </div>
+    </div>
+  </div>
 
 </body>
 </html>

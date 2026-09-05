@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In - MaintAI</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: '#2563eb',
+                        company: '#7c3aed',
+                        employee: '#0284c7'
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Firebase Compat SDK v10.12.0 -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+    
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; }
+        .view-section {
+            transition: opacity 0.25s ease, transform 0.25s ease;
+        }
+        .hidden-view {
+            display: none !important;
+            opacity: 0;
+            transform: translateY(8px);
+        }
+        .active-view {
+            display: block;
+            opacity: 1;
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col text-slate-900 bg-slate-50">
+
+    <!-- Auth Checking Overlay (Shown only during active redirection) -->
+    <div id="auth-loading-overlay" class="hidden fixed inset-0 bg-white/90 backdrop-blur-sm z-50 flex items-center justify-center transition-opacity">
+        <div class="text-center p-6">
+            <div class="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center text-xl shadow-lg shadow-blue-600/30 mx-auto mb-3 animate-pulse">⚙️</div>
+            <p class="text-sm font-semibold text-slate-700">Opening your workspace...</p>
+            <p class="text-xs text-slate-400 mt-1">Directing to authorized dashboard</p>
+        </div>
+    </div>
+    
+    <!-- Header -->
+    <header class="border-b border-slate-200 py-3.5 px-6 bg-white shrink-0">
+        <div class="max-w-6xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white text-lg shadow-sm shadow-blue-600/30">⚙️</div>
+                <div>
+                    <h1 class="text-lg font-black tracking-tight text-slate-900 leading-none">MaintAI</h1>
+                    <p class="text-[10px] text-slate-500 font-bold tracking-wider uppercase mt-1">OEM Precision Diagnostics</p>
+                </div>
+            </div>
+            <div id="header-status" class="text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
+                Authentication Required
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow flex items-center justify-center p-4 sm:p-6">
+        <div class="w-full max-w-lg bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200 overflow-hidden relative">
+            
+            <!-- ========================================== -->
+            <!-- 1. INITIAL ROLE SELECTION VIEW (MANDATORY) -->
+            <!-- ========================================== -->
+            <div id="role-selection-view" class="view-section active-view p-6 sm:p-8">
+                <div class="text-center mb-8">
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-700 text-xs font-bold rounded-full mb-3 border border-blue-200">
+                        <span>🔐</span> Select Workspace Role
+                    </span>
+                    <h2 class="text-2xl sm:text-3xl font-black text-slate-950 tracking-tight mb-2">Welcome to MaintAI</h2>
+                    <p class="text-sm text-slate-600 max-w-sm mx-auto font-medium">Please choose your role to sign in to your assigned workspace</p>
+                </div>
+
+                <div class="space-y-4">
+                    <!-- Option 1: LOGIN AS COMPANY -->
+                    <button type="button" id="btn-login-as-company" onclick="selectRole('company_admin')" 
+                        class="w-full group text-left p-5 rounded-xl border-2 border-violet-200 hover:border-violet-600 bg-gradient-to-r from-violet-50/50 hover:from-violet-50 to-white transition-all shadow-xs hover:shadow-md flex items-center justify-between">
+                        <div class="flex items-start gap-4">
+                            <div class="w-12 h-12 rounded-xl bg-violet-600 text-white text-2xl flex items-center justify-center shrink-0 shadow-md shadow-violet-600/30 group-hover:scale-105 transition-transform">
+                                🏢
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="font-black text-base sm:text-lg text-slate-900 group-hover:text-violet-700 transition-colors">LOGIN AS COMPANY</span>
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-black bg-violet-100 text-violet-800 border border-violet-200 uppercase">Admin</span>
+                                </div>
+                                <p class="text-xs text-slate-600 mt-1 font-medium leading-relaxed">Manage machine fleet, upload OEM technical manuals, assign equipment to technicians.</p>
+                            </div>
+                        </div>
+                        <div class="shrink-0 text-slate-400 group-hover:text-violet-600 group-hover:translate-x-1 transition-all text-xl font-bold ml-2">
+                            →
+                        </div>
+                    </button>
+
+                    <!-- Option 2: LOGIN AS EMPLOYEE -->
+                    <button type="button" id="btn-login-as-employee" onclick="selectRole('employee')" 
+                        class="w-full group text-left p-5 rounded-xl border-2 border-sky-200 hover:border-sky-600 bg-gradient-to-r from-sky-50/50 hover:from-sky-50 to-white transition-all shadow-xs hover:shadow-md flex items-center justify-between">
+                        <div class="flex items-start gap-4">
+                            <div class="w-12 h-12 rounded-xl bg-sky-600 text-white text-2xl flex items-center justify-center shrink-0 shadow-md shadow-sky-600/30 group-hover:scale-105 transition-transform">
+                                👷
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="font-black text-base sm:text-lg text-slate-900 group-hover:text-sky-700 transition-colors">LOGIN AS EMPLOYEE</span>
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-black bg-sky-100 text-sky-800 border border-sky-200 uppercase">Operator</span>
+                                </div>
+                                <p class="text-xs text-slate-600 mt-1 font-medium leading-relaxed">Select assigned machine, input error codes, view step-by-step verified OEM troubleshooting.</p>
+                            </div>
+                        </div>
+                        <div class="shrink-0 text-slate-400 group-hover:text-sky-600 group-hover:translate-x-1 transition-all text-xl font-bold ml-2">
+                            →
+                        </div>
+                    </button>
+                </div>
+
+                <div class="mt-8 pt-6 border-t border-slate-100 text-center">
+                    <p class="text-xs text-slate-400 font-medium">Multi-tenant role-isolated cloud architecture powered by Firebase & Gemini RAG</p>
+                </div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- 2. COMPANY LOGIN FORM                      -->
+            <!-- ========================================== -->
+            <div id="company-login-view" class="view-section hidden-view p-6 sm:p-8">
+                <!-- Back Button -->
+                <button type="button" onclick="showRoleSelection()" class="text-xs text-slate-500 hover:text-violet-700 font-bold inline-flex items-center gap-1 mb-5 transition-colors">
+                    <span>←</span>
+                    <span>Back to Role Selection</span>
+                </button>
+
+                <div class="text-center mb-6">
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-violet-50 text-violet-800 text-xs font-extrabold rounded-full mb-2 border border-violet-200">
+                        <span>🏢</span> Company Admin Portal
+                    </span>
+                    <h2 class="text-2xl font-black text-slate-950 tracking-tight">Company Sign In</h2>
+                    <p class="text-xs text-slate-500 mt-1">Access equipment catalog, upload OEM manuals & manage employees</p>
+                </div>
+
+                <div id="company-login-error" class="hidden mb-4 p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-200"></div>
+
+                <form id="company-login-form" class="space-y-4">
+                    <div>
+                        <label for="company-login-email" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Company Email</label>
+                        <input type="email" id="company-login-email" required placeholder="admin@company.com" 
+                            class="w-full px-4 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-violet-600 focus:border-violet-600 outline-none transition-all">
+                    </div>
+
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label for="company-login-password" class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Password</label>
+                            <button type="button" onclick="switchView('forgot-view', 'company_admin')" class="text-xs font-bold text-violet-700 hover:underline">Forgot password?</button>
+                        </div>
+                        <div class="relative">
+                            <input type="password" id="company-login-password" required 
+                                class="w-full px-4 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-violet-600 focus:border-violet-600 outline-none transition-all pr-11">
+                            <button type="button" class="toggle-password absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none" data-target="company-login-password">
+                                <span class="text-sm">👁️</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <button type="submit" id="company-login-btn" class="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold py-2.5 rounded-xl transition-all shadow-md shadow-violet-600/25 flex items-center justify-center gap-2">
+                        <span>Sign In as Company</span>
+                        <span class="spinner hidden text-xs animate-spin">⚪</span>
+                    </button>
+                </form>
+
+                <div class="mt-5 flex items-center">
+                    <div class="flex-grow border-t border-slate-200"></div>
+                    <span class="px-3 text-[11px] font-bold text-slate-400 uppercase bg-white">or</span>
+                    <div class="flex-grow border-t border-slate-200"></div>
+                </div>
+
+                <!-- Google Sign In for Company -->
+                <button type="button" onclick="handleGoogleSignIn('company_admin')" class="w-full mt-4 bg-white hover:bg-slate-50 text-slate-700 font-bold py-2.5 px-4 border border-slate-300 rounded-xl transition-colors flex items-center justify-center gap-2 text-xs shadow-2xs">
+                    <span>🌐</span>
+                    <span>Continue with Google</span>
+                </button>
+
+                <div class="mt-6 text-center pt-4 border-t border-slate-100">
+                    <p class="text-xs text-slate-600 font-medium">
+                        Need to register a company? 
+                        <button type="button" onclick="switchView('register-company-view')" class="text-violet-700 hover:underline font-bold">Create Company Account</button>
+                    </p>
+                </div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- 3. EMPLOYEE LOGIN FORM                     -->
+            <!-- ========================================== -->
+            <div id="employee-login-view" class="view-section hidden-view p-6 sm:p-8">
+                <!-- Back Button -->
+                <button type="button" onclick="showRoleSelection()" class="text-xs text-slate-500 hover:text-sky-700 font-bold inline-flex items-center gap-1 mb-5 transition-colors">
+                    <span>←</span>
+                    <span>Back to Role Selection</span>
+                </button>
+
+                <div class="text-center mb-6">
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-sky-50 text-sky-800 text-xs font-extrabold rounded-full mb-2 border border-sky-200">
+                        <span>👷</span> Employee / Operator Portal
+                    </span>
+                    <h2 class="text-2xl font-black text-slate-950 tracking-tight">Employee Sign In</h2>
+                    <p class="text-xs text-slate-500 mt-1">Select assigned machines and diagnose technical faults</p>
+                </div>
+
+                <div id="employee-login-error" class="hidden mb-4 p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-200"></div>
+
+                <form id="employee-login-form" class="space-y-4">
+                    <div>
+                        <label for="employee-login-email" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Employee Email</label>
+                        <input type="email" id="employee-login-email" required placeholder="operator@company.com" 
+                            class="w-full px-4 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-600 focus:border-sky-600 outline-none transition-all">
+                    </div>
+
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label for="employee-login-password" class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Password</label>
+                            <button type="button" onclick="switchView('forgot-view', 'employee')" class="text-xs font-bold text-sky-700 hover:underline">Forgot password?</button>
+                        </div>
+                        <div class="relative">
+                            <input type="password" id="employee-login-password" required 
+                                class="w-full px-4 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-600 focus:border-sky-600 outline-none transition-all pr-11">
+                            <button type="button" class="toggle-password absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none" data-target="employee-login-password">
+                                <span class="text-sm">👁️</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <button type="submit" id="employee-login-btn" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold py-2.5 rounded-xl transition-all shadow-md shadow-sky-600/25 flex items-center justify-center gap-2">
+                        <span>Sign In as Employee</span>
+                        <span class="spinner hidden text-xs animate-spin">⚪</span>
+                    </button>
+                </form>
+
+                <div class="mt-5 flex items-center">
+                    <div class="flex-grow border-t border-slate-200"></div>
+                    <span class="px-3 text-[11px] font-bold text-slate-400 uppercase bg-white">or</span>
+                    <div class="flex-grow border-t border-slate-200"></div>
+                </div>
+
+                <!-- Google Sign In for Employee -->
+                <button type="button" onclick="handleGoogleSignIn('employee')" class="w-full mt-4 bg-white hover:bg-slate-50 text-slate-700 font-bold py-2.5 px-4 border border-slate-300 rounded-xl transition-colors flex items-center justify-center gap-2 text-xs shadow-2xs">
+                    <span>🌐</span>
+                    <span>Continue with Google</span>
+                </button>
+
+                <div class="mt-6 text-center pt-4 border-t border-slate-100">
+                    <p class="text-xs text-slate-600 font-medium">
+                        New employee? 
+                        <button type="button" onclick="switchView('register-employee-view')" class="text-sky-700 hover:underline font-bold">Create Employee Account</button>
+                    </p>
+                </div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- 4. REGISTER COMPANY VIEW                   -->
+            <!-- ========================================== -->
+            <div id="register-company-view" class="view-section hidden-view p-6 sm:p-8">
+                <button type="button" onclick="switchView('company-login-view')" class="text-xs text-slate-500 hover:text-violet-700 font-bold inline-flex items-center gap-1 mb-5 transition-colors">
+                    <span>←</span>
+                    <span>Back to Company Login</span>
+                </button>
+
+                <div class="text-center mb-6">
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-violet-50 text-violet-800 text-xs font-extrabold rounded-full mb-2 border border-violet-200">
+                        <span>🏢</span> New Company Workspace
+                    </span>
+                    <h2 class="text-2xl font-black text-slate-950 tracking-tight">Register Company</h2>
+                    <p class="text-xs text-slate-500 mt-1">Set up your company tenant & admin credentials</p>
+                </div>
+
+                <div id="company-register-error" class="hidden mb-4 p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-200"></div>
+
+                <form id="company-register-form" class="space-y-3.5">
+                    <div>
+                        <label for="comp-reg-company-name" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Company Name</label>
+                        <input type="text" id="comp-reg-company-name" required placeholder="e.g. Apex Precision Machining Corp" 
+                            class="w-full px-4 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-violet-600 outline-none">
+                    </div>
+                    <div>
+                        <label for="comp-reg-name" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Administrator Full Name</label>
+                        <input type="text" id="comp-reg-name" required placeholder="e.g. John Mitchell" 
+                            class="w-full px-4 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-violet-600 outline-none">
+                    </div>
+                    <div>
+                        <label for="comp-reg-email" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Admin Email</label>
+                        <input type="email" id="comp-reg-email" required placeholder="admin@company.com" 
+                            class="w-full px-4 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-violet-600 outline-none">
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label for="comp-reg-password" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Password</label>
+                            <input type="password" id="comp-reg-password" required minlength="6" placeholder="Min 6 chars" 
+                                class="w-full px-4 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-violet-600 outline-none">
+                        </div>
+                        <div>
+                            <label for="comp-reg-confirm" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Confirm</label>
+                            <input type="password" id="comp-reg-confirm" required minlength="6" placeholder="Repeat password" 
+                                class="w-full px-4 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-violet-600 outline-none">
+                        </div>
+                    </div>
+
+                    <button type="submit" id="company-reg-btn" class="w-full mt-2 bg-violet-600 hover:bg-violet-700 text-white font-bold py-2.5 rounded-xl transition-all shadow-md shadow-violet-600/25 flex items-center justify-center gap-2">
+                        <span>Register Company Account</span>
+                        <span class="spinner hidden text-xs animate-spin">⚪</span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- 5. REGISTER EMPLOYEE VIEW                  -->
+            <!-- ========================================== -->
+            <div id="register-employee-view" class="view-section hidden-view p-6 sm:p-8">
+                <button type="button" onclick="switchView('employee-login-view')" class="text-xs text-slate-500 hover:text-sky-700 font-bold inline-flex items-center gap-1 mb-5 transition-colors">
+                    <span>←</span>
+                    <span>Back to Employee Login</span>
+                </button>
+
+                <div class="text-center mb-6">
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-sky-50 text-sky-800 text-xs font-extrabold rounded-full mb-2 border border-sky-200">
+                        <span>👷</span> Operator Onboarding
+                    </span>
+                    <h2 class="text-2xl font-black text-slate-950 tracking-tight">Create Employee Account</h2>
+                    <p class="text-xs text-slate-500 mt-1">Join your factory floor maintenance workspace</p>
+                </div>
+
+                <div id="employee-register-error" class="hidden mb-4 p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-200"></div>
+
+                <form id="employee-register-form" class="space-y-3.5">
+                    <div>
+                        <label for="emp-reg-name" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Full Name</label>
+                        <input type="text" id="emp-reg-name" required placeholder="e.g. Alex Rivera" 
+                            class="w-full px-4 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-600 outline-none">
+                    </div>
+                    <div>
+                        <label for="emp-reg-email" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Email Address</label>
+                        <input type="email" id="emp-reg-email" required placeholder="alex@company.com" 
+                            class="w-full px-4 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-600 outline-none">
+                    </div>
+                    <div>
+                        <label for="emp-reg-company-id" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                            Company ID <span class="text-slate-400 font-normal lowercase">(optional - defaults to demo)</span>
+                        </label>
+                        <input type="text" id="emp-reg-company-id" placeholder="e.g. demo_company" value="demo_company" 
+                            class="w-full px-4 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-600 outline-none">
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label for="emp-reg-password" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Password</label>
+                            <input type="password" id="emp-reg-password" required minlength="6" placeholder="Min 6 chars" 
+                                class="w-full px-4 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-600 outline-none">
+                        </div>
+                        <div>
+                            <label for="emp-reg-confirm" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Confirm</label>
+                            <input type="password" id="emp-reg-confirm" required minlength="6" placeholder="Repeat password" 
+                                class="w-full px-4 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-600 outline-none">
+                        </div>
+                    </div>
+
+                    <button type="submit" id="employee-reg-btn" class="w-full mt-2 bg-sky-600 hover:bg-sky-700 text-white font-bold py-2.5 rounded-xl transition-all shadow-md shadow-sky-600/25 flex items-center justify-center gap-2">
+                        <span>Create Employee Account</span>
+                        <span class="spinner hidden text-xs animate-spin">⚪</span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- 6. FORGOT PASSWORD VIEW                    -->
+            <!-- ========================================== -->
+            <div id="forgot-view" class="view-section hidden-view p-6 sm:p-8">
+                <button type="button" onclick="returnFromForgot()" class="text-xs text-slate-500 hover:text-blue-700 font-bold inline-flex items-center gap-1 mb-5 transition-colors">
+                    <span>←</span>
+                    <span>Back to Login</span>
+                </button>
+
+                <div class="text-center mb-6">
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-800 text-xs font-extrabold rounded-full mb-2 border border-amber-200">
+                        <span>🔑</span> Password Reset
+                    </span>
+                    <h2 class="text-2xl font-black text-slate-950 tracking-tight">Reset Password</h2>
+                    <p class="text-xs text-slate-500 mt-1">Enter your account email to receive reset instructions</p>
+                </div>
+
+                <div id="forgot-error" class="hidden mb-4 p-3 bg-red-50 text-red-700 text-xs rounded-xl border border-red-200"></div>
+                <div id="forgot-success" class="hidden mb-4 p-3 bg-green-50 text-green-700 text-xs rounded-xl border border-green-200 font-bold">
+                    ✓ Password reset email sent! Please check your inbox.
+                </div>
+
+                <form id="forgot-form" class="space-y-4">
+                    <div>
+                        <label for="forgot-email" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Email address</label>
+                        <input type="email" id="forgot-email" required placeholder="user@company.com" 
+                            class="w-full px-4 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none">
+                    </div>
+
+                    <button type="submit" id="forgot-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition-all shadow-md shadow-blue-600/25 flex items-center justify-center gap-2">
+                        <span>Send Reset Link</span>
+                        <span class="spinner hidden text-xs animate-spin">⚪</span>
+                    </button>
+                </form>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Scripts -->
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyB5gEFJ3YLlvrvn3wuN0SW0j93egjH9TyA",
+            authDomain: "vcet-3c013.firebaseapp.com",
+            databaseURL: "https://vcet-3c013-default-rtdb.firebaseio.com",
+            projectId: "vcet-3c013",
+            storageBucket: "vcet-3c013.firebasestorage.app",
+            messagingSenderId: "217911445404",
+            appId: "1:217911445404:web:40c81c052e14abd5d72a59"
+        };
+
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        const rtdb = firebase.database ? firebase.database() : null;
+
+        async function saveUserProfile(uid, data) {
+            if (db) {
+                try {
+                    await db.collection('users').doc(uid).set(data, { merge: true });
+                } catch(e) {
+                    console.warn("Firestore save user warning:", e);
+                }
+            }
+            if (rtdb) {
+                try {
+                    const cleanData = { ...data };
+                    delete cleanData.createdAt;
+                    cleanData.updatedAt = Date.now();
+                    await rtdb.ref('users/' + uid).update(cleanData);
+                } catch(e) {
+                    console.warn("RTDB save user warning:", e);
+                }
+            }
+        }
+
+        async function getUserProfile(uid) {
+            if (db) {
+                try {
+                    const doc = await db.collection('users').doc(uid).get();
+                    if (doc && doc.exists) return doc.data();
+                } catch(e) {
+                    console.warn("Firestore get user warning:", e);
+                }
+            }
+            if (rtdb) {
+                try {
+                    const snap = await rtdb.ref('users/' + uid).once('value');
+                    if (snap.exists()) return snap.val();
+                } catch(e) {
+                    console.warn("RTDB get user warning:", e);
+                }
+            }
+            return null;
+        }
+
+        let activeSelectedRole = null;
+
+        // View Management
+        const allViews = [
+            'role-selection-view',
+            'company-login-view',
+            'employee-login-view',
+            'register-company-view',
+            'register-employee-view',
+            'forgot-view'
+        ];
+
+        function switchView(viewId, roleContext) {
+            if (roleContext) activeSelectedRole = roleContext;
+            allViews.forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                if (id === viewId) {
+                    el.classList.remove('hidden-view');
+                    el.classList.add('active-view');
+                    const firstInput = el.querySelector('input');
+                    if (firstInput) setTimeout(() => firstInput.focus(), 150);
+                } else {
+                    el.classList.remove('active-view');
+                    el.classList.add('hidden-view');
+                }
+            });
+            clearAllErrors();
+        }
+        window.switchView = switchView;
+
+        function selectRole(role) {
+            activeSelectedRole = role;
+            if (role === 'company_admin') {
+                switchView('company-login-view');
+            } else {
+                switchView('employee-login-view');
+            }
+        }
+        window.selectRole = selectRole;
+
+        function showRoleSelection() {
+            activeSelectedRole = null;
+            switchView('role-selection-view');
+        }
+        window.showRoleSelection = showRoleSelection;
+
+        function returnFromForgot() {
+            if (activeSelectedRole === 'company_admin') {
+                switchView('company-login-view');
+            } else if (activeSelectedRole === 'employee') {
+                switchView('employee-login-view');
+            } else {
+                showRoleSelection();
+            }
+        }
+        window.returnFromForgot = returnFromForgot;
+
+        function clearAllErrors() {
+            ['company-login-error', 'employee-login-error', 'company-register-error', 'employee-register-error', 'forgot-error'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) { el.classList.add('hidden'); el.innerHTML = ''; }
+            });
+            const fs = document.getElementById('forgot-success');
+            if (fs) fs.classList.add('hidden');
+        }
+
+        function displayError(id, msg) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.innerHTML = `<strong>Error:</strong> ${msg}`;
+            el.classList.remove('hidden');
+        }
+
+        function setSubmitting(btnId, isSubmitting) {
+            const btn = document.getElementById(btnId);
+            if (!btn) return;
+            const spinner = btn.querySelector('.spinner');
+            if (isSubmitting) {
+                btn.disabled = true;
+                btn.classList.add('opacity-75', 'cursor-not-allowed');
+                if (spinner) spinner.classList.remove('hidden');
+            } else {
+                btn.disabled = false;
+                btn.classList.remove('opacity-75', 'cursor-not-allowed');
+                if (spinner) spinner.classList.add('hidden');
+            }
+        }
+
+        function mapAuthError(code) {
+            switch(code) {
+                case 'auth/user-not-found': return 'No account exists with this email.';
+                case 'auth/wrong-password': return 'Incorrect password. Try again or reset password.';
+                case 'auth/invalid-credential': return 'Invalid credentials. Check email and password or register.';
+                case 'auth/email-already-in-use': return 'This email is already registered. Please sign in instead.';
+                case 'auth/weak-password': return 'Password must be at least 6 characters.';
+                case 'auth/invalid-email': return 'Please enter a valid email address.';
+                case 'auth/too-many-requests': return 'Too many attempts. Please try again later.';
+                case 'auth/popup-closed-by-user': return 'Google sign-in popup was closed.';
+                default: return 'Authentication failed. Please verify credentials.';
+            }
+        }
+
+        // Toggle password visibility
+        document.querySelectorAll('.toggle-password').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const targetId = this.getAttribute('data-target');
+                const inp = document.getElementById(targetId);
+                if (inp) {
+                    inp.type = inp.type === 'password' ? 'text' : 'password';
+                }
+            });
+        });
+
+        // ==========================================
+        // AUTH STATE ROUTING (PERSISTENT CHECK)
+        // ==========================================
+        const overlay = document.getElementById('auth-loading-overlay');
+
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                // Show redirection overlay
+                if (overlay) overlay.classList.remove('hidden');
+
+                try {
+                    // Fast timeout on Firestore check (max 1.8 seconds)
+                    const fetchDocPromise = db.collection('users').doc(user.uid).get();
+                    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 1800));
+                    const doc = await Promise.race([fetchDocPromise, timeoutPromise]);
+
+                    if (doc && doc.exists) {
+                        const userData = doc.data();
+                        const role = userData.role || 'employee';
+                        if (userData.status === 'inactive') {
+                            await auth.signOut();
+                            if (overlay) overlay.classList.add('hidden');
+                            displayError('employee-login-error', 'Access Denied: Your account is not authorized to access this company workspace.');
+                            return;
+                        }
+                        if (role === 'company_admin') {
+                            window.location.href = '/company/dashboard';
+                            return;
+                        } else {
+                            if (!userData.companyId) {
+                                await auth.signOut();
+                                if (overlay) overlay.classList.add('hidden');
+                                displayError('employee-login-error', 'Access Denied: Your account is not authorized to access this company workspace.');
+                                return;
+                            }
+                            window.location.href = '/employee/dashboard';
+                            return;
+                        }
+                    } else {
+                        const role = activeSelectedRole || 'employee';
+                        if (role === 'company_admin') {
+                            await saveUserProfile(user.uid, {
+                                userId: user.uid,
+                                name: user.displayName || 'Company Admin',
+                                email: user.email,
+                                role: 'company_admin',
+                                companyId: user.uid,
+                                status: 'active',
+                                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                            });
+                            window.location.href = '/company/dashboard';
+                            return;
+                        } else {
+                            window.location.href = '/employee/dashboard';
+                            return;
+                        }
+                    }
+
+                } catch(e) {
+                    console.warn("Fast fallback redirect on auth:", e);
+                    // If timeout occurs, route based on local preference or employee dashboard
+                    const role = activeSelectedRole || 'employee';
+                    if (role === 'company_admin') {
+                        window.location.href = '/company/dashboard';
+                    } else {
+                        window.location.href = '/employee/dashboard';
+                    }
+                }
+            } else {
+                // Not authenticated: guarantee overlay is completely hidden
+                if (overlay) overlay.classList.add('hidden');
+            }
+        });
+
+        // ==========================================
+        // COMPANY LOGIN SUBMISSION
+        // ==========================================
+        document.getElementById('company-login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            clearAllErrors();
+            setSubmitting('company-login-btn', true);
+
+            const email = document.getElementById('company-login-email').value.trim();
+            const password = document.getElementById('company-login-password').value;
+
+            try {
+                const cred = await auth.signInWithEmailAndPassword(email, password);
+                const user = cred.user;
+                
+                // Read & verify role
+                const uData = await getUserProfile(user.uid);
+                if (uData && uData.role === 'employee') {
+                    // This account is registered as employee
+                    await auth.signOut();
+                    displayError('company-login-error', 'Access Denied: This account is registered as an Employee. Please use [ LOGIN AS EMPLOYEE ].');
+                    setSubmitting('company-login-btn', false);
+                    return;
+                }
+
+                // If user doc doesn't have role, set to company_admin
+                if (!uData) {
+                    await saveUserProfile(user.uid, {
+                        userId: user.uid,
+                        name: user.displayName || 'Company Admin',
+                        email: user.email,
+                        role: 'company_admin',
+                        companyId: user.uid,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+
+                // DIRECTLY OPEN COMPANY DASHBOARD
+                window.location.href = '/company/dashboard';
+            } catch (err) {
+                displayError('company-login-error', mapAuthError(err.code));
+                setSubmitting('company-login-btn', false);
+            }
+        });
+
+        // ==========================================
+        // EMPLOYEE LOGIN SUBMISSION
+        // ==========================================
+        document.getElementById('employee-login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            clearAllErrors();
+            setSubmitting('employee-login-btn', true);
+
+            const email = document.getElementById('employee-login-email').value.trim();
+            const password = document.getElementById('employee-login-password').value;
+
+            try {
+                const cred = await auth.signInWithEmailAndPassword(email, password);
+                const user = cred.user;
+
+                // Read role & status
+                const userData = await getUserProfile(user.uid);
+                if (userData) {
+                    if (userData.role === 'company_admin') {
+                        // Company admin logged into employee form: BLOCK with explicit unauthorized error!
+                        await auth.signOut();
+                        displayError('employee-login-error', 'Access Denied: Unauthorized Login. Company Admin credentials cannot be used to sign in to the Employee Portal. Please use [ LOGIN AS COMPANY ].');
+                        setSubmitting('employee-login-btn', false);
+                        return;
+                    }
+                    if (userData.status === 'inactive' || !userData.companyId) {
+                        await auth.signOut();
+                        displayError('employee-login-error', 'Access Denied: Your account is not authorized to access this company workspace.');
+                        setSubmitting('employee-login-btn', false);
+                        return;
+                    }
+                } else {
+                    // Default employee workspace
+                    await saveUserProfile(user.uid, {
+                        userId: user.uid,
+                        name: user.displayName || 'Operator',
+                        email: user.email,
+                        role: 'employee',
+                        companyId: 'demo_company',
+                        status: 'active',
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+
+                // DIRECTLY OPEN EMPLOYEE DASHBOARD
+                window.location.href = '/employee/dashboard';
+            } catch (err) {
+                displayError('employee-login-error', mapAuthError(err.code));
+                setSubmitting('employee-login-btn', false);
+            }
+
+        });
+
+        // ==========================================
+        // COMPANY REGISTRATION SUBMISSION
+        // ==========================================
+        document.getElementById('company-register-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            clearAllErrors();
+
+            const companyName = document.getElementById('comp-reg-company-name').value.trim();
+            const adminName = document.getElementById('comp-reg-name').value.trim();
+            const email = document.getElementById('comp-reg-email').value.trim();
+            const password = document.getElementById('comp-reg-password').value;
+            const confirm = document.getElementById('comp-reg-confirm').value;
+
+            if (password !== confirm) {
+                displayError('company-register-error', 'Passwords do not match.');
+                return;
+            }
+
+            setSubmitting('company-reg-btn', true);
+
+            try {
+                const cred = await auth.createUserWithEmailAndPassword(email, password);
+                const user = cred.user;
+                await user.updateProfile({ displayName: adminName });
+
+                // Create company record
+                const companyId = user.uid;
+                await db.collection('companies').doc(companyId).set({
+                    companyId: companyId,
+                    companyName: companyName,
+                    adminId: user.uid,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                // Create company_admin user record
+                await saveUserProfile(user.uid, {
+                    userId: user.uid,
+                    name: adminName,
+                    email: email,
+                    role: 'company_admin',
+                    companyId: companyId,
+                    companyName: companyName,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                // DIRECTLY OPEN COMPANY DASHBOARD
+                window.location.href = '/company/dashboard';
+            } catch (err) {
+                displayError('company-register-error', mapAuthError(err.code) || err.message);
+                setSubmitting('company-reg-btn', false);
+            }
+        });
+
+        // ==========================================
+        // EMPLOYEE REGISTRATION SUBMISSION
+        // ==========================================
+        document.getElementById('employee-register-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            clearAllErrors();
+
+            const name = document.getElementById('emp-reg-name').value.trim();
+            const email = document.getElementById('emp-reg-email').value.trim();
+            const companyId = document.getElementById('emp-reg-company-id').value.trim() || 'demo_company';
+            const password = document.getElementById('emp-reg-password').value;
+            const confirm = document.getElementById('emp-reg-confirm').value;
+
+            if (password !== confirm) {
+                displayError('employee-register-error', 'Passwords do not match.');
+                return;
+            }
+
+            setSubmitting('employee-reg-btn', true);
+
+            try {
+                const cred = await auth.createUserWithEmailAndPassword(email, password);
+                const user = cred.user;
+                await user.updateProfile({ displayName: name });
+
+                // Create employee user record
+                await saveUserProfile(user.uid, {
+                    userId: user.uid,
+                    name: name,
+                    email: email,
+                    role: 'employee',
+                    companyId: companyId,
+                    status: 'active',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+
+                // DIRECTLY OPEN EMPLOYEE DASHBOARD
+                window.location.href = '/employee/dashboard';
+            } catch (err) {
+                displayError('employee-register-error', mapAuthError(err.code) || err.message);
+                setSubmitting('employee-reg-btn', false);
+            }
+        });
+
+        // ==========================================
+        // FORGOT PASSWORD SUBMISSION
+        // ==========================================
+        document.getElementById('forgot-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            clearAllErrors();
+            setSubmitting('forgot-btn', true);
+
+            const email = document.getElementById('forgot-email').value.trim();
+            try {
+                await auth.sendPasswordResetEmail(email);
+                document.getElementById('forgot-success').classList.remove('hidden');
+                document.getElementById('forgot-email').value = '';
+            } catch (err) {
+                displayError('forgot-error', mapAuthError(err.code));
+            } finally {
+                setSubmitting('forgot-btn', false);
+            }
+        });
+
+        // ==========================================
+        // GOOGLE SIGN IN HANDLER
+        // ==========================================
+        async function handleGoogleSignIn(targetRole) {
+            clearAllErrors();
+            activeSelectedRole = targetRole;
+
+            const provider = new firebase.auth.GoogleAuthProvider();
+            provider.addScope('email');
+            provider.addScope('profile');
+
+            try {
+                const result = await auth.signInWithPopup(provider);
+                const user = result.user;
+
+                // Check or initialize Firestore doc
+                const doc = await db.collection('users').doc(user.uid).get();
+                let roleToAssign = targetRole;
+
+                if (doc.exists) {
+                    roleToAssign = doc.data().role || targetRole;
+                } else {
+                    await db.collection('users').doc(user.uid).set({
+                        userId: user.uid,
+                        name: user.displayName || 'Google User',
+                        email: user.email,
+                        role: targetRole,
+                        companyId: targetRole === 'company_admin' ? user.uid : 'demo_company',
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+
+                if (roleToAssign === 'company_admin') {
+                    window.location.href = '/company/dashboard';
+                } else {
+                    window.location.href = '/employee/dashboard';
+                }
+            } catch (err) {
+                console.error("Google Auth error:", err);
+                const msg = mapAuthError(err.code) || 'Google sign-in could not be completed.';
+                if (targetRole === 'company_admin') {
+                    displayError('company-login-error', msg);
+                } else {
+                    displayError('employee-login-error', msg);
+                }
+            }
+        }
+        window.handleGoogleSignIn = handleGoogleSignIn;
+    </script>
+</body>
+</html>

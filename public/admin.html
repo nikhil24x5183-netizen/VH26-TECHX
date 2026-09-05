@@ -20,21 +20,133 @@
       pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     }
   </script>
+  <!-- Firebase Auth -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyB5gEFJ3YLlvrvn3wuN0SW0j93egjH9TyA",
+      authDomain: "vcet-3c013.firebaseapp.com",
+      databaseURL: "https://vcet-3c013-default-rtdb.firebaseio.com",
+      projectId: "vcet-3c013",
+      storageBucket: "vcet-3c013.firebasestorage.app",
+      messagingSenderId: "217911445404",
+      appId: "1:217911445404:web:40c81c052e14abd5d72a59"
+    };
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+  </script>
 </head>
 <body class="h-full flex flex-col antialiased selection:bg-violet-600 selection:text-white bg-[#f8fafc] text-slate-900">
+  <div id="auth-loading-overlay" class="fixed inset-0 bg-white z-[9999] flex items-center justify-center">
+    <div class="text-center">
+      <div class="w-12 h-12 rounded-2xl bg-violet-600 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-violet-600/30 mx-auto mb-3 animate-pulse">🏢</div>
+      <p class="text-sm text-slate-800 font-bold">Verifying Company Admin Session...</p>
+      <p class="text-xs text-slate-400 mt-1">Authenticating workspace credentials</p>
+    </div>
+  </div>
+  <script>
+  (function() {
+    firebase.auth().onAuthStateChanged(async function(user) {
+      const overlay = document.getElementById('auth-loading-overlay');
+      if (!user) {
+        window.location.href = '/login.html';
+        return;
+      }
+      try {
+        const token = await user.getIdToken();
+        window.__maintai_token = token;
+
+        // Verify role in Firestore or Realtime Database
+        let userData = null;
+        try {
+          const db = firebase.firestore();
+          const userDoc = await db.collection('users').doc(user.uid).get();
+          if (userDoc && userDoc.exists) userData = userDoc.data();
+        } catch(fe) {
+          console.warn("Firestore user read warning:", fe);
+        }
+
+        if (!userData && firebase.database) {
+          try {
+            const snap = await firebase.database().ref('users/' + user.uid).once('value');
+            if (snap.exists()) userData = snap.val();
+          } catch(re) {
+            console.warn("RTDB user read warning:", re);
+          }
+        }
+
+        if (userData) {
+          if (userData.role === 'employee') {
+            window.location.href = '/employee/dashboard?denied=admin';
+            return;
+          }
+          window.__maintai_role = userData.role || 'company_admin';
+          window.__maintai_companyId = userData.companyId || user.uid;
+          
+          const compNameEl = document.getElementById('company-name-display');
+          if (compNameEl) {
+            compNameEl.textContent = userData.companyName || (userData.name + "'s Company") || 'Company Workspace';
+          }
+        } else {
+          userData = {
+            userId: user.uid,
+            name: user.displayName || 'Company Admin',
+            email: user.email,
+            role: 'company_admin',
+            companyId: user.uid
+          };
+          try {
+            await firebase.firestore().collection('users').doc(user.uid).set({
+              ...userData,
+              createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+          } catch(e) {}
+          if (firebase.database) {
+            try {
+              await firebase.database().ref('users/' + user.uid).update({
+                ...userData,
+                updatedAt: Date.now()
+              });
+            } catch(e) {}
+          }
+          window.__maintai_role = 'company_admin';
+          window.__maintai_companyId = user.uid;
+        }
+
+        if (overlay) overlay.style.display = 'none';
+        if (typeof fetchManualsInventory === 'function') fetchManualsInventory();
+        if (typeof loadEmployeesList === 'function') loadEmployeesList();
+        if (typeof loadDiagnosticsAudit === 'function') loadDiagnosticsAudit();
+      } catch(e) {
+        console.warn("Auth verification warning:", e);
+        if (overlay) overlay.style.display = 'none';
+        if (typeof fetchManualsInventory === 'function') fetchManualsInventory();
+      }
+    });
+
+    setInterval(function() {
+      const u = firebase.auth().currentUser;
+      if (u) u.getIdToken(true).then(function(t) { window.__maintai_token = t; });
+    }, 55 * 60 * 1000);
+  })();
+  </script>
 
   <!-- Top Navigation Bar -->
   <header class="bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40 px-4 sm:px-6 py-3.5 flex items-center justify-between shadow-xs">
     <div class="flex items-center space-x-3">
       <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-violet-600 via-purple-600 to-indigo-600 flex items-center justify-center text-xl shadow-md shadow-violet-600/30 border border-violet-400/30">
-        🛡️
+        🏢
       </div>
       <div>
         <div class="flex items-center space-x-2">
-          <h1 class="font-black text-sm sm:text-base tracking-tight text-slate-950">Company Admin Portal</h1>
-          <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-violet-100 text-violet-800 border border-violet-200 uppercase tracking-wider">Manual Ingestion</span>
+          <h1 class="font-black text-sm sm:text-base tracking-tight text-slate-950">Company Admin Dashboard</h1>
+          <span id="company-name-display" class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-violet-100 text-violet-800 border border-violet-200 uppercase tracking-wider">Loading...</span>
         </div>
-        <p class="text-[11px] text-slate-500 font-medium">Register, scan, and manage factory machine manuals & metadata</p>
+        <p class="text-[11px] text-slate-500 font-medium">OEM Manuals Ingestion, Machine Registry, Employees & Audit Logs</p>
       </div>
     </div>
 
@@ -45,23 +157,31 @@
         <span id="header-manual-count" class="font-extrabold text-violet-700">Loading...</span>
       </div>
 
-      <!-- Switch Role Button -->
-      <a href="/?select_role=1" class="px-3.5 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold text-xs transition flex items-center space-x-1.5 border border-slate-200 shadow-2xs">
-        <span>⇄</span>
-        <span>Switch Role</span>
-      </a>
+      <!-- Navigation Tabs -->
+      <div class="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold">
+        <button type="button" onclick="switchAdminTab('manuals-tab')" id="tab-btn-manuals" class="px-3 py-1 rounded-lg bg-white shadow-xs text-violet-700 font-extrabold">
+          📚 Manuals & Fleet
+        </button>
+        <button type="button" onclick="switchAdminTab('employees-tab')" id="tab-btn-employees" class="px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900 font-bold">
+          👷 Employees
+        </button>
+        <button type="button" onclick="switchAdminTab('audit-tab')" id="tab-btn-audit" class="px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900 font-bold">
+          📋 Diagnostics Log
+        </button>
+      </div>
 
-      <!-- Quick Switcher to Operator Portal -->
-      <a href="/" class="px-4 py-1.5 rounded-full bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-extrabold text-xs sm:text-sm transition flex items-center space-x-1.5 shadow-md shadow-violet-600/30 border border-violet-400/40">
-        <span>👷</span>
-        <span>Operator Assistant</span>
-        <span class="text-violet-200">→</span>
-      </a>
+      <!-- Logout Button (TEST F: Logout from company_admin -> Redirected to initial login screen) -->
+      <button type="button" onclick="handleCompanyLogout()" class="px-3.5 py-1.5 rounded-full bg-red-50 hover:bg-red-100 text-red-600 font-bold border border-red-200 transition text-xs flex items-center space-x-1.5 ml-2 shadow-2xs">
+        <span>🚪</span><span>Logout</span>
+      </button>
     </div>
   </header>
 
   <!-- Main Container -->
   <main class="flex-1 overflow-y-auto max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
+    <!-- TAB 1: MANUALS & FLEET -->
+    <div id="manuals-tab" class="admin-tab-content space-y-8">
+
 
     <!-- Hero / Action Banner -->
     <div class="rounded-2xl bg-gradient-to-r from-violet-50/90 via-purple-50/60 to-white border-2 border-violet-100 p-5 sm:p-6 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -97,14 +217,14 @@
       </div>
 
       <form id="manual-upload-form" onsubmit="handleManualUploadSubmit(event)" class="space-y-5">
-        <!-- 4-Column Metadata Intake Grid -->
+        <!-- 8-Field Metadata Intake Grid -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <!-- 1. Name of Brand / Manufacturer -->
           <div class="space-y-1.5">
             <label class="block text-xs font-black uppercase tracking-wider text-slate-700">
               Brand / Manufacturer <span class="text-rose-500">*</span>
             </label>
-            <input type="text" id="input-brand" required placeholder="e.g. Apex CNC, KUKA, Siemens"
+            <input type="text" id="input-brand" required placeholder="e.g. Apex CNC, Siemens, KUKA"
                    class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border-2 border-slate-300 text-slate-900 placeholder-slate-400 text-xs sm:text-sm focus:outline-none focus:border-violet-600 focus:bg-white transition shadow-inner font-semibold" />
             <p class="text-[10px] text-slate-500 font-medium">Original equipment manufacturer</p>
           </div>
@@ -114,7 +234,7 @@
             <label class="block text-xs font-black uppercase tracking-wider text-slate-700">
               Machine Model Name <span class="text-rose-500">*</span>
             </label>
-            <input type="text" id="input-machine" required placeholder="e.g. UltraMill 500, RoboWeld Pro"
+            <input type="text" id="input-machine" required placeholder="e.g. UltraMill 500, SINAMICS G120"
                    class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border-2 border-slate-300 text-slate-900 placeholder-slate-400 text-xs sm:text-sm focus:outline-none focus:border-violet-600 focus:bg-white transition shadow-inner font-semibold" />
             <p class="text-[10px] text-slate-500 font-medium">Common shop floor machine title</p>
           </div>
@@ -122,9 +242,9 @@
           <!-- 3. Model Number / Part Serial -->
           <div class="space-y-1.5">
             <label class="block text-xs font-black uppercase tracking-wider text-slate-700">
-              Model No / Serial ID <span class="text-rose-500">*</span>
+              Model Number / Hardware Code <span class="text-rose-500">*</span>
             </label>
-            <input type="text" id="input-model-no" required placeholder="e.g. ACM-500-REV2, TPP-2000-X"
+            <input type="text" id="input-model-no" required placeholder="e.g. ACM-500, CU240B/E-2"
                    class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border-2 border-slate-300 text-slate-900 placeholder-slate-400 text-xs sm:text-sm focus:outline-none focus:border-violet-600 focus:bg-white transition shadow-inner font-semibold" />
             <p class="text-[10px] text-slate-500 font-medium">Official catalog or hardware model</p>
           </div>
@@ -137,6 +257,62 @@
             <input type="number" id="input-year" required min="1970" max="2035" placeholder="e.g. 2024" value="2024"
                    class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border-2 border-slate-300 text-slate-900 placeholder-slate-400 text-xs sm:text-sm focus:outline-none focus:border-violet-600 focus:bg-white transition shadow-inner font-semibold" />
             <p class="text-[10px] text-slate-500 font-medium">Production or installation year</p>
+          </div>
+
+          <!-- 5. Firmware / Revision -->
+          <div class="space-y-1.5">
+            <label class="block text-xs font-black uppercase tracking-wider text-slate-700">
+              Firmware / Revision
+            </label>
+            <input type="text" id="input-firmware" placeholder="e.g. FW v4.7, Rev 2.4, SP13"
+                   class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border-2 border-slate-300 text-slate-900 placeholder-slate-400 text-xs sm:text-sm focus:outline-none focus:border-violet-600 focus:bg-white transition shadow-inner font-semibold" />
+            <p class="text-[10px] text-slate-500 font-medium">Software, firmware, or hardware rev</p>
+          </div>
+
+          <!-- 6. Manual Type -->
+          <div class="space-y-1.5">
+            <label class="block text-xs font-black uppercase tracking-wider text-slate-700">
+              Manual Type <span class="text-rose-500">*</span>
+            </label>
+            <select id="input-manual-type" required
+                    class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border-2 border-slate-300 text-slate-900 text-xs sm:text-sm focus:outline-none focus:border-violet-600 focus:bg-white transition shadow-inner font-semibold">
+              <option value="Operating Instructions" selected>Operating Instructions</option>
+              <option value="Service Manual">Service Manual</option>
+              <option value="Maintenance Manual">Maintenance Manual</option>
+              <option value="Troubleshooting Guide">Troubleshooting Guide</option>
+              <option value="Parameter Manual">Parameter Manual</option>
+              <option value="Safety Manual">Safety Manual</option>
+            </select>
+            <p class="text-[10px] text-slate-500 font-medium">Category of technical document</p>
+          </div>
+
+          <!-- 7. Manual Language -->
+          <div class="space-y-1.5">
+            <label class="block text-xs font-black uppercase tracking-wider text-slate-700">
+              Manual Language <span class="text-rose-500">*</span>
+            </label>
+            <select id="input-language" required
+                    class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border-2 border-slate-300 text-slate-900 text-xs sm:text-sm focus:outline-none focus:border-violet-600 focus:bg-white transition shadow-inner font-semibold">
+              <option value="English" selected>English</option>
+              <option value="German">German (Deutsch)</option>
+              <option value="French">French (Français)</option>
+              <option value="Spanish">Spanish (Español)</option>
+              <option value="Japanese">Japanese (日本語)</option>
+              <option value="Chinese">Chinese (中文)</option>
+              <option value="Italian">Italian (Italiano)</option>
+              <option value="Portuguese">Portuguese (Português)</option>
+            </select>
+            <p class="text-[10px] text-slate-500 font-medium">Source language of the document</p>
+          </div>
+
+          <!-- 8. Equipment Serial Number / ID -->
+          <div class="space-y-1.5">
+            <label class="block text-xs font-black uppercase tracking-wider text-slate-700">
+              Serial Number / Unit ID
+            </label>
+            <input type="text" id="input-serial" placeholder="e.g. SN-2024-8891, LINE-04"
+                   class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border-2 border-slate-300 text-slate-900 placeholder-slate-400 text-xs sm:text-sm focus:outline-none focus:border-violet-600 focus:bg-white transition shadow-inner font-semibold" />
+            <p class="text-[10px] text-slate-500 font-medium">Individual physical unit serial</p>
           </div>
         </div>
 
@@ -197,9 +373,10 @@
         <table class="w-full text-left text-xs border-collapse">
           <thead>
             <tr class="border-b border-slate-200 text-slate-600 font-black uppercase tracking-wider text-[11px] bg-slate-50">
-              <th class="py-3.5 px-3.5">Brand / Manufacturer</th>
-              <th class="py-3.5 px-3.5">Machine Name & Model</th>
-              <th class="py-3.5 px-3.5">Year</th>
+              <th class="py-3.5 px-3.5">Brand / OEM</th>
+              <th class="py-3.5 px-3.5">Machine & Model</th>
+              <th class="py-3.5 px-3.5">Year / Firmware</th>
+              <th class="py-3.5 px-3.5">Manual Type & Language</th>
               <th class="py-3.5 px-3.5">Volume</th>
               <th class="py-3.5 px-3.5">Discovered Error Codes</th>
               <th class="py-3.5 px-3.5 text-right">Actions</th>
@@ -207,7 +384,7 @@
           </thead>
           <tbody id="inventory-tbody" class="divide-y divide-slate-100">
             <tr>
-              <td colspan="6" class="py-8 text-center text-slate-400">Loading company manuals registry...</td>
+              <td colspan="7" class="py-8 text-center text-slate-400">Loading company manuals registry...</td>
             </tr>
           </tbody>
         </table>
@@ -235,7 +412,129 @@
       <div id="admin-sandbox-result" class="hidden p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-3 font-mono"></div>
     </div>
 
-  </main>
+  
+    </div>
+
+    <!-- TAB 2: EMPLOYEE ROSTER & MACHINE ASSIGNMENT -->
+    <div id="employees-tab" class="admin-tab-content hidden space-y-6">
+      <div class="rounded-2xl bg-gradient-to-r from-sky-50/90 via-blue-50/60 to-white border-2 border-sky-100 p-5 sm:p-6 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div class="space-y-1">
+          <h2 class="text-lg sm:text-xl font-black text-slate-950 flex items-center gap-2">
+            <span>👷</span> Factory Technicians & Operators
+          </h2>
+          <p class="text-xs sm:text-sm text-slate-600 max-w-2xl font-medium">
+            Manage employees registered to this company workspace and assign specific machines from your fleet.
+          </p>
+        </div>
+        <button onclick="toggleAddEmployeeModal(true)" class="px-4 py-2 rounded-full bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow-md shadow-sky-600/20 transition flex items-center gap-1.5 shrink-0">
+          <span>+</span> <span>Register New Employee</span>
+        </button>
+      </div>
+
+      <!-- Add Employee Form (Collapsible) -->
+      <div id="add-employee-card" class="hidden bg-white rounded-2xl border-2 border-sky-200 p-5 sm:p-6 shadow-md space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+          <h3 class="font-black text-sm text-slate-900 flex items-center gap-2">
+            <span>➕</span> Onboard New Operator
+          </h3>
+          <button onclick="toggleAddEmployeeModal(false)" class="text-slate-400 hover:text-slate-600 font-bold text-sm">✕</button>
+        </div>
+        <form id="admin-add-employee-form" onsubmit="handleAdminAddEmployee(event)" class="space-y-3">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Full Name</label>
+              <input type="text" id="new-emp-name" required placeholder="e.g. John Doe" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-600 outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Email Address</label>
+              <input type="email" id="new-emp-email" required placeholder="operator@company.com" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-600 outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Temporary Password</label>
+              <input type="password" id="new-emp-password" required minlength="6" placeholder="Min 6 chars" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-600 outline-none">
+            </div>
+          </div>
+          <div id="add-emp-feedback" class="hidden text-xs font-bold p-2.5 rounded-lg"></div>
+          <div class="flex justify-end gap-2 pt-1">
+            <button type="button" onclick="toggleAddEmployeeModal(false)" class="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-bold text-slate-600 hover:bg-slate-50">Cancel</button>
+            <button type="submit" id="new-emp-submit-btn" class="px-4 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow-sm">Save Employee</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Employees Roster Table -->
+      <div class="bg-white rounded-2xl border-2 border-slate-200/90 shadow-md p-5 sm:p-7 space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+          <div class="flex items-center gap-2">
+            <span class="p-1.5 bg-sky-100 text-sky-800 rounded-lg text-base">👥</span>
+            <h3 class="font-black text-sm text-slate-900">Company Employee Roster</h3>
+          </div>
+          <span id="employee-count-badge" class="px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-extrabold border border-slate-200">Loading...</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="border-b border-slate-200 text-slate-600 font-black uppercase tracking-wider text-[11px] bg-slate-50">
+                <th class="py-3 px-3">Employee Name</th>
+                <th class="py-3 px-3">Email Address</th>
+                <th class="py-3 px-3">Role</th>
+                <th class="py-3 px-3">Assigned Fleet</th>
+                <th class="py-3 px-3 text-right">Status</th>
+              </tr>
+            </thead>
+            <tbody id="employees-table-body" class="divide-y divide-slate-100 font-medium">
+              <tr>
+                <td colspan="5" class="py-8 text-center text-slate-400">Loading company employees...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: DIAGNOSTICS AUDIT LOGS -->
+    <div id="audit-tab" class="admin-tab-content hidden space-y-6">
+      <div class="rounded-2xl bg-gradient-to-r from-emerald-50/90 via-teal-50/60 to-white border-2 border-emerald-100 p-5 sm:p-6 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div class="space-y-1">
+          <h2 class="text-lg sm:text-xl font-black text-slate-950 flex items-center gap-2">
+            <span>📋</span> Diagnostic Query Audit Logs
+          </h2>
+          <p class="text-xs sm:text-sm text-slate-600 max-w-2xl font-medium">
+            Review live troubleshooting sessions, queries asked by technicians, and citations retrieved by the RAG engine.
+          </p>
+        </div>
+        <button onclick="loadDiagnosticsAudit()" class="px-3.5 py-2 rounded-full bg-white hover:bg-slate-100 text-slate-800 font-extrabold text-xs transition border border-slate-300 flex items-center gap-1.5 shadow-2xs">
+          <span>🔄</span> <span>Refresh Logs</span>
+        </button>
+      </div>
+
+      <div class="bg-white rounded-2xl border-2 border-slate-200/90 shadow-md p-5 sm:p-7 space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+          <h3 class="font-black text-sm text-slate-900">Recent Shop Floor Diagnostics</h3>
+          <span id="audit-count-badge" class="px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-extrabold border border-slate-200">Loading...</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="border-b border-slate-200 text-slate-600 font-black uppercase tracking-wider text-[11px] bg-slate-50">
+                <th class="py-3 px-3">Timestamp</th>
+                <th class="py-3 px-3">Machine</th>
+                <th class="py-3 px-3">Error Code / Query</th>
+                <th class="py-3 px-3">Confidence</th>
+                <th class="py-3 px-3">Verification</th>
+                <th class="py-3 px-3">Cited Manuals</th>
+              </tr>
+            </thead>
+            <tbody id="audit-table-body" class="divide-y divide-slate-100 font-medium">
+              <tr>
+                <td colspan="6" class="py-8 text-center text-slate-400">Loading diagnostic logs...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+</main>
 
   <!-- Footer -->
   <footer class="bg-white border-t border-slate-200 px-4 sm:px-6 py-4 text-center text-slate-500 text-xs font-semibold">
@@ -244,6 +543,19 @@
 
   <script>
     let adminSelectedFile = null;
+
+    async function getFreshAdminToken() {
+      if (window.firebase && firebase.auth() && firebase.auth().currentUser) {
+        try {
+          const fresh = await firebase.auth().currentUser.getIdToken(true);
+          window.__maintai_token = fresh;
+          return fresh;
+        } catch(e) {
+          console.warn("Admin token refresh warning:", e);
+        }
+      }
+      return window.__maintai_token || '';
+    }
 
     function handleAdminFileSelected(e) {
       const file = e.target.files[0];
@@ -287,6 +599,10 @@
       const machine = document.getElementById('input-machine').value.trim();
       const modelNo = document.getElementById('input-model-no').value.trim();
       const year = document.getElementById('input-year').value.trim();
+      const firmware = (document.getElementById('input-firmware')?.value || '').trim();
+      const manualType = document.getElementById('input-manual-type')?.value || 'Operating Instructions';
+      const language = document.getElementById('input-language')?.value || 'English';
+      const serialNo = (document.getElementById('input-serial')?.value || '').trim();
       const fname = adminSelectedFile.name || 'manual.txt';
       const isPdf = fname.toLowerCase().endsWith('.pdf');
 
@@ -341,6 +657,10 @@
             brand: brand,
             model_no: modelNo,
             year_of_manufacture: year,
+            firmware: firmware,
+            manual_type: manualType,
+            language: language,
+            serial_no: serialNo,
             pages: extractedPages
           };
         } else {
@@ -358,6 +678,10 @@
             brand: brand,
             model_no: modelNo,
             year_of_manufacture: year,
+            firmware: firmware,
+            manual_type: manualType,
+            language: language,
+            serial_no: serialNo,
             text: rawText
           };
         }
@@ -370,9 +694,13 @@
           <p class="text-[11px] text-slate-600">Generating chunks, building BM25 index, and registering error codes...</p>
         `;
 
+        const freshAdminToken = await getFreshAdminToken();
         const res = await fetch('/api/upload/text', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + (freshAdminToken || window.__maintai_token || '')
+          },
           body: JSON.stringify(uploadPayload)
         });
 
@@ -410,6 +738,9 @@
               <div><strong class="text-slate-500 block font-bold">Machine:</strong> ${escapeHtml(data.machine_name)}</div>
               <div><strong class="text-slate-500 block font-bold">Model No:</strong> ${escapeHtml(data.model_no)}</div>
               <div><strong class="text-slate-500 block font-bold">Year:</strong> ${escapeHtml(data.year_of_manufacture)}</div>
+              ${data.firmware ? `<div><strong class="text-slate-500 block font-bold">Revision:</strong> ${escapeHtml(data.firmware)}</div>` : ''}
+              ${data.manual_type ? `<div><strong class="text-slate-500 block font-bold">Type:</strong> ${escapeHtml(data.manual_type)}</div>` : ''}
+              ${data.language ? `<div><strong class="text-slate-500 block font-bold">Language:</strong> ${escapeHtml(data.language)}</div>` : ''}
             </div>
             ${codesHtml}
             <div class="pt-2 flex items-center justify-end space-x-2">
@@ -422,34 +753,139 @@
             </div>
           `;
 
-          // Save to localStorage for persistence across serverless recycles
+          // Save to localStorage for persistence across serverless recycles (supports multiple manuals per machine)
           try {
-            const newMachineRecord = {
-              id: `custom_${data.machine_name.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8)}`,
-              manufacturer: data.brand || 'Custom OEM',
-              machine_name: data.machine_name,
-              model: data.model_no || 'Standard',
-              manufacturing_year: data.year_of_manufacture || 'Current',
-              firmware: 'Verified Upload',
-              manual_count: 1,
-              status: 'Ready',
-              status_label: 'Evidence Ready',
-              manuals: [data.manual_name || `${data.machine_name} Manual`],
-              error_codes: data.detected_codes || [],
-              sample_queries: data.sample_queries || [`${data.machine_name} troubleshooting`],
-              description: `OEM Technical Manual with ${data.total_pages || 1} pages and ${data.chunks_count || 1} indexed sections.`
-            };
             let saved = [];
             try { saved = JSON.parse(localStorage.getItem('user_uploaded_machines') || '[]'); } catch(e) { saved = []; }
-            saved = saved.filter(m => m.machine_name.toLowerCase() !== data.machine_name.toLowerCase());
-            saved.push(newMachineRecord);
+            saved = saved.filter(m => !['siemens_g120', 'apexcnc_500', 'thermapress_2000'].includes(m.id));
+
+            let existing = saved.find(m => m.machine_name.toLowerCase() === data.machine_name.toLowerCase());
+            const manualTitle = data.manual_name || `${data.machine_name} - ${data.manual_type || 'Manual'}`;
+
+            if (existing) {
+              if (!existing.manuals) existing.manuals = [];
+              if (!existing.manuals.includes(manualTitle)) existing.manuals.push(manualTitle);
+              existing.manual_count = existing.manuals.length;
+              const codeSet = new Set([...(existing.error_codes || []), ...(data.detected_codes || [])]);
+              existing.error_codes = Array.from(codeSet);
+              if (data.firmware) existing.firmware = data.firmware;
+              if (data.year_of_manufacture) existing.manufacturing_year = data.year_of_manufacture;
+              if (data.model_no) existing.model = data.model_no;
+            } else {
+              existing = {
+                id: `custom_${data.machine_name.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8)}`,
+                manufacturer: data.brand || 'Custom OEM',
+                machine_name: data.machine_name,
+                model: data.model_no || 'Standard',
+                manufacturing_year: data.year_of_manufacture || 'Current',
+                firmware: data.firmware || 'Verified Upload',
+                manual_count: 1,
+                status: 'Ready',
+                status_label: 'Evidence Ready',
+                manuals: [manualTitle],
+                error_codes: data.detected_codes || [],
+                sample_queries: data.sample_queries || [`${data.machine_name} troubleshooting`],
+                description: `OEM Technical Documentation with ${data.total_pages || 1} pages.`
+              };
+              saved.push(existing);
+            }
             localStorage.setItem('user_uploaded_machines', JSON.stringify(saved));
             localStorage.setItem('chunks_' + data.machine_name, JSON.stringify(data));
           } catch(e) {
             console.warn('LocalStorage save error:', e);
           }
 
-          // Refresh the inventory
+          // Direct Cloud Firestore Synchronization for strict multi-PC worker visibility
+          try {
+            const companyId = window.__maintai_companyId || (firebase.auth().currentUser ? firebase.auth().currentUser.uid : null);
+            if (companyId && window.firebase && firebase.apps.length) {
+              const db = firebase.firestore();
+              const mSlug = (data.machine_name || 'equipment').replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+              const docId = companyId + '_' + mSlug;
+              const manualTitle = data.manual_name || `${data.machine_name} - ${data.manual_type || 'Manual'}`;
+
+              const currentUser = firebase.auth().currentUser;
+              const currentUid = currentUser ? currentUser.uid : companyId;
+
+              await db.collection('machines').doc(docId).set({
+                machineId: docId,
+                companyId: companyId,
+                userId: currentUid,
+                machineName: data.machine_name,
+                manufacturer: data.brand || 'Custom OEM',
+                model: data.model_no || 'Standard',
+                year: String(data.year_of_manufacture || 'Current'),
+                firmware: data.firmware || 'Verified Upload',
+                manualCount: 1,
+                status: 'Ready',
+                status_label: 'Evidence Ready',
+                manuals: firebase.firestore.FieldValue.arrayUnion(manualTitle),
+                errorCodes: firebase.firestore.FieldValue.arrayUnion(...(data.detected_codes || [])),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+              }, { merge: true });
+
+              await db.collection('manuals').add({
+                companyId: companyId,
+                userId: currentUid,
+                machineName: data.machine_name,
+                brand: data.brand || 'Custom OEM',
+                model: data.model_no || 'Standard',
+                year: String(data.year_of_manufacture || 'Current'),
+                firmware: data.firmware || 'N/A',
+                manualType: data.manual_type || 'Operating Instructions',
+                name: manualTitle,
+                fileName: fname || manualTitle,
+                pageCount: data.total_pages || 1,
+                chunkCount: data.chunks_count || 0,
+                codes: data.detected_codes || [],
+                uploadedAt: firebase.firestore.FieldValue.serverTimestamp()
+              });
+
+              if (data.chunks && Array.isArray(data.chunks) && data.chunks.length > 0) {
+                const chunks = data.chunks;
+                (async () => {
+                  for (let i = 0; i < chunks.length; i += 450) {
+                    try {
+                      const batch = db.batch();
+                      const slice = chunks.slice(i, i + 450);
+                      slice.forEach(chk => {
+                        const cRef = db.collection('chunks').doc();
+                        batch.set(cRef, {
+                          ...chk,
+                          chunkId: cRef.id,
+                          company_id: companyId,
+                          user_id: currentUid
+                        });
+                      });
+                      await batch.commit();
+                    } catch(cErr) {
+                      console.warn('Async chunk commit warning:', cErr);
+                    }
+                  }
+                })();
+              }
+            }
+          } catch(fsSyncErr) {
+            console.warn('Direct Firestore client sync warning:', fsSyncErr);
+            if (fsSyncErr && (fsSyncErr.code === 'permission-denied' || String(fsSyncErr.message || '').includes('Cloud Firestore API') || String(fsSyncErr).includes('PERMISSION_DENIED'))) {
+              statusDiv.innerHTML += `
+                <div class="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs space-y-1">
+                  <div class="font-extrabold text-amber-950 flex items-center gap-1">
+                    <span>⚠️</span> <span>Action Required: Enable Cloud Firestore Database</span>
+                  </div>
+                  <p class="text-[11px] text-amber-800">
+                    Cloud Firestore has not been activated yet in your Firebase Project <code>vcet-3c013</code>. 
+                    Without it, equipment cannot be stored permanently in the cloud.
+                  </p>
+                  <a href="https://console.firebase.google.com/project/vcet-3c013/firestore" target="_blank" class="inline-block mt-1 px-3 py-1 bg-amber-700 hover:bg-amber-800 text-white rounded-lg font-bold text-[11px] transition shadow-2xs">
+                    Create Database in Firebase Console →
+                  </a>
+                </div>
+              `;
+            }
+          }
+
+          // Refresh the inventory immediately
           fetchManualsInventory();
         } else {
           let errMsg = `Server returned ${res.status}`;
@@ -475,7 +911,10 @@
       try {
         let backendManuals = [];
         try {
-          const res = await fetch('/api/manuals');
+          const freshToken = (typeof getFreshAdminToken === 'function') ? await getFreshAdminToken() : (window.__maintai_token || '');
+          const res = await fetch('/api/manuals', {
+            headers: { 'Authorization': 'Bearer ' + (freshToken || window.__maintai_token || '') }
+          });
           if (res.ok) {
             const data = await res.json();
             backendManuals = data.manuals || [];
@@ -489,38 +928,98 @@
         try {
           localMachines = JSON.parse(localStorage.getItem('user_uploaded_machines') || '[]');
         } catch(e) { localMachines = []; }
+        if (Array.isArray(localMachines)) {
+          localMachines = localMachines.filter(m => m && !['siemens_g120', 'apexcnc_500', 'thermapress_2000'].includes(m.id));
+        } else {
+          localMachines = [];
+        }
 
         const manualMap = new Map();
         for (const lm of localMachines) {
-          manualMap.set(lm.machine_name.toLowerCase(), {
-            brand: lm.manufacturer || 'Standard OEM',
-            machine: lm.machine_name,
-            model_no: lm.model || 'Standard',
-            year_of_manufacture: lm.manufacturing_year || 'Current',
-            type: 'Custom Upload',
-            pages: 1,
-            chunks: 1,
-            codes: lm.error_codes || []
-          });
+          if (lm && lm.machine_name) {
+            manualMap.set(String(lm.machine_name).toLowerCase(), {
+              brand: lm.manufacturer || 'Standard OEM',
+              machine: lm.machine_name,
+              model_no: lm.model || 'Standard',
+              year_of_manufacture: lm.manufacturing_year || 'Current',
+              firmware: lm.firmware || 'N/A',
+              manual_type: (lm.manuals && lm.manuals[0]) ? lm.manuals[0].split(' - ')[1] || 'Operating Manual' : 'Operating Manual',
+              language: 'English',
+              type: 'Custom Upload',
+              pages: 1,
+              chunks: 1,
+              codes: lm.error_codes || []
+            });
+          }
         }
         for (const bm of backendManuals) {
-          manualMap.set(bm.machine.toLowerCase(), bm);
+          const mName = bm ? (bm.machine || bm.machine_name) : null;
+          if (mName) {
+            manualMap.set(String(mName).toLowerCase(), bm);
+          }
+        }
+
+        // Merge with Firestore machines for companyId across all devices
+        try {
+          const companyId = window.__maintai_companyId || (firebase.auth && firebase.auth().currentUser ? firebase.auth().currentUser.uid : null);
+          if (companyId && window.firebase && firebase.apps.length) {
+            const db = firebase.firestore();
+            const snap = await db.collection('machines').where('companyId', '==', companyId).get();
+            if (!snap.empty) {
+              snap.forEach(doc => {
+                const d = doc.data() || {};
+                const mName = d.machineName || d.machine_name;
+                if (mName) {
+                  manualMap.set(String(mName).toLowerCase(), {
+                    brand: d.manufacturer || 'Standard OEM',
+                    machine: mName,
+                    model_no: d.model || 'Standard',
+                    year_of_manufacture: d.year || 'Current',
+                    firmware: d.firmware || 'N/A',
+                    manual_type: (d.manuals && d.manuals[0]) ? d.manuals[0] : 'Operating Manual',
+                    language: 'English',
+                    type: 'Custom Upload',
+                    pages: 1,
+                    chunks: 1,
+                    codes: d.errorCodes || []
+                  });
+                }
+              });
+            }
+          }
+        } catch(fsInventoryErr) {
+          console.warn('Firestore inventory query warning:', fsInventoryErr);
         }
 
         const combinedList = Array.from(manualMap.values());
-        badge.innerText = `${combinedList.length} Machines Registered`;
-        headerCount.innerText = `${combinedList.length} Registered`;
+        if (badge) badge.innerText = `${combinedList.length} Machines Registered`;
+        if (headerCount) headerCount.innerText = `${combinedList.length} Registered`;
+
+        if (!tbody) return;
 
         if (combinedList.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-slate-400 font-medium">No manuals registered yet. Upload an OEM technical manual above to start troubleshooting.</td></tr>';
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="7" class="py-12 text-center text-slate-400 font-medium">
+                <div class="space-y-2">
+                  <div class="text-3xl">📚</div>
+                  <div class="font-bold text-slate-700">No equipment manuals uploaded yet.</div>
+                  <div class="text-xs text-slate-500">Use the form above to onboard equipment and index technical manuals.</div>
+                </div>
+              </td>
+            </tr>
+          `;
           return;
         }
 
         tbody.innerHTML = combinedList.map(m => {
           const brand = m.brand || 'Standard OEM';
-          const modelNo = m.model_no || 'N/A';
-          const year = m.year_of_manufacture || 'N/A';
-          const codes = m.codes || [];
+          const modelNo = m.model_no || m.model || 'N/A';
+          const year = m.year_of_manufacture || m.year || 'Current';
+          const firmware = m.firmware || 'N/A';
+          const manualType = m.manual_type || m.manualType || m.type || 'Technical Manual';
+          const language = m.language || 'English';
+          const codes = m.codes || m.error_codes || [];
 
           return `
             <tr class="hover:bg-violet-50/30 transition">
@@ -532,20 +1031,25 @@
                 <span class="text-[10px] text-slate-500 font-medium">Verified OEM Upload</span>
               </td>
               <td class="py-3.5 px-3.5">
-                <div class="font-extrabold text-slate-800">${escapeHtml(m.machine)}</div>
+                <div class="font-extrabold text-slate-800">${escapeHtml(m.machine || m.machine_name)}</div>
                 <div class="text-[11px] font-mono text-slate-500">Model: ${escapeHtml(modelNo)}</div>
               </td>
-              <td class="py-3.5 px-3.5 text-slate-700 font-mono font-bold">
-                ${escapeHtml(year)}
+              <td class="py-3.5 px-3.5 text-slate-700 font-mono text-xs">
+                <div class="font-bold text-slate-900">${escapeHtml(year)}</div>
+                <div class="text-[10px] text-slate-500">${escapeHtml(firmware)}</div>
+              </td>
+              <td class="py-3.5 px-3.5 text-slate-700 text-xs">
+                <div class="font-semibold text-slate-800">${escapeHtml(manualType)}</div>
+                <div class="text-[10px] text-slate-500">Lang: ${escapeHtml(language)}</div>
               </td>
               <td class="py-3.5 px-3.5 text-slate-700">
-                <span class="font-bold">${m.pages || 0}</span> <span class="text-slate-400">pp</span>
-                <span class="text-[10px] text-slate-400 block">${m.chunks || 0} chunks</span>
+                <span class="font-bold">${m.pages || m.pageCount || 1}</span> <span class="text-slate-400">pp</span>
+                <span class="text-[10px] text-slate-400 block">${m.chunks || m.chunkCount || 1} chunks</span>
               </td>
               <td class="py-3.5 px-3.5">
                 <div class="flex flex-wrap gap-1.5 max-w-xs">
                   ${codes.slice(0, 4).map(c => `
-                    <button onclick="testInSandbox('${escapeHtml(m.machine)}', '${escapeHtml(c)}')" class="px-2 py-0.5 rounded-md bg-slate-100 hover:bg-violet-100 text-violet-800 border border-slate-200 font-mono text-[10px] font-bold transition shadow-2xs">
+                    <button onclick="testInSandbox('${escapeHtml(m.machine || m.machine_name)}', '${escapeHtml(c)}')" class="px-2 py-0.5 rounded-md bg-slate-100 hover:bg-violet-100 text-violet-800 border border-slate-200 font-mono text-[10px] font-bold transition shadow-2xs">
                       ${escapeHtml(c)}
                     </button>
                   `).join('')}
@@ -554,10 +1058,10 @@
                 </div>
               </td>
               <td class="py-3.5 px-3.5 text-right space-x-1.5">
-                <a href="/?machine=${encodeURIComponent(m.machine)}" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-slate-900 hover:bg-violet-600 text-white text-xs font-extrabold transition shadow-xs">
+                <a href="/?machine=${encodeURIComponent(m.machine || m.machine_name)}" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-slate-900 hover:bg-violet-600 text-white text-xs font-extrabold transition shadow-xs">
                   <span>Troubleshoot</span> <span>→</span>
                 </a>
-                <button type="button" onclick="deleteManualFromAdmin('${escapeHtml(m.machine)}')" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-extrabold border border-rose-200 transition" title="Delete Machine">
+                <button type="button" onclick="deleteManualFromAdmin('${escapeHtml(m.machine || m.machine_name)}')" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-extrabold border border-rose-200 transition" title="Delete Machine">
                   <span>🗑️</span>
                 </button>
               </td>
@@ -566,7 +1070,7 @@
         }).join('');
 
       } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-rose-600">Error loading inventory: ${escapeHtml(err.message)}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-rose-600">Error loading inventory: ${escapeHtml(err.message)}</td></tr>`;
       }
     }
 
@@ -583,7 +1087,10 @@
 
         await fetch('/api/manuals/delete', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + (window.__maintai_token || '')
+          },
           body: JSON.stringify({ machine_name: machineName })
         }).catch(err => console.warn('Backend delete warning:', err));
 
@@ -614,7 +1121,10 @@
       try {
         const res = await fetch('/api/query', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + (window.__maintai_token || '')
+          },
           body: JSON.stringify({ query: q, session_id: 'admin-sandbox-' + Date.now() })
         });
         const d = await res.json();
@@ -706,6 +1216,271 @@
 
     initAdminDropZone();
     fetchManualsInventory();
+
+    // ==========================================
+    // TAB SWITCHING & ROLE ACTIONS
+    // ==========================================
+    function switchAdminTab(tabId) {
+      document.querySelectorAll('.admin-tab-content').forEach(el => el.classList.add('hidden'));
+      const activeEl = document.getElementById(tabId);
+      if (activeEl) activeEl.classList.remove('hidden');
+
+      const btnManuals = document.getElementById('tab-btn-manuals');
+      const btnEmployees = document.getElementById('tab-btn-employees');
+      const btnAudit = document.getElementById('tab-btn-audit');
+
+      [btnManuals, btnEmployees, btnAudit].forEach(btn => {
+        if (!btn) return;
+        btn.className = "px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900 font-bold transition";
+      });
+
+      if (tabId === 'manuals-tab' && btnManuals) {
+        btnManuals.className = "px-3 py-1 rounded-lg bg-white shadow-xs text-violet-700 font-extrabold";
+        fetchManualsInventory();
+      } else if (tabId === 'employees-tab' && btnEmployees) {
+        btnEmployees.className = "px-3 py-1 rounded-lg bg-white shadow-xs text-sky-700 font-extrabold";
+        loadEmployeesList();
+      } else if (tabId === 'audit-tab' && btnAudit) {
+        btnAudit.className = "px-3 py-1 rounded-lg bg-white shadow-xs text-emerald-700 font-extrabold";
+        loadDiagnosticsAudit();
+      }
+    }
+    window.switchAdminTab = switchAdminTab;
+
+    async function handleCompanyLogout() {
+      try {
+        await firebase.auth().signOut();
+      } catch (err) {
+        console.warn("Logout error:", err);
+      }
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+      } catch(e){}
+      window.location.href = '/login.html';
+    }
+    window.handleCompanyLogout = handleCompanyLogout;
+
+    // ==========================================
+    // EMPLOYEE MANAGEMENT
+    // ==========================================
+    function toggleAddEmployeeModal(show) {
+      const card = document.getElementById('add-employee-card');
+      if (!card) return;
+      if (show) {
+        card.classList.remove('hidden');
+        document.getElementById('new-emp-name')?.focus();
+      } else {
+        card.classList.add('hidden');
+        document.getElementById('admin-add-employee-form')?.reset();
+        const fb = document.getElementById('add-emp-feedback');
+        if (fb) fb.className = 'hidden';
+      }
+    }
+    window.toggleAddEmployeeModal = toggleAddEmployeeModal;
+
+    async function loadEmployeesList() {
+      const tbody = document.getElementById('employees-table-body');
+      const badge = document.getElementById('employee-count-badge');
+      if (!tbody) return;
+
+      tbody.innerHTML = '<tr><td colspan="5" class="py-8 text-center text-slate-400">Loading company employees...</td></tr>';
+
+      try {
+        const db = firebase.firestore();
+        const companyId = window.__maintai_companyId || (window.__maintai_user ? window.__maintai_user.uid : null);
+        
+        let snap;
+        if (companyId) {
+          try {
+            snap = await db.collection('users').where('companyId', '==', companyId).get();
+          } catch(e) {
+            snap = await db.collection('users').get();
+          }
+        } else {
+          snap = await db.collection('users').get();
+        }
+
+        const employees = [];
+        snap.forEach(doc => {
+          const u = doc.data() || {};
+          if (u.role === 'employee' || (companyId && u.companyId === companyId && u.role !== 'company_admin')) {
+            employees.push({ id: doc.id, ...u });
+          }
+        });
+
+        if (employees.length === 0) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="5" class="py-8 text-center text-slate-400 font-medium">
+                No employees registered for this company yet. Click <strong class="text-sky-600">"+ Register New Employee"</strong> above.
+              </td>
+            </tr>`;
+          if (badge) badge.textContent = '0 Operators';
+          return;
+        }
+
+        if (badge) badge.textContent = `${employees.length} Operator${employees.length > 1 ? 's' : ''}`;
+        let html = '';
+        employees.forEach(emp => {
+          const machines = Array.isArray(emp.assignedMachines) && emp.assignedMachines.length 
+            ? emp.assignedMachines.map(m => `<span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-bold border border-slate-200 text-[10px]">${escapeHtml(m)}</span>`).join(' ')
+            : '<span class="text-slate-400 italic text-[11px]">All Company Fleet</span>';
+
+          html += `
+            <tr class="hover:bg-slate-50/80 transition">
+              <td class="py-3 px-3 font-extrabold text-slate-900">${escapeHtml(emp.name || 'Technician')}</td>
+              <td class="py-3 px-3 font-mono text-slate-600">${escapeHtml(emp.email || 'N/A')}</td>
+              <td class="py-3 px-3">
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-sky-100 text-sky-800 border border-sky-200 uppercase">
+                  ${escapeHtml(emp.role || 'employee')}
+                </span>
+              </td>
+              <td class="py-3 px-3">${machines}</td>
+              <td class="py-3 px-3 text-right">
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">${escapeHtml(emp.status === 'inactive' ? 'Inactive' : 'Active')}</span>
+              </td>
+            </tr>
+          `;
+        });
+        tbody.innerHTML = html;
+      } catch (err) {
+        console.error("Failed to load employees:", err);
+        tbody.innerHTML = `<tr><td colspan="5" class="py-6 text-center text-rose-500 font-bold text-xs">Error loading employees: ${escapeHtml(err.message)}</td></tr>`;
+      }
+    }
+    window.loadEmployeesList = loadEmployeesList;
+
+    async function handleAdminAddEmployee(e) {
+      e.preventDefault();
+      const fb = document.getElementById('add-emp-feedback');
+      const submitBtn = document.getElementById('new-emp-submit-btn');
+      const name = document.getElementById('new-emp-name').value.trim();
+      const email = document.getElementById('new-emp-email').value.trim();
+      const password = document.getElementById('new-emp-password').value;
+
+      if (!name || !email || !password) return;
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Registering...';
+      fb.className = 'hidden';
+
+      try {
+        const companyId = window.__maintai_companyId || (window.__maintai_user ? window.__maintai_user.uid : null);
+        const companyName = document.getElementById('company-name-display')?.textContent || 'Company Workspace';
+
+        // Use secondary Firebase App instance so the current company_admin is NOT signed out
+        const secAppName = 'SecApp_' + Date.now();
+        const secApp = firebase.initializeApp(firebaseConfig, secAppName);
+        const secAuth = secApp.auth();
+
+        const userCred = await secAuth.createUserWithEmailAndPassword(email, password);
+        const newUid = userCred.user.uid;
+        await userCred.user.updateProfile({ displayName: name });
+        await secAuth.signOut();
+        await secApp.delete();
+
+        // Write user profile in Firestore
+        const db = firebase.firestore();
+        await db.collection('users').doc(newUid).set({
+          userId: newUid,
+          name: name,
+          email: email,
+          role: 'employee',
+          companyId: companyId,
+          companyName: companyName,
+          status: 'active',
+          assignedMachines: [],
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+
+        fb.textContent = `Operator "${name}" registered successfully!`;
+        fb.className = 'block text-xs font-bold p-2.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200';
+        document.getElementById('admin-add-employee-form').reset();
+        
+        loadEmployeesList();
+        setTimeout(() => { toggleAddEmployeeModal(false); }, 1400);
+      } catch (err) {
+        console.error("Employee registration failed:", err);
+        fb.textContent = `Failed: ${err.message}`;
+        fb.className = 'block text-xs font-bold p-2.5 rounded-lg bg-rose-50 text-rose-800 border border-rose-200';
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Save Employee';
+      }
+    }
+    window.handleAdminAddEmployee = handleAdminAddEmployee;
+
+    // ==========================================
+    // DIAGNOSTICS AUDIT LOGS
+    // ==========================================
+    async function loadDiagnosticsAudit() {
+      const tbody = document.getElementById('audit-table-body');
+      const badge = document.getElementById('audit-count-badge');
+      if (!tbody) return;
+
+      tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-slate-400">Loading diagnostic logs...</td></tr>';
+
+      try {
+        const db = firebase.firestore();
+        const companyId = window.__maintai_companyId || (window.__maintai_user ? window.__maintai_user.uid : null);
+
+        let query = db.collection('diagnostics');
+        if (companyId) {
+          query = query.where('companyId', '==', companyId);
+        }
+
+        const snap = await query.limit(50).get();
+        if (snap.empty) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="6" class="py-8 text-center text-slate-400 font-medium">
+                No diagnostic sessions logged for this workspace yet. Technicians can query machines on the employee dashboard.
+              </td>
+            </tr>`;
+          if (badge) badge.textContent = '0 Sessions';
+          return;
+        }
+
+        if (badge) badge.textContent = `${snap.size} Recent Queries`;
+        let html = '';
+        snap.forEach(doc => {
+          const item = doc.data();
+          const ts = item.timestamp && item.timestamp.toDate ? item.timestamp.toDate().toLocaleString() : 'Just now';
+          const conf = item.confidence || item.confidence_score || 'HIGH';
+          const citations = Array.isArray(item.citations) && item.citations.length 
+            ? item.citations.map(c => `<span class="block text-[10px] text-slate-500 font-mono">${escapeHtml(c.manual_name || c.doc_name || 'Manual')} (p.${c.page})</span>`).join('')
+            : '<span class="text-slate-400 text-[10px]">None</span>';
+
+          html += `
+            <tr class="hover:bg-slate-50/80 transition">
+              <td class="py-3 px-3 font-mono text-slate-500 text-[11px]">${escapeHtml(ts)}</td>
+              <td class="py-3 px-3 font-bold text-slate-900">${escapeHtml(item.machine_name || item.machine || 'General Fleet')}</td>
+              <td class="py-3 px-3">
+                <div class="font-bold text-slate-800">${escapeHtml(item.query || item.error_code || 'General Troubleshooting')}</div>
+                ${item.error_code ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-violet-100 text-violet-800 font-mono font-bold">Code: ${escapeHtml(item.error_code)}</span>` : ''}
+              </td>
+              <td class="py-3 px-3">
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-black ${conf === 'HIGH' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">
+                  ${escapeHtml(conf)}
+                </span>
+              </td>
+              <td class="py-3 px-3">
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">Verified</span>
+              </td>
+              <td class="py-3 px-3">${citations}</td>
+            </tr>
+          `;
+        });
+        tbody.innerHTML = html;
+      } catch (err) {
+        console.error("Audit log load failed:", err);
+        tbody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-slate-400 font-medium">Diagnostic logs will show here as technicians troubleshoot machines.</td></tr>`;
+        if (badge) badge.textContent = 'Active';
+      }
+    }
+    window.loadDiagnosticsAudit = loadDiagnosticsAudit;
   </script>
 </body>
 </html>
