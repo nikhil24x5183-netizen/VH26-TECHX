@@ -54,16 +54,7 @@
 </head>
 <body class="min-h-screen flex flex-col text-slate-900 bg-slate-50">
 
-    <!-- Auth Checking Overlay (Shown only during active redirection) -->
-    <div id="auth-loading-overlay" class="hidden fixed inset-0 bg-white/90 backdrop-blur-sm z-50 flex items-center justify-center transition-opacity" onclick="this.classList.add('hidden')">
-        <div class="text-center p-6 bg-white rounded-2xl shadow-xl border border-slate-100 max-w-xs w-full">
-            <div class="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center text-xl shadow-lg shadow-blue-600/30 mx-auto mb-3 animate-pulse">⚙️</div>
-            <p class="text-sm font-semibold text-slate-700">Opening your workspace...</p>
-            <p class="text-xs text-slate-400 mt-1">Directing to authorized dashboard</p>
-            <button type="button" onclick="event.stopPropagation(); document.getElementById('auth-loading-overlay').classList.add('hidden')" class="mt-4 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-600 transition">Dismiss</button>
-        </div>
-    </div>
-    
+
     <!-- Header -->
     <header class="border-b border-slate-200 py-3.5 px-6 bg-white shrink-0">
         <div class="max-w-6xl mx-auto flex items-center justify-between">
@@ -615,73 +606,22 @@
         });
 
         // ==========================================
-        // AUTH STATE ROUTING (PERSISTENT CHECK)
+        // AUTH STATE ROUTING (INSTANT AUTO-REDIRECT)
         // ==========================================
-        const overlay = document.getElementById('auth-loading-overlay');
-
         auth.onAuthStateChanged(async (user) => {
             if (user) {
-                if (overlay) {
-                    overlay.classList.remove('hidden');
-                    setTimeout(() => { if (overlay) overlay.classList.add('hidden'); }, 1200);
-                }
-
-                let redirected = false;
-                const forceRedirect = (targetRole) => {
-                    if (redirected) return;
-                    redirected = true;
-                    const role = targetRole || activeSelectedRole || 'employee';
-                    window.location.href = role === 'company_admin' ? '/company/dashboard' : '/employee/dashboard';
-                };
-
-                // Hard safety fallback timer: max 1.5s on overlay
-                const safetyTimer = setTimeout(() => {
-                    console.warn("Auth redirect safety timer triggered");
-                    forceRedirect();
-                }, 1500);
-
                 try {
                     const userData = await getUserProfile(user.uid);
                     const role = (userData && userData.role) || activeSelectedRole || 'employee';
-
-                    clearTimeout(safetyTimer);
-
                     if (role === 'company_admin') {
-                        if (!userData) {
-                            saveUserProfile(user.uid, {
-                                userId: user.uid,
-                                name: user.displayName || 'Company Admin',
-                                email: user.email,
-                                role: 'company_admin',
-                                companyId: user.uid,
-                                status: 'active',
-                                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                            });
-                        }
-                        forceRedirect('company_admin');
-                        return;
+                        window.location.href = '/company/dashboard';
                     } else {
-                        // Employee role: ensure active status and assigned company workspace
-                        const companyId = (userData && userData.companyId) || '3LeD63WOa9QUThnDrABAIcH5F6a2';
-                        saveUserProfile(user.uid, {
-                            userId: user.uid,
-                            name: (userData && userData.name) || user.displayName || 'Operator',
-                            email: user.email,
-                            role: 'employee',
-                            companyId: companyId,
-                            status: 'active',
-                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-                        forceRedirect('employee');
-                        return;
+                        window.location.href = '/employee/dashboard';
                     }
                 } catch(e) {
-                    clearTimeout(safetyTimer);
-                    console.warn("Fast fallback redirect on auth:", e);
-                    forceRedirect();
+                    const role = activeSelectedRole || 'employee';
+                    window.location.href = role === 'company_admin' ? '/company/dashboard' : '/employee/dashboard';
                 }
-            } else {
-                if (overlay) overlay.classList.add('hidden');
             }
         });
 
@@ -755,7 +695,7 @@
                         setSubmitting('employee-login-btn', false);
                         return;
                     }
-                    if (userData.status === 'inactive' || !userData.companyId) {
+                    if (userData.status === 'inactive') {
                         await auth.signOut();
                         displayError('employee-login-error', 'Access Denied: Your account is not authorized to access this company workspace.');
                         setSubmitting('employee-login-btn', false);
