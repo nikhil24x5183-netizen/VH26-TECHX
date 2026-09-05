@@ -1876,40 +1876,27 @@ async def scan_error_photo(
 
         # Prepare search target & strip screenshot noise
         search_target = f"{filename} {raw_text}".upper()
-        search_target = re.sub(r"SCREENSHOT[_\s\-\d\.]+", "", search_target)
-
-        # Normalize LCD 7-segment digital display gaps (e.g. "F 30005" -> "F30005", "F  3 0 0 0 5" -> "F30005")
-        search_target = re.sub(r"\b([EFAP])\s*[-:_]?\s*(\d)\s*(\d)\s*(\d)\s*(\d)\s*(\d)\b", r"\1\2\3\4\5\6", search_target)
-        search_target = re.sub(r"\b([EFAP])\s*[-:_]?\s*(\d{3,6}[A-Z]?)\b", r"\1\2", search_target)
-        search_target = re.sub(r"\b(ERR|ALARM|FAULT|CODE)\s*[-:_]?\s*(\d{2,6}[A-Z]?)\b", r"\1\2", search_target)
+        search_target = re.sub(r"SCREENSHOT[_\s\-\d\.]+", " ", search_target)
+        search_target = re.sub(r"\b\d{7,}\b", " ", search_target)
 
         detected_code = ""
 
-        # Priority 1: High-confidence Fault Code pattern (e.g. F30005, E101, A0501, P0300)
-        p1_matches = re.findall(r"\b[EFAP]\d{3,6}[A-Z]?\b", search_target)
-        if p1_matches:
-            detected_code = p1_matches[0]
+        # Pattern 1: Explicit letter prefix [EFAP] or ERR/ALARM/FAULT/CODE followed by numbers (e.g. "F 30005", "F-30005", "F30005", "E101", "A0501", "ERR-402")
+        m1 = re.search(r"(?:^|[^\w])([EFAP]|ERR|ALARM|FAULT|CODE)\s*[-:_]?\s*(\d{2,6}[A-Z]?)(?:\b|[^\w])", search_target)
+        if m1:
+            detected_code = f"{m1.group(1)}{m1.group(2)}"
 
-        # Priority 2: Named error code prefix (e.g. ERR30005, ALARM12, FAULT30005)
-        if not detected_code:
-            p2_matches = re.findall(r"\b(?:ERR|ALARM|FAULT|CODE)\d{2,6}[A-Z]?\b", search_target)
-            if p2_matches:
-                detected_code = p2_matches[0]
+        # Pattern 2: Standalone 3-6 digit code if fault/drive/alarm keywords are present
+        if not detected_code and any(kw in search_target for kw in ["FAULT", "ALARM", "ERROR", "TRIP", "DRIVE", "CODE"]):
+            m2 = re.search(r"\b(\d{3,6})\b", search_target)
+            if m2 and m2.group(1) != "2026":
+                detected_code = f"F{m2.group(1)}"
 
-        # Priority 3: Fallback alphanumerics (excluding negative numbers like -09, dates, timestamps)
+        # Pattern 3: Standalone 4-6 digit code (e.g. 30005 -> F30005)
         if not detected_code:
-            candidates = re.findall(r"\b[A-Z0-9_-]{3,12}\b", search_target)
-            valid_candidates = []
-            for c in candidates:
-                c_clean = c.strip()
-                if c_clean.startswith("-") or c_clean.startswith("_") or c_clean.isdigit():
-                    continue
-                if any(noise in c_clean for noise in ["SCREENSHOT", "PNG", "JPG", "JPEG", "OPERATOR", "JUSTNOW"]):
-                    continue
-                if len(c_clean) >= 3:
-                    valid_candidates.append(c_clean)
-            if valid_candidates:
-                detected_code = valid_candidates[0]
+            m3 = re.search(r"\b([3-9]\d{4,5})\b", search_target)
+            if m3:
+                detected_code = f"F{m3.group(1)}"
 
         # Detect symptoms if no exact fault code was matched
         symptoms = []

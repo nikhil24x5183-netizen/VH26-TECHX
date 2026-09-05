@@ -805,19 +805,19 @@
               clientOcrText = ret.data.text || '';
               await worker.terminate();
               
-              // Clean screenshot noise & normalize LCD 7-segment gaps (e.g. "F 30005" -> "F30005")
+              // Clean screenshot noise & extract fault code (e.g. "F 30005" -> "F30005", "F-30005", "E101")
               let cleanOcr = clientOcrText.toUpperCase()
-                .replace(/SCREENSHOT[_\s\-\d\.]+/g, '')
-                .replace(/\b([EFAP])\s*[-:_]?\s*(\d)\s*(\d)\s*(\d)\s*(\d)\s*(\d)\b/g, '$1$2$3$4$5$6')
-                .replace(/\b([EFAP])\s*[-:_]?\s*(\d{3,6}[A-Z]?)\b/g, '$1$2')
-                .replace(/\b(ERR|ALARM|FAULT|CODE)\s*[-:_]?\s*(\d{2,6}[A-Z]?)\b/g, '$1$2');
+                .replace(/SCREENSHOT[_\s\-\d\.]+/g, ' ')
+                .replace(/\b\d{7,}\b/g, ' ');
 
-              const p1 = cleanOcr.match(/\b[EFAP]\d{3,6}[A-Z]?\b/g);
-              if (p1 && p1.length > 0) {
-                detectedCode = p1[0];
+              const m1 = cleanOcr.match(/(?:^|[^\w])([EFAP]|ERR|ALARM|FAULT|CODE)\s*[-:_]?\s*(\d{2,6}[A-Z]?)(?:\b|[^\w])/i);
+              if (m1) {
+                const prefix = m1[1].toUpperCase();
+                const num = m1[2].toUpperCase();
+                detectedCode = prefix + num;
               } else {
-                const p2 = cleanOcr.match(/\b(?:ERR|ALARM|FAULT|CODE)\d{2,6}[A-Z]?\b/g);
-                if (p2 && p2.length > 0) detectedCode = p2[0];
+                const m3 = cleanOcr.match(/\b([3-9]\d{4,5})\b/);
+                if (m3) detectedCode = 'F' + m3[1];
               }
             } catch(tErr) {
               console.warn('Browser Tesseract OCR warning:', tErr);
