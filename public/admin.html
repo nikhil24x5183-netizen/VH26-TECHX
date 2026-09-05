@@ -183,6 +183,11 @@
         </button>
       </div>
 
+      <!-- Worker View Button -->
+      <a href="/employee/dashboard" class="px-3.5 py-1.5 rounded-full bg-sky-50 hover:bg-sky-100 text-sky-700 font-bold border border-sky-200 transition text-xs flex items-center space-x-1.5 ml-1 shadow-2xs">
+        <span>👷</span><span>Worker View</span>
+      </a>
+
       <!-- Logout Button (TEST F: Logout from company_admin -> Redirected to initial login screen) -->
       <button type="button" onclick="handleCompanyLogout()" class="px-3.5 py-1.5 rounded-full bg-red-50 hover:bg-red-100 text-red-600 font-bold border border-red-200 transition text-xs flex items-center space-x-1.5 ml-2 shadow-2xs">
         <span>🚪</span><span>Logout</span>
@@ -836,6 +841,28 @@
                 errorCodes: firebase.firestore.FieldValue.arrayUnion(...(data.detected_codes || [])),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
               }, { merge: true });
+
+              if (window.firebase && firebase.database) {
+                try {
+                  await firebase.database().ref('machines/' + docId).set({
+                    machineId: docId,
+                    companyId: companyId,
+                    userId: currentUid,
+                    machineName: data.machine_name,
+                    manufacturer: data.brand || 'Custom OEM',
+                    model: data.model_no || 'Standard',
+                    year: String(data.year_of_manufacture || 'Current'),
+                    firmware: data.firmware || 'Verified Upload',
+                    manualCount: 1,
+                    status: 'Ready',
+                    manuals: [manualTitle],
+                    errorCodes: data.detected_codes || [],
+                    updatedAt: Date.now()
+                  });
+                } catch(rErr) {
+                  console.warn("RTDB machine upload sync warning:", rErr);
+                }
+              }
 
               await db.collection('manuals').add({
                 companyId: companyId,

@@ -143,10 +143,10 @@
         }
 
         if (userData) {
-          // If logged in as company_admin, redirect to company dashboard
+          // Allow company admins to use worker view without force-redirecting, show admin portal link
           if (userData.role === 'company_admin') {
-            window.location.href = '/company/dashboard';
-            return;
+            const adminLink = document.getElementById('admin-portal-link');
+            if (adminLink) adminLink.classList.remove('hidden');
           }
 
           // Strict Access Control: Inactive employee accounts blocked
@@ -157,7 +157,7 @@
             return;
           }
 
-          window.__maintai_role = 'employee';
+          window.__maintai_role = userData.role || 'employee';
           window.__maintai_companyId = userData.companyId || user.uid;
           window.__maintai_companyName = userData.companyName || 'Company Workspace';
 
@@ -234,6 +234,11 @@
         <span>🔄</span>
         <span>Change Machine</span>
       </button>
+
+      <a href="/company/dashboard" id="admin-portal-link" class="hidden items-center space-x-1 px-3 py-1.5 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-700 font-bold border border-violet-200 transition text-xs">
+        <span>🏢</span>
+        <span>Admin Portal</span>
+      </a>
 
       <!-- Logout Button (TEST G: Logout from employee -> Redirected to initial login screen) -->
       <button type="button" onclick="handleLogout()" id="logout-btn" class="flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 font-bold border border-red-200 transition text-xs">
@@ -432,57 +437,44 @@
         if (window.firebase && firebase.apps.length) {
           try {
             const db = firebase.firestore();
-            // If companyId is available, filter by companyId; otherwise query machines
-            const machinesQuery = companyId ? db.collection('machines').where('companyId', '==', companyId) : db.collection('machines');
-            const snap = await machinesQuery.get();
-            if (!snap.empty) {
-              snap.forEach(doc => {
-                const d = doc.data() || {};
-                const mName = d.machineName || d.machine_name || 'Uploaded Equipment';
-                machineMap.set(mName.toLowerCase(), {
-                  id: doc.id,
-                  machine_name: mName,
-                  manufacturer: d.manufacturer || 'OEM',
-                  model: d.model || 'Standard',
-                  manufacturing_year: d.year || d.manufacturing_year || 'Current',
-                  firmware: d.firmware || 'Verified Upload',
-                  manual_count: d.manualCount || (d.manuals ? d.manuals.length : 1),
-                  status: d.status || 'Ready',
-                  status_label: 'Evidence Ready',
-                  manuals: d.manuals || [mName + ' Manual'],
-                  error_codes: d.errorCodes || [],
-                  company_id: d.companyId || companyId
-                });
+            const processDoc = (doc) => {
+              const d = doc.data() || {};
+              const mName = d.machineName || d.machine_name || 'Uploaded Equipment';
+              machineMap.set(mName.toLowerCase(), {
+                id: doc.id,
+                machine_name: mName,
+                manufacturer: d.manufacturer || 'OEM',
+                model: d.model || 'Standard',
+                manufacturing_year: d.year || d.manufacturing_year || 'Current',
+                firmware: d.firmware || 'Verified Upload',
+                manual_count: d.manualCount || (d.manuals ? d.manuals.length : 1),
+                status: d.status || 'Ready',
+                status_label: 'Evidence Ready',
+                manuals: d.manuals || [mName + ' Manual'],
+                error_codes: d.errorCodes || [],
+                company_id: d.companyId || companyId
               });
+            };
+
+            // Query company machines first, and fallback to all uploaded machines
+            const snapComp = companyId ? await db.collection('machines').where('companyId', '==', companyId).get() : null;
+            if (snapComp && !snapComp.empty) {
+              snapComp.forEach(processDoc);
+            }
+            const snapAll = await db.collection('machines').get();
+            if (snapAll && !snapAll.empty) {
+              snapAll.forEach(processDoc);
             }
 
             // Real-time listener: if Company Admin uploads a new machine, auto-update employee screen instantly!
-            if (!unsubscribeMachinesListener && companyId) {
-              unsubscribeMachinesListener = db.collection('machines').where('companyId', '==', companyId)
-                .onSnapshot(liveSnap => {
-                  if (liveSnap && !liveSnap.empty) {
-                    liveSnap.forEach(doc => {
-                      const d = doc.data() || {};
-                      const mName = d.machineName || d.machine_name || 'Uploaded Equipment';
-                      machineMap.set(mName.toLowerCase(), {
-                        id: doc.id,
-                        machine_name: mName,
-                        manufacturer: d.manufacturer || 'OEM',
-                        model: d.model || 'Standard',
-                        manufacturing_year: d.year || d.manufacturing_year || 'Current',
-                        firmware: d.firmware || 'Verified Upload',
-                        manual_count: d.manualCount || (d.manuals ? d.manuals.length : 1),
-                        status: d.status || 'Ready',
-                        status_label: 'Evidence Ready',
-                        manuals: d.manuals || [mName + ' Manual'],
-                        error_codes: d.errorCodes || [],
-                        company_id: companyId
-                      });
-                    });
-                    registeredMachines = Array.from(machineMap.values());
-                    renderMachineCards();
-                  }
-                }, err => console.warn('Live machines listener warning:', err));
+            if (!unsubscribeMachinesListener) {
+              unsubscribeMachinesListener = db.collection('machines').onSnapshot(liveSnap => {
+                if (liveSnap && !liveSnap.empty) {
+                  liveSnap.forEach(processDoc);
+                  registeredMachines = Array.from(machineMap.values());
+                  renderMachineCards();
+                }
+              }, err => console.warn('Live machines listener warning:', err));
             }
           } catch(fsErr) {
             console.warn("Firestore client machine fetch warning:", fsErr);

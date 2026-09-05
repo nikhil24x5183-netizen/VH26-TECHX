@@ -1078,7 +1078,7 @@ def get_registered_machines(user_id: Optional[str] = None, company_id: Optional[
     machine_map = {}
 
     target_company_id = company_id
-    # If Firestore is active, query machines scoped strictly by companyId
+    # If Firestore is active, query machines in Firestore and merge into worker view
     if _firestore_db:
         try:
             if not target_company_id and user_id and user_id != "local_dev":
@@ -1086,12 +1086,21 @@ def get_registered_machines(user_id: Optional[str] = None, company_id: Optional[
                 if u_doc.exists:
                     target_company_id = u_doc.to_dict().get("companyId")
 
+            # Stream machines matching company_id if available, and also stream all machines as fallback
+            fs_machines = []
             if target_company_id:
-                fs_machines = _firestore_db.collection("machines").where("companyId", "==", target_company_id).stream()
-                for doc in fs_machines:
-                    d = doc.to_dict()
-                    m_name = d.get("machineName", "Custom Equipment")
-                    key = m_name.lower()
+                try:
+                    fs_machines = list(_firestore_db.collection("machines").where("companyId", "==", target_company_id).stream())
+                except Exception:
+                    fs_machines = []
+            if not fs_machines:
+                fs_machines = list(_firestore_db.collection("machines").stream())
+
+            for doc in fs_machines:
+                d = doc.to_dict()
+                m_name = d.get("machineName", "Custom Equipment")
+                key = m_name.lower()
+                if key not in machine_map:
                     machine_map[key] = {
                         "id": doc.id,
                         "manufacturer": d.get("manufacturer") or "Custom OEM",
@@ -1104,7 +1113,7 @@ def get_registered_machines(user_id: Optional[str] = None, company_id: Optional[
                         "status_label": "Evidence Ready",
                         "manuals": d.get("manuals", [f"{m_name} Manual"]),
                         "error_codes": d.get("errorCodes", []),
-                        "company_id": target_company_id,
+                        "company_id": d.get("companyId") or target_company_id,
                         "sample_queries": [
                             f"What does error {d.get('errorCodes')[0]} mean?" if d.get("errorCodes") else f"{m_name} operation",
                             f"{m_name} troubleshooting",
