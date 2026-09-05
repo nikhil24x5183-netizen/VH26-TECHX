@@ -30,6 +30,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+import concurrent.futures
+_fs_executor = concurrent.futures.ThreadPoolExecutor(max_workers=8)
+
+def fs_safe_call(fn, default=None, timeout=0.4):
+    global _firestore_db
+    if _firestore_db is None:
+        return default
+    try:
+        future = _fs_executor.submit(fn)
+        return future.result(timeout=timeout)
+    except Exception as e:
+        return default
+
+
 # ── Firebase Admin SDK, Firestore & Realtime Database Initialization ──
 _firebase_initialized = False
 _firestore_db = None
@@ -142,18 +157,18 @@ async def get_current_user(creds: HTTPAuthorizationCredentials = Depends(securit
 def get_user_record(uid: str) -> Optional[dict]:
     if not uid:
         return None
-    if _firestore_db:
-        try:
-            doc = _firestore_db.collection("users").document(uid).get()
-            if doc.exists:
-                return doc.to_dict()
-        except Exception:
-            pass
     if _rtdb:
         try:
             snap = _rtdb.child("users").child(uid).get()
             if snap and isinstance(snap, dict):
                 return snap
+        except Exception:
+            pass
+    if _firestore_db:
+        try:
+            doc = fs_safe_call(lambda: _firestore_db.collection("users").document(uid).get(), timeout=0.4)
+            if doc and doc.exists:
+                return doc.to_dict()
         except Exception:
             pass
     return None
@@ -588,17 +603,6 @@ def rebuild_indexes():
     custom_data = load_custom_manuals()
     custom_chunks = list(custom_data.get("chunks", []))
 
-    if _firestore_db:
-        try:
-            fs_chunks = _firestore_db.collection("chunks").stream()
-            existing_ids = set(c.get("chunkId") or c.get("id") for c in custom_chunks if c.get("chunkId") or c.get("id"))
-            for doc in fs_chunks:
-                d = doc.to_dict()
-                if d and doc.id not in existing_ids:
-                    custom_chunks.append(d)
-        except Exception as e:
-            print(f"Firestore chunks stream warning: {e}")
-
     if _rtdb:
         try:
             existing_ids = set(c.get("chunkId") or c.get("id") or c.get("chunk_id") for c in custom_chunks if c.get("chunkId") or c.get("id") or c.get("chunk_id"))
@@ -609,6 +613,17 @@ def rebuild_indexes():
                         custom_chunks.append(cdata)
         except Exception as re_chk:
             print(f"RTDB chunks load warning: {re_chk}")
+
+    if _firestore_db:
+        try:
+            fs_chunks = fs_safe_call(lambda: list(_firestore_db.collection("chunks").stream()), default=[], timeout=0.4)
+            existing_ids = set(c.get("chunkId") or c.get("id") for c in custom_chunks if c.get("chunkId") or c.get("id"))
+            for doc in fs_chunks:
+                d = doc.to_dict()
+                if d and doc.id not in existing_ids:
+                    custom_chunks.append(d)
+        except Exception as e:
+            print(f"Firestore chunks stream warning: {e}")
 
     CHUNKS = list(custom_chunks)
 
