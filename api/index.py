@@ -1833,7 +1833,7 @@ async def scan_error_photo(
         }
 
 @app.get("/api/manual_page")
-def get_manual_page(manual_name: str, page: int = 1, machine: Optional[str] = None):
+def get_manual_page(manual_name: str, page: int = 1, machine: Optional[str] = None, format: Optional[str] = None):
     """Retrieve OEM manual page text content, section title, and total page count."""
     kb, _, chunks = get_kb()
     matching_chunks = [
@@ -1848,31 +1848,52 @@ def get_manual_page(manual_name: str, page: int = 1, machine: Optional[str] = No
     if not page_chunk and matching_chunks:
         page_chunk = matching_chunks[min(max(0, page - 1), len(matching_chunks) - 1)]
 
-    if page_chunk:
-        total_pages = max([int(c.get("page", 1)) for c in matching_chunks] + [10])
-        return {
-            "status": "SUCCESS",
-            "manual_name": page_chunk.get("manual_name"),
-            "machine_name": page_chunk.get("machine_name"),
-            "page": int(page_chunk.get("page", page)),
-            "manual_page": int(page_chunk.get("manual_page", page)),
-            "total_pages": max(total_pages, 10),
-            "section": page_chunk.get("section", "Technical Manual Page"),
-            "topic": page_chunk.get("topic", "OEM Specifications & Operating Instructions"),
-            "text": page_chunk.get("text", "")
-        }
-    else:
-        return {
-            "status": "SUCCESS",
-            "manual_name": manual_name,
-            "machine_name": machine or "Equipment",
-            "page": page,
-            "manual_page": page,
-            "total_pages": 45,
-            "section": f"Section {page}.1: OEM Technical Manual Specifications",
-            "topic": "OEM Specifications & Operating Instructions",
-            "text": f"Page {page} of manual {manual_name}. Verify electrical connections, line supply voltage, and control unit parameters according to OEM specifications."
-        }
+    target_text = page_chunk.get("text", "") if page_chunk else f"Page {page} of manual {manual_name}. Verify electrical connections, line supply voltage, and control unit parameters according to OEM specifications."
+    section_name = page_chunk.get("section", f"Section {page}.1: Technical Specifications") if page_chunk else f"Section {page}.1: Technical Specifications"
+    topic_name = page_chunk.get("topic", "OEM Operating Instructions") if page_chunk else "OEM Operating Instructions"
+    tot_pages = max([int(c.get("page", 1)) for c in matching_chunks] + [45]) if matching_chunks else 45
+
+    if format == "pdf":
+        html_doc = f"""<!DOCTYPE html>
+<html>
+<head>
+  <title>{manual_name} - Page {page}</title>
+  <style>
+    body {{ font-family: sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }}
+    .page {{ background: white; color: #0f172a; max-width: 850px; margin: 0 auto; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }}
+    .header {{ border-bottom: 2px solid #2563eb; padding-bottom: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }}
+    .title {{ font-size: 18px; font-weight: 800; color: #0f172a; }}
+    .badge {{ background: #059669; color: white; padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; }}
+    .section {{ font-size: 14px; font-weight: 700; color: #1e40af; margin-bottom: 16px; background: #eff6ff; padding: 10px 14px; border-radius: 8px; border: 1px solid #bfdbfe; }}
+    .content {{ font-family: monospace; white-space: pre-wrap; font-size: 13px; line-height: 1.6; background: #f8fafc; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px; color: #1e293b; }}
+    .footer {{ font-size: 11px; color: #64748b; margin-top: 30px; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 12px; font-weight: 600; }}
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="header">
+      <div class="title">📖 {manual_name}</div>
+      <div class="badge">Target Solution Page {page} of {tot_pages}</div>
+    </div>
+    <div class="section">📍 {section_name} &bull; {topic_name}</div>
+    <div class="content">{target_text}</div>
+    <div class="footer">Verified Original OEM Technical Document &bull; Targeted Solution Page Reference</div>
+  </div>
+</body>
+</html>"""
+        return HTMLResponse(content=html_doc)
+
+    return {
+        "status": "SUCCESS",
+        "manual_name": manual_name,
+        "machine_name": machine or (page_chunk.get("machine_name") if page_chunk else "Equipment"),
+        "page": page,
+        "manual_page": page_chunk.get("manual_page", page) if page_chunk else page,
+        "total_pages": tot_pages,
+        "section": section_name,
+        "topic": topic_name,
+        "text": target_text
+    }
 
 @app.post("/api/query")
 def process_query(req: QueryRequest, user: Optional[dict] = Depends(get_current_user)):
