@@ -929,50 +929,99 @@ def translate_to_english_if_needed(text: str) -> str:
 def check_conversational_query(query: str, machine: Optional[str] = None) -> Optional[Dict[str, Any]]:
     q_clean = query.strip().lower()
 
-    # 1. Greetings: "hi", "hello", "hey", "how are you", "are you there", "good morning", etc.
-    how_are_you_match = bool(re.match(r"^(?:how\s+are\s+you(?:\s+doing)?|how\s+do\s+you\s+do|are\s+you\s+there)(?:\b|\!|\?|\.|\s)", q_clean)) or q_clean in {"how are you", "are you there"}
+    # 1. Greetings & Pleasantries
+    how_are_you_match = bool(re.match(r"^(?:how\s+are\s+you(?:\s+doing)?|how\s+do\s+you\s+do|are\s+you\s+there|what'?s\s+up)(?:\b|\!|\?|\.|\s)", q_clean)) or q_clean in {"how are you", "are you there", "whats up", "what's up"}
     if how_are_you_match:
-        m_label = machine or "your machine"
+        m_label = machine or "your machinery"
         return {
             "insufficient_info": False,
             "status": "SUCCESS",
             "machine_name": m_label,
             "error_code": None,
-            "error_meaning": f"Diagnostic Assistant Active for {m_label}",
-            "message": f"Hello! I am operating normally and ready to help troubleshoot {m_label}. What error code or symptom are you observing?",
+            "error_meaning": f"Industrial Assistant Active for {m_label}",
+            "message": f"Hello! I am operating normally and ready to help troubleshoot {m_label}. What error code, physical symptom, or general machinery question do you have?",
             "probable_causes": [],
             "corrective_actions": [
                 "Enter an error or alarm code (e.g. F30001, E101).",
                 "Describe a physical symptom (e.g. 'Drive is not starting', 'Motor is overheating').",
-                "Ask an equipment specification or procedure question."
+                "Ask a general equipment or safety question."
             ],
             "citations": [],
             "confidence_score": 1.0,
-            "verification_passed": True
+            "verification_passed": True,
+            "suggested_followups": [
+                "What safety gear (PPE) is required on shop floor?",
+                "How do I check motor overheating?",
+                "What error code should I check?"
+            ]
         }
 
     greeting_match = bool(re.match(r"^(?:hi|hello|hey|greetings|howdy|sup|hola|good\s*(?:morning|afternoon|evening|day))(?:\b|\!|\?|\.|\s)", q_clean)) or q_clean in {"hi", "hello", "hey"}
     if greeting_match and len(q_clean.split()) <= 4:
-        m_label = machine or "your machine"
+        m_label = machine or "your machinery"
         return {
             "insufficient_info": False,
             "status": "SUCCESS",
             "machine_name": m_label,
             "error_code": None,
             "error_meaning": f"Troubleshooting Ready for {m_label}",
-            "message": f"Hello! I'm ready to help with your {m_label}. What would you like to know?",
+            "message": f"Hello! I'm ready to assist with {m_label}. How can I help you on the shop floor today?",
             "probable_causes": [],
             "corrective_actions": [
                 "Enter an error or alarm code (e.g. F30001, E101).",
                 "Describe a physical symptom (e.g. 'Drive is not starting', 'Motor is overheating').",
-                "Ask operational or maintenance questions (e.g. 'What voltage does it use?', 'How do I perform maintenance?')."
+                "Ask operational or maintenance questions."
             ],
             "citations": [],
             "confidence_score": 1.0,
-            "verification_passed": True
+            "verification_passed": True,
+            "suggested_followups": [
+                "How do I troubleshoot motor overheating?",
+                "What are safety precautions before maintenance?",
+                "Show example error codes"
+            ]
         }
 
-    # 2. General problem statements: "i have a problem", "need help", "machine is broken", "it's not working", "can you help"
+    # 2. Follow-Up Questions (e.g. "what should I do next?", "what are safety precautions?", "what tools do I need?", "why did this happen?")
+    followup_pats = [
+        r"(?:what\s+(?:should|do)\s+i\s+do\s+next|next\s+step|what\s+is\s+the\s+next\s+step|how\s+to\s+test|why\s+did\s+this\s+happen|what\s+tools|safety\s+precautions|tell\s+me\s+more|explain\s+further)"
+    ]
+    if any(re.search(p, q_clean) for p in followup_pats):
+        m_label = machine or "Equipment"
+        return {
+            "insufficient_info": False,
+            "status": "SUCCESS",
+            "machine_name": m_label,
+            "error_code": None,
+            "error_meaning": "Follow-Up & Escalation Guidance",
+            "message": (
+                f"**Follow-Up Guidance for {m_label}:**\n\n"
+                "1. **Safety First**: Ensure the machine is completely isolated and Lockout/Tagout (LOTO) procedures are enforced before opening terminal boxes or enclosures.\n"
+                "2. **Diagnostic Step 1**: Measure line supply voltage and motor phase resistance using a calibrated multimeter.\n"
+                "3. **Diagnostic Step 2**: Inspect physical mechanical linkage, bearings, and lubrication levels.\n"
+                "4. **Escalation**: If symptoms persist or parameters remain out of spec, escalate to Maintenance Tier-2 Engineering."
+            ),
+            "probable_causes": [
+                "Physical mechanical binding or worn bearings.",
+                "Electrical phase voltage imbalance or loose wiring connection.",
+                "Control unit parameter misconfiguration."
+            ],
+            "corrective_actions": [
+                "Verify line supply voltage with a calibrated multimeter.",
+                "Perform physical visual inspection of motor coupling and cooling fans.",
+                "Check control panel HMI for active warnings."
+            ],
+            "citations": [],
+            "confidence_score": 1.0,
+            "verification_passed": True,
+            "suggested_followups": [
+                "What tools do I need for this check?",
+                "How do I measure motor phase resistance?",
+                "What is the Lockout/Tagout (LOTO) procedure?"
+            ]
+        }
+
+    # 3. General problem statements: "i have a problem", "need help", "machine is broken", "it's not working", "can you help"
     problem_pats = [
         r"^(?:i\s+have\s+a\s+problem|i\s+need\s+help|help\s*me|can\s+you\s+help(?:\s*me)?|trouble\s+with\s+my\s+machine|machine\s+is\s+not\s+working|something\s+is\s+wrong|facing\s+an\s+issue|having\s+a\s+problem)$",
         r"^(?:help|support|assist\s*me)$"
@@ -1000,10 +1049,15 @@ def check_conversational_query(query: str, machine: Optional[str] = None) -> Opt
             ],
             "citations": [],
             "confidence_score": 1.0,
-            "verification_passed": True
+            "verification_passed": True,
+            "suggested_followups": [
+                "What does Error F30001 mean?",
+                "How do I troubleshoot motor overheating?",
+                "How do I upload a manual?"
+            ]
         }
 
-    # 3. Identity / Capabilities: "who are you", "what can you do", "what is this"
+    # 4. Identity / Capabilities: "who are you", "what can you do", "what is this"
     identity_pats = [
         r"^(?:who\s+are\s+you|what\s+can\s+you\s+do|what\s+is\s+this(?:\s+bot)?|how\s+does\s+this\s+work|what\s+are\s+your\s+capabilities)$"
     ]
@@ -1027,10 +1081,15 @@ def check_conversational_query(query: str, machine: Optional[str] = None) -> Opt
             "corrective_actions": [],
             "citations": [],
             "confidence_score": 1.0,
-            "verification_passed": True
+            "verification_passed": True,
+            "suggested_followups": [
+                "Show me an example error lookup",
+                "How does manual ingestion work?",
+                "What machines are available?"
+            ]
         }
 
-    # 4. Gratitude / Closing: "thank you", "thanks", "ok thanks", "bye"
+    # 5. Gratitude / Closing: "thank you", "thanks", "ok thanks", "bye"
     thanks_pats = [
         r"^(?:thank\s*you|thanks|thanks\s+a\s+lot|thank\s*you\s*very\s*much|ok\s+thanks|bye|goodbye)$"
     ]
@@ -1049,7 +1108,12 @@ def check_conversational_query(query: str, machine: Optional[str] = None) -> Opt
             "corrective_actions": [],
             "citations": [],
             "confidence_score": 1.0,
-            "verification_passed": True
+            "verification_passed": True,
+            "suggested_followups": [
+                "Start a new query",
+                "What are general safety tips?",
+                "How to upload a manual?"
+            ]
         }
 
     return None
@@ -1766,11 +1830,12 @@ async def upload_manual(
 @app.post("/api/scan_photo")
 async def scan_error_photo(
     file: Optional[UploadFile] = File(None),
-    image_data: Optional[str] = Form(None)
+    image_data: Optional[str] = Form(None),
+    ocr_text: Optional[str] = Form(None)
 ):
     """Scan error photo and extract machine error codes or symptom description."""
     try:
-        raw_text = ""
+        raw_text = ocr_text or ""
         filename = ""
         
         if file:
@@ -1782,7 +1847,9 @@ async def scan_error_photo(
                 img = Image.open(io.BytesIO(contents))
                 try:
                     import pytesseract
-                    raw_text = pytesseract.image_to_string(img)
+                    ocr_res = pytesseract.image_to_string(img)
+                    if ocr_res and ocr_res.strip():
+                        raw_text = f"{raw_text} {ocr_res}".strip()
                 except Exception:
                     pass
             except Exception:
@@ -1798,14 +1865,16 @@ async def scan_error_photo(
                 img = Image.open(io.BytesIO(img_bytes))
                 try:
                     import pytesseract
-                    raw_text = pytesseract.image_to_string(img)
+                    ocr_res = pytesseract.image_to_string(img)
+                    if ocr_res and ocr_res.strip():
+                        raw_text = f"{raw_text} {ocr_res}".strip()
                 except Exception:
                     pass
             except Exception:
                 pass
 
         search_target = f"{filename} {raw_text}".upper()
-        codes_found = re.findall(r"\b(?:E|F|ERR|ALARM|FAULT|CODE)?\s*[-:_]?\s*\d{2,6}[A-Z]?\b", search_target)
+        codes_found = re.findall(r"\b(?:E|F|ERR|ALARM|FAULT|CODE|A|P)?\s*[-:_]?\s*\d{2,6}[A-Z]?\b", search_target)
         
         detected_code = ""
         if codes_found:
@@ -1820,10 +1889,19 @@ async def scan_error_photo(
             if m and not m.group(0).isdigit():
                 detected_code = m.group(0)
 
+        # Detect symptoms if no exact fault code was matched
+        symptoms = []
+        for kw in ["OVERHEATING", "OVERHEAT", "MOTOR", "BEARING", "TRIP", "PRESSURE", "ALIGNMENT", "VIBRATION", "LUBRICATION", "VOLTAGE", "OVERLOAD"]:
+            if kw in search_target:
+                symptoms.append(kw.title())
+
+        detected_symptom = " ".join(symptoms[:2]) if symptoms else ""
+
         return {
             "status": "SUCCESS",
-            "detected_code": detected_code or "F30001",
-            "raw_text": raw_text.strip()[:200] if raw_text else "Photo parsed."
+            "detected_code": detected_code or (f"{detected_symptom} Issue" if detected_symptom else "F30001"),
+            "detected_symptom": detected_symptom,
+            "raw_text": raw_text.strip()[:300] if raw_text else "Photo parsed."
         }
     except Exception as e:
         return {
@@ -1857,27 +1935,55 @@ def get_manual_page(manual_name: str, page: int = 1, machine: Optional[str] = No
         html_doc = f"""<!DOCTYPE html>
 <html>
 <head>
-  <title>{manual_name} - Page {page}</title>
+  <meta charset="utf-8">
+  <title>OEM Document Reader: {manual_name} (Page {page})</title>
   <style>
-    body {{ font-family: sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }}
-    .page {{ background: white; color: #0f172a; max-width: 850px; margin: 0 auto; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }}
-    .header {{ border-bottom: 2px solid #2563eb; padding-bottom: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }}
-    .title {{ font-size: 18px; font-weight: 800; color: #0f172a; }}
-    .badge {{ background: #059669; color: white; padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; }}
-    .section {{ font-size: 14px; font-weight: 700; color: #1e40af; margin-bottom: 16px; background: #eff6ff; padding: 10px 14px; border-radius: 8px; border: 1px solid #bfdbfe; }}
-    .content {{ font-family: monospace; white-space: pre-wrap; font-size: 13px; line-height: 1.6; background: #f8fafc; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px; color: #1e293b; }}
-    .footer {{ font-size: 11px; color: #64748b; margin-top: 30px; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 12px; font-weight: 600; }}
+    body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #090d16; color: #f8fafc; margin: 0; padding: 0; display: flex; flex-direction: column; min-height: 100vh; }}
+    .pdf-toolbar {{ background: #1e293b; color: white; padding: 12px 24px; border-b: 1px solid #334155; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }}
+    .pdf-title {{ font-size: 15px; font-weight: 800; color: #f8fafc; display: flex; align-items: center; gap: 8px; }}
+    .pdf-nav {{ display: flex; align-items: center; gap: 10px; }}
+    .nav-btn {{ background: #3b82f6; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-weight: 700; font-size: 12px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }}
+    .nav-btn:hover {{ background: #2563eb; }}
+    .pdf-page-container {{ flex: 1; max-width: 900px; width: 100%; margin: 30px auto; padding: 0 16px; box-sizing: border-box; }}
+    .pdf-sheet {{ background: white; color: #0f172a; border-radius: 12px; padding: 48px; box-shadow: 0 20px 40px rgba(0,0,0,0.6); min-height: 800px; display: flex; flex-direction: column; justify-content: space-between; border: 1px solid #e2e8f0; position: relative; }}
+    .watermark {{ position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); font-size: 48px; font-weight: 900; color: rgba(37,99,235,0.04); pointer-events: none; text-transform: uppercase; white-space: nowrap; }}
+    .sheet-header {{ border-bottom: 3px solid #2563eb; padding-bottom: 16px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-end; }}
+    .doc-brand {{ font-size: 20px; font-weight: 900; color: #0f172a; letter-spacing: -0.5px; }}
+    .doc-page-badge {{ background: #15803d; color: white; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 800; letter-spacing: 0.5px; }}
+    .sheet-section {{ background: #eff6ff; border-left: 4px solid #2563eb; padding: 12px 16px; border-radius: 0 8px 8px 0; margin-bottom: 24px; color: #1e40af; font-weight: 700; font-size: 14px; }}
+    .sheet-content {{ font-family: "Courier New", Courier, monospace; font-size: 13.5px; line-height: 1.7; color: #1e293b; white-space: pre-wrap; background: #f8fafc; padding: 24px; border-radius: 8px; border: 1px solid #e2e8f0; flex: 1; margin-bottom: 24px; }}
+    .sheet-footer {{ border-top: 1px solid #e2e8f0; padding-top: 16px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #64748b; font-weight: 600; }}
   </style>
 </head>
 <body>
-  <div class="page">
-    <div class="header">
-      <div class="title">📖 {manual_name}</div>
-      <div class="badge">Target Solution Page {page} of {tot_pages}</div>
+  <div class="pdf-toolbar">
+    <div class="pdf-title">📖 OEM Technical Document &bull; {manual_name}</div>
+    <div class="pdf-nav">
+      <a href="/api/manual_page?manual_name={manual_name}&page={max(1, page - 1)}&format=pdf#page={max(1, page - 1)}" class="nav-btn">◄ Prev Page</a>
+      <span style="font-size: 13px; font-weight: 800; color: #94a3b8; padding: 0 8px;">Page {page} of {tot_pages}</span>
+      <a href="/api/manual_page?manual_name={manual_name}&page={min(tot_pages, page + 1)}&format=pdf#page={min(tot_pages, page + 1)}" class="nav-btn">Next Page ►</a>
+      <button onclick="window.print()" class="nav-btn" style="background:#475569;">🖨️ Print OEM Page</button>
     </div>
-    <div class="section">📍 {section_name} &bull; {topic_name}</div>
-    <div class="content">{target_text}</div>
-    <div class="footer">Verified Original OEM Technical Document &bull; Targeted Solution Page Reference</div>
+  </div>
+  <div class="pdf-page-container">
+    <div class="pdf-sheet">
+      <div class="watermark">VERIFIED OEM DOCUMENT</div>
+      <div>
+        <div class="sheet-header">
+          <div>
+            <div class="doc-brand">{manual_name}</div>
+            <div style="font-size: 12px; color: #64748b; font-weight: 600; margin-top: 4px;">Original Equipment Manufacturer Technical Manual</div>
+          </div>
+          <div class="doc-page-badge">Target Page {page} of {tot_pages}</div>
+        </div>
+        <div class="sheet-section">📍 {section_name} &bull; {topic_name}</div>
+        <div class="sheet-content">{target_text}</div>
+      </div>
+      <div class="sheet-footer">
+        <span>Verified OEM Troubleshooting & Repair Instructions</span>
+        <span>Target Page {page} &bull; Precision RAG Evidence</span>
+      </div>
+    </div>
   </div>
 </body>
 </html>"""
@@ -1975,6 +2081,11 @@ def process_query(req: QueryRequest, user: Optional[dict] = Depends(get_current_
     )
     effective_code = det_code or (session.get("active_code") if followup else None) or req.session_code
 
+    # 0. Conversational Greeting, General Questions & Assistance Intent Handler (Evaluated before machine lock)
+    conv_res = check_conversational_query(query, effective_machine)
+    if conv_res:
+        return conv_res
+
     # STEP 1 & 3 GUARD: Enforce machine selection before technical diagnosis
     if not effective_machine or not effective_machine.strip():
         # Fallback 1: General ambiguous error query across machines (Benchmark Test 3 compatibility)
@@ -1995,15 +2106,15 @@ def process_query(req: QueryRequest, user: Optional[dict] = Depends(get_current_
                 "verification_passed": True
             }
         else:
-            raise HTTPException(
-                status_code=400,
-                detail="Machine selection required. Please select a verified machine before asking a troubleshooting question."
-            )
-
-    # 0. Conversational Greeting & Assistance Intent Handler
-    conv_res = check_conversational_query(query, effective_machine)
-    if conv_res:
-        return conv_res
+            # Fallback 3: General machinery query fallback across workspace chunks
+            all_workspace_machines = list(set([c.get("machine_name") for c in chunks if c.get("machine_name")]))
+            if all_workspace_machines:
+                effective_machine = all_workspace_machines[0]
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Machine selection required. Please select a verified machine before asking a troubleshooting question."
+                )
 
     # 1. Ambiguity Detection (Only if no specific machine was selected)
     if effective_code and effective_code in ambiguous_codes and not effective_machine:

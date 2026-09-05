@@ -16,6 +16,8 @@
       pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     }
   </script>
+  <!-- Client-Side OCR Engine -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <!-- Firebase Auth & Realtime Database -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -788,40 +790,52 @@
         msgs.appendChild(botLoadingDiv);
         scrollToBottom();
 
-        if (statusInd) statusInd.textContent = '📷 Reading error code from photo...';
+        if (statusInd) statusInd.textContent = '📷 Reading error code and text from photo...';
         if (photoBtn) photoBtn.disabled = true;
 
         let detectedCode = '';
+        let clientOcrText = '';
 
-        // 2. Call API /api/scan_photo
+        // 1. Run Browser Tesseract OCR
+        if (window.Tesseract) {
+          try {
+            const worker = await Tesseract.createWorker('eng');
+            const ret = await worker.recognize(imgSrc);
+            clientOcrText = ret.data.text || '';
+            await worker.terminate();
+            
+            const matches = clientOcrText.match(/\b(?:E|F|ERR|ALARM|FAULT|CODE|A|P)?\s*[-:_]?\s*\d{2,6}[A-Z]?\b/gi) || [];
+            if (matches.length > 0) {
+              const valid = matches.filter(m => m.trim().length >= 3 && !/^\d+$/.test(m.trim()));
+              if (valid.length > 0) detectedCode = valid[0].trim();
+              else detectedCode = matches[0].trim();
+            }
+          } catch(tErr) {
+            console.warn('Browser Tesseract OCR warning:', tErr);
+          }
+        }
+
+        // 2. Call Backend /api/scan_photo with File and OCR Text
         try {
           const formData = new FormData();
           formData.append('file', file);
+          if (clientOcrText) formData.append('ocr_text', clientOcrText);
+
           const res = await fetch('/api/scan_photo', {
             method: 'POST',
             body: formData
           });
           if (res.ok) {
             const data = await res.json();
-            detectedCode = data.detected_code || '';
+            if (data.detected_code && data.detected_code !== 'F30001') {
+              detectedCode = data.detected_code;
+            }
           }
         } catch(apiErr) {
           console.warn('API scan photo warning:', apiErr);
         }
 
-        // 3. Fallback Tesseract
-        if (!detectedCode && window.Tesseract) {
-          try {
-            const worker = await Tesseract.createWorker('eng');
-            const ret = await worker.recognize(imgSrc);
-            const extractedText = ret.data.text || '';
-            await worker.terminate();
-            const matches = extractedText.match(/\b(?:E|F|ERR|ALARM|FAULT|CODE)?\s*[-:_]?\s*\d{2,6}[A-Z]?\b/gi) || [];
-            if (matches.length > 0) detectedCode = matches[0].trim();
-          } catch(tErr) { console.warn(tErr); }
-        }
-
-        // 4. Filename fallback
+        // 3. Filename fallback
         if (!detectedCode && file.name) {
           const fnameMatch = file.name.match(/\b[A-Za-z0-9_-]{3,15}\b/);
           if (fnameMatch) detectedCode = fnameMatch[0];
@@ -833,9 +847,9 @@
         const loaderEl = document.getElementById(loadId);
         if (loaderEl) loaderEl.remove();
 
-        // 5. Populate input and submit query automatically into chat
+        // 4. Populate input and submit query automatically into chat
         queryInput.value = detectedCode;
-        if (statusInd) statusInd.textContent = `✓ Photo Read: Error ${detectedCode} Found!`;
+        if (statusInd) statusInd.textContent = `✓ Photo Read: Error / Query '${detectedCode}' Found!`;
         await submitTroubleshootingQuery();
       };
       reader.readAsDataURL(file);
@@ -1372,6 +1386,26 @@
             </div>
           </div>
 
+          <!-- DYNAMIC FOLLOW-UP QUESTION PILLS -->
+          <div class="pt-3 border-t border-slate-100 space-y-2">
+            <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center space-x-1">
+              <span>💬</span>
+              <span>Suggested Follow-Up Questions:</span>
+            </div>
+            <div class="flex flex-wrap gap-1.5">
+              ${(data.suggested_followups || [
+                "What safety gear (PPE) is required for this fix?",
+                "What tools do I need for Step 1?",
+                "What is the next diagnostic step if not resolved?"
+              ]).map(fq => `
+                <button type="button" onclick="insertQuery('${escapeHtml(fq)}'); submitTroubleshootingQuery();" 
+                  class="text-[11px] font-semibold px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-blue-600 hover:text-white text-slate-700 border border-slate-200 hover:border-blue-700 transition shadow-2xs">
+                  💬 ${escapeHtml(fq)}
+                </button>
+              `).join('')}
+            </div>
+          </div>
+
         </div>
       `;
 
@@ -1567,8 +1601,11 @@
   <!-- ================================================================= -->
   <!-- MODAL: INTERACTIVE DIRECT OEM MANUAL PAGE VIEWER                   -->
   <!-- ================================================================= -->
+  <!-- ================================================================= -->
+  <!-- MODAL: INTERACTIVE DIRECT OEM MANUAL PAGE VIEWER                   -->
+  <!-- ================================================================= -->
   <div id="manual-viewer-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4">
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-4xl w-full flex flex-col max-h-[92vh] overflow-hidden">
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-5xl w-full flex flex-col max-h-[92vh] overflow-hidden">
       
       <!-- MODAL HEADER -->
       <div class="p-4 sm:p-5 border-b border-slate-100 bg-slate-900 text-white flex items-center justify-between shrink-0">
@@ -1603,6 +1640,18 @@
         </div>
 
         <div class="flex items-center space-x-2">
+          <!-- VIEW MODE SEGMENTED SWITCH -->
+          <div class="inline-flex p-1 rounded-xl bg-slate-200 border border-slate-300">
+            <button type="button" onclick="switchViewerTab('pdf')" id="tab-btn-modal-pdf"
+              class="px-3 py-1 rounded-lg text-xs font-bold transition bg-white text-emerald-700 shadow-xs">
+              🖼️ High-Res OEM Page
+            </button>
+            <button type="button" onclick="switchViewerTab('text')" id="tab-btn-modal-text"
+              class="px-3 py-1 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-900">
+              📝 Text View
+            </button>
+          </div>
+
           <span id="modal-section-badge" class="px-2.5 py-1 rounded-md bg-emerald-100 text-emerald-900 font-extrabold border border-emerald-300 text-[11px]">
             Section 1.0
           </span>
@@ -1620,6 +1669,12 @@
           <span class="inline-block animate-spin mr-1">⚪</span> Loading OEM manual page...
         </div>
 
+        <!-- VIEW MODE 1: OEM PDF DOCUMENT IFRAME -->
+        <div id="modal-pdf-view-container" class="w-full h-[540px] rounded-xl overflow-hidden border border-slate-300 shadow-inner bg-slate-900">
+          <iframe id="modal-pdf-iframe" class="w-full h-full border-0" src="about:blank"></iframe>
+        </div>
+
+        <!-- VIEW MODE 2: TEXT VIEW CONTAINER (Hidden by default) -->
         <div id="modal-page-body" class="hidden space-y-4">
           <div id="modal-topic-header" class="text-xs font-black text-slate-600 uppercase tracking-wider border-b border-slate-200 pb-2 flex items-center justify-between">
             <span>TECHNICAL SPECIFICATIONS & PROCEDURES</span>
@@ -1650,7 +1705,8 @@
       machine_name: '',
       page: 1,
       total_pages: 10,
-      pdf_url: ''
+      pdf_url: '',
+      active_tab: 'pdf'
     };
 
     async function openManualPageViewer(manualName, pageNum, machineName) {
@@ -1664,9 +1720,28 @@
       await loadManualPageContent();
     }
 
+    function switchViewerTab(tab) {
+      currentViewerState.active_tab = tab;
+      const pdfContainer = document.getElementById('modal-pdf-view-container');
+      const textBody = document.getElementById('modal-page-body');
+      const btnPdf = document.getElementById('tab-btn-modal-pdf');
+      const btnText = document.getElementById('tab-btn-modal-text');
+
+      if (tab === 'pdf') {
+        if (pdfContainer) pdfContainer.classList.remove('hidden');
+        if (textBody) textBody.classList.add('hidden');
+        if (btnPdf) btnPdf.className = 'px-3 py-1 rounded-lg text-xs font-bold transition bg-white text-emerald-700 shadow-xs';
+        if (btnText) btnText.className = 'px-3 py-1 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-900';
+      } else {
+        if (pdfContainer) pdfContainer.classList.add('hidden');
+        if (textBody) textBody.classList.remove('hidden');
+        if (btnText) btnText.className = 'px-3 py-1 rounded-lg text-xs font-bold transition bg-white text-blue-700 shadow-xs';
+        if (btnPdf) btnPdf.className = 'px-3 py-1 rounded-lg text-xs font-bold transition text-slate-600 hover:text-slate-900';
+      }
+    }
+
     async function loadManualPageContent() {
       const loading = document.getElementById('modal-page-loading');
-      const body = document.getElementById('modal-page-body');
       const title = document.getElementById('modal-manual-title');
       const subtitle = document.getElementById('modal-manual-subtitle');
       const counter = document.getElementById('modal-page-counter');
@@ -1674,12 +1749,15 @@
       const topicHeader = document.getElementById('modal-topic-header');
       const pageText = document.getElementById('modal-page-text');
       const pdfNumBadge = document.getElementById('btn-pdf-page-num');
+      const iframe = document.getElementById('modal-pdf-iframe');
 
       if (loading) loading.classList.remove('hidden');
-      if (body) body.classList.add('hidden');
 
       if (title) title.textContent = currentViewerState.manual_name;
       if (subtitle) subtitle.textContent = `Machine: ${currentViewerState.machine_name || 'Equipment'} • Solution Target Page ${currentViewerState.page}`;
+
+      const targetPdfUrl = `/api/manual_page?manual_name=${encodeURIComponent(currentViewerState.manual_name)}&page=${currentViewerState.page}&machine=${encodeURIComponent(currentViewerState.machine_name)}&format=pdf#page=${currentViewerState.page}`;
+      if (iframe) iframe.src = targetPdfUrl;
 
       try {
         const res = await fetch(`/api/manual_page?manual_name=${encodeURIComponent(currentViewerState.manual_name)}&page=${currentViewerState.page}&machine=${encodeURIComponent(currentViewerState.machine_name)}`);
@@ -1687,7 +1765,6 @@
           const data = await res.json();
           currentViewerState.total_pages = data.total_pages || 10;
           currentViewerState.page = data.manual_page || data.page || currentViewerState.page;
-          currentViewerState.pdf_url = data.pdf_url || '';
 
           if (counter) counter.textContent = `Page ${currentViewerState.page} of ${currentViewerState.total_pages}`;
           if (pdfNumBadge) pdfNumBadge.textContent = currentViewerState.page;
@@ -1704,7 +1781,7 @@
         if (pageText) pageText.textContent = `Direct page view for ${currentViewerState.manual_name} (Page ${currentViewerState.page}). Verify OEM procedures and electrical tolerances.`;
       } finally {
         if (loading) loading.classList.add('hidden');
-        if (body) body.classList.remove('hidden');
+        switchViewerTab(currentViewerState.active_tab || 'pdf');
       }
     }
 
