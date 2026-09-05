@@ -55,11 +55,12 @@
 <body class="min-h-screen flex flex-col text-slate-900 bg-slate-50">
 
     <!-- Auth Checking Overlay (Shown only during active redirection) -->
-    <div id="auth-loading-overlay" class="hidden fixed inset-0 bg-white/90 backdrop-blur-sm z-50 flex items-center justify-center transition-opacity">
-        <div class="text-center p-6">
+    <div id="auth-loading-overlay" class="hidden fixed inset-0 bg-white/90 backdrop-blur-sm z-50 flex items-center justify-center transition-opacity" onclick="this.classList.add('hidden')">
+        <div class="text-center p-6 bg-white rounded-2xl shadow-xl border border-slate-100 max-w-xs w-full">
             <div class="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center text-xl shadow-lg shadow-blue-600/30 mx-auto mb-3 animate-pulse">⚙️</div>
             <p class="text-sm font-semibold text-slate-700">Opening your workspace...</p>
             <p class="text-xs text-slate-400 mt-1">Directing to authorized dashboard</p>
+            <button type="button" onclick="event.stopPropagation(); document.getElementById('auth-loading-overlay').classList.add('hidden')" class="mt-4 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-600 transition">Dismiss</button>
         </div>
     </div>
     
@@ -620,7 +621,10 @@
 
         auth.onAuthStateChanged(async (user) => {
             if (user) {
-                if (overlay) overlay.classList.remove('hidden');
+                if (overlay) {
+                    overlay.classList.remove('hidden');
+                    setTimeout(() => { if (overlay) overlay.classList.add('hidden'); }, 1200);
+                }
 
                 let redirected = false;
                 const forceRedirect = (targetRole) => {
