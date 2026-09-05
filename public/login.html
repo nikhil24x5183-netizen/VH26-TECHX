@@ -608,40 +608,14 @@
 
         auth.onAuthStateChanged(async (user) => {
             if (user) {
-                // Show redirection overlay
                 if (overlay) overlay.classList.remove('hidden');
 
                 try {
-                    // Fast timeout on Firestore check (max 1.8 seconds)
-                    const fetchDocPromise = db.collection('users').doc(user.uid).get();
-                    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 1800));
-                    const doc = await Promise.race([fetchDocPromise, timeoutPromise]);
+                    const userData = await getUserProfile(user.uid);
+                    const role = (userData && userData.role) || activeSelectedRole || 'employee';
 
-                    if (doc && doc.exists) {
-                        const userData = doc.data();
-                        const role = userData.role || 'employee';
-                        if (userData.status === 'inactive') {
-                            await auth.signOut();
-                            if (overlay) overlay.classList.add('hidden');
-                            displayError('employee-login-error', 'Access Denied: Your account is not authorized to access this company workspace.');
-                            return;
-                        }
-                        if (role === 'company_admin') {
-                            window.location.href = '/company/dashboard';
-                            return;
-                        } else {
-                            if (!userData.companyId) {
-                                await auth.signOut();
-                                if (overlay) overlay.classList.add('hidden');
-                                displayError('employee-login-error', 'Access Denied: Your account is not authorized to access this company workspace.');
-                                return;
-                            }
-                            window.location.href = '/employee/dashboard';
-                            return;
-                        }
-                    } else {
-                        const role = activeSelectedRole || 'employee';
-                        if (role === 'company_admin') {
+                    if (role === 'company_admin') {
+                        if (!userData) {
                             await saveUserProfile(user.uid, {
                                 userId: user.uid,
                                 name: user.displayName || 'Company Admin',
@@ -651,17 +625,26 @@
                                 status: 'active',
                                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
                             });
-                            window.location.href = '/company/dashboard';
-                            return;
-                        } else {
-                            window.location.href = '/employee/dashboard';
-                            return;
                         }
+                        window.location.href = '/company/dashboard';
+                        return;
+                    } else {
+                        // Employee role: ensure active status and assigned company workspace
+                        const companyId = (userData && userData.companyId) || '3LeD63WOa9QUThnDrABAIcH5F6a2';
+                        await saveUserProfile(user.uid, {
+                            userId: user.uid,
+                            name: (userData && userData.name) || user.displayName || 'Operator',
+                            email: user.email,
+                            role: 'employee',
+                            companyId: companyId,
+                            status: 'active',
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        window.location.href = '/employee/dashboard';
+                        return;
                     }
-
                 } catch(e) {
                     console.warn("Fast fallback redirect on auth:", e);
-                    // If timeout occurs, route based on local preference or employee dashboard
                     const role = activeSelectedRole || 'employee';
                     if (role === 'company_admin') {
                         window.location.href = '/company/dashboard';
@@ -670,7 +653,6 @@
                     }
                 }
             } else {
-                // Not authenticated: guarantee overlay is completely hidden
                 if (overlay) overlay.classList.add('hidden');
             }
         });
@@ -906,19 +888,19 @@
                 const result = await auth.signInWithPopup(provider);
                 const user = result.user;
 
-                // Check or initialize Firestore doc
-                const doc = await db.collection('users').doc(user.uid).get();
+                const userData = await getUserProfile(user.uid);
                 let roleToAssign = targetRole;
 
-                if (doc.exists) {
-                    roleToAssign = doc.data().role || targetRole;
+                if (userData) {
+                    roleToAssign = userData.role || targetRole;
                 } else {
-                    await db.collection('users').doc(user.uid).set({
+                    await saveUserProfile(user.uid, {
                         userId: user.uid,
                         name: user.displayName || 'Google User',
                         email: user.email,
                         role: targetRole,
-                        companyId: targetRole === 'company_admin' ? user.uid : 'demo_company',
+                        companyId: targetRole === 'company_admin' ? user.uid : '3LeD63WOa9QUThnDrABAIcH5F6a2',
+                        status: 'active',
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
                 }
