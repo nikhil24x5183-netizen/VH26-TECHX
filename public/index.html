@@ -955,7 +955,19 @@
 
       const simpleSteps = (simple.steps || data.recommended_checks_procedure || data.corrective_actions || []).map((step, i) => {
         const stepNum = i + 1;
-        const cleanStep = String(step).replace(/^(?:Step\s*\d+[:\.]?|\d+[\.\)])\s*/i, '');
+        let cleanStep = String(step)
+          .replace(/^(?:Step\s*\d+[:\.]?|\d+[\.\)]|\-|\*)\s*/i, '')
+          .replace(/[\x00-\x1f\x7f-\x9f\ufffd]/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+        if (cleanStep.length > 140) {
+          const dot = cleanStep.indexOf('.', 25);
+          if (dot !== -1 && dot <= 140) {
+            cleanStep = cleanStep.slice(0, dot + 1);
+          } else {
+            cleanStep = cleanStep.slice(0, 137) + '...';
+          }
+        }
         return `
           <div class="flex items-start space-x-3 p-2.5 rounded-xl bg-slate-50 border border-slate-100 hover:border-blue-200 transition">
             <span class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-black text-xs shrink-0 shadow-xs">
@@ -971,6 +983,10 @@
 
       const techSteps = (tech.steps || tech.engineering_procedures || data.recommended_checks_procedure || data.corrective_actions || []).map((step, i) => {
         const stepNum = i + 1;
+        let cleanTechStep = String(step)
+          .replace(/[\x00-\x1f\x7f-\x9f\ufffd]/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
         return `
           <div class="flex items-start space-x-3 p-3 rounded-xl bg-slate-900/5 border border-slate-200">
             <span class="w-6 h-6 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-xs shrink-0 font-mono">
@@ -978,7 +994,7 @@
             </span>
             <div class="text-xs text-slate-800 leading-relaxed">
               <span class="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 mr-1.5">PROCEDURE</span>
-              ${escapeHtml(step)}
+              ${escapeHtml(cleanTechStep)}
             </div>
           </div>
         `;

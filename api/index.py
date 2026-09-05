@@ -2465,10 +2465,57 @@ def process_query(req: QueryRequest, user: Optional[dict] = Depends(get_current_
         meaning = translate_to_english_if_needed(meaning)
         causes = [translate_to_english_if_needed(c) for c in causes]
         safe_note = translate_to_english_if_needed(safety_warning or "Follow Lockout/Tagout (LOTO) protocols and isolate power before physical inspection.")
-        raw_steps = [translate_to_english_if_needed(re.sub(r"^Step\s+\d+:\s*", "", s).strip()) for s in formatted_steps] if formatted_steps else ["Verify machine connections and operating parameters."]
+        
+        # Clean & sanitize steps into short operator bullet items (max 130 chars)
+        clean_raw_steps = []
+        for s in (formatted_steps or []):
+            st = translate_to_english_if_needed(re.sub(r"^(?:Step\s*\d+[:\.]?|\d+[\.\)]|\-|\*)\s*", "", str(s)).strip())
+            st = re.sub(r"^(?:\d{1,3}[\.\s]+[A-Z][a-z]+[^\n]*\n|\d{1,3}\s+)", "", st)
+            st = re.sub(r"[\x00-\x1f\x7f-\x9f\ufffd]", " ", st)
+            st = re.sub(r"\s+", " ", st).strip()
+            # Remove title repetition at start
+            m_rep = re.match(r"^([A-Z][A-Za-z0-9\s]{4,30})\s+\1", st)
+            if m_rep:
+                st = st[len(m_rep.group(1)):].strip()
+            if len(st) > 15:
+                if len(st) > 130:
+                    dot = st.find(".", 25)
+                    if dot != -1 and dot <= 130:
+                        st = st[:dot + 1]
+                    else:
+                        st = st[:127] + "..."
+                if not any(st.lower() in cs.lower() for cs in clean_raw_steps):
+                    clean_raw_steps.append(st)
 
-        simple_steps = [f"Step {idx}: {step_txt}" for idx, step_txt in enumerate(raw_steps[:4], 1)]
-        technical_steps = [f"Step {idx} [Diagnostic Procedure]: {step_txt}" for idx, step_txt in enumerate(raw_steps[:5], 1)]
+        if len(clean_raw_steps) < 2:
+            sents = re.split(r"(?<=[.!?])\s+|\n+", clean_chunk)
+            for sent in sents:
+                st = translate_to_english_if_needed(sent.strip())
+                st = re.sub(r"^(?:Section\s+[\d\.]+|\d+[\.\)]|\-|\*)\s*", "", st).strip()
+                st = re.sub(r"[\x00-\x1f\x7f-\x9f\ufffd]", " ", st)
+                st = re.sub(r"\s+", " ", st).strip()
+                if len(st) < 20 or re.match(r"^\d+[\.\s]+", st):
+                    continue
+                if len(st) > 130:
+                    dot = st.find(".", 25)
+                    if dot != -1 and dot <= 130:
+                        st = st[:dot + 1]
+                    else:
+                        st = st[:127] + "..."
+                if not any(st.lower() in cs.lower() for cs in clean_raw_steps):
+                    clean_raw_steps.append(st)
+                if len(clean_raw_steps) >= 4:
+                    break
+
+        if not clean_raw_steps:
+            clean_raw_steps = [
+                "Verify power supply line voltage and control unit status.",
+                "Check motor cables and connections for phase faults.",
+                "Acknowledge fault on HMI panel and resume operation."
+            ]
+
+        simple_steps = [f"Step {idx}: {step_txt}" for idx, step_txt in enumerate(clean_raw_steps[:4], 1)]
+        technical_steps = [f"Step {idx} [Diagnostic Procedure]: {step_txt}" for idx, step_txt in enumerate(clean_raw_steps[:5], 1)]
         if escalation:
             technical_steps.append(f"Step {len(technical_steps) + 1} [Escalation Action]: {translate_to_english_if_needed(escalation)}")
 
