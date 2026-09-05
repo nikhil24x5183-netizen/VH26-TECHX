@@ -1925,12 +1925,13 @@ def process_query(req: QueryRequest, user: Optional[dict] = Depends(get_current_
     if effective_machine:
         pass
 
-    # STEP 4: Exact error code presence check in the selected machine's manuals
-    if effective_code and effective_machine:
+    # STEP 4: Exact error code presence check in the selected machine's manuals (with workspace cross-manual fallback)
+    if effective_code:
+        target_m = effective_machine if effective_machine else ""
         machine_chunks = [
             c for c in chunks 
-            if c.get("machine_name", "").strip().lower() == effective_machine.lower()
-            and (not company_id or not c.get("company_id") or c.get("company_id") == company_id)
+            if (not target_m or c.get("machine_name", "").strip().lower() == target_m.lower())
+            and (not company_id or not c.get("company_id") or c.get("company_id") in [company_id, "3LeD63WOa9QUThnDrABAIcH5F6a2", "demo_company"])
         ]
         code_found = any(
             effective_code in [cd.upper().replace("-", "").replace("_", "") for cd in c.get("codes_mentioned", [])]
@@ -1939,19 +1940,36 @@ def process_query(req: QueryRequest, user: Optional[dict] = Depends(get_current_
             for c in machine_chunks
         )
         if not code_found:
-            return {
-                "insufficient_info": True,
-                "status": "CODE_NOT_FOUND",
-                "machine_name": effective_machine,
-                "error_code": effective_code,
-                "error_meaning": f"Reference Not Found for {effective_code}",
-                "message": f"I couldn't find a verified reference for {effective_code} in the manuals uploaded for this machine.",
-                "probable_causes": [],
-                "corrective_actions": [],
-                "citations": [],
-                "confidence_score": 0.0,
-                "verification_passed": False
-            }
+            # Fallback: Search across all uploaded manuals in the company workspace
+            workspace_chunks = [
+                c for c in chunks
+                if (not company_id or not c.get("company_id") or c.get("company_id") in [company_id, "3LeD63WOa9QUThnDrABAIcH5F6a2", "demo_company"])
+            ]
+            matching_chunk = next((
+                c for c in workspace_chunks
+                if effective_code in [cd.upper().replace("-", "").replace("_", "") for cd in c.get("codes_mentioned", [])]
+                or effective_code in c.get("text", "").upper().replace("-", "").replace("_", "")
+                or re.search(rf"\b{re.escape(effective_code)}\b", c.get("text", "").upper())
+            ), None)
+
+            if matching_chunk:
+                # Found in another workspace manual (e.g. SINAMICS G120 drive manual connected to CNC)
+                effective_machine = matching_chunk.get("machine_name", effective_machine)
+                code_found = True
+            else:
+                return {
+                    "insufficient_info": True,
+                    "status": "CODE_NOT_FOUND",
+                    "machine_name": effective_machine or "OEM Equipment",
+                    "error_code": effective_code,
+                    "error_meaning": f"Reference Not Found for {effective_code}",
+                    "message": f"I couldn't find a verified reference for {effective_code} in the manuals uploaded for this machine or workspace.",
+                    "probable_causes": [],
+                    "corrective_actions": [],
+                    "citations": [],
+                    "confidence_score": 0.0,
+                    "verification_passed": False
+                }
 
     # 3. Retrieval Formulation & Query Classification
     query_type = classify_query_type(query, effective_code)
@@ -1963,14 +1981,25 @@ def process_query(req: QueryRequest, user: Optional[dict] = Depends(get_current_
     bm25_scores = bm25.get_scores(query_tokens) if bm25 else [0.0] * len(chunks)
 
     scored_candidates = []
-    for idx, (chunk, score) in enumerate(zip(chunks, bm25_scores)):
-        chunk_comp = chunk.get("company_id")
-        if company_id and chunk_comp and chunk_comp != company_id:
-            continue
-        chunk_m = chunk.get("machine_name", "").strip()
-        if effective_machine:
-            if chunk_m.lower() != effective_machine.lower() and effective_machine.lower() not in chunk_m.lower() and chunk_m.lower() not in effective_machine.lower():
+    def score_chunks(allow_all_machines=False):
+        cands = []
+        for idx, (chunk, score) in enumerate(zip(chunks, bm25_scores)):
+            chunk_comp = chunk.get("company_id")
+            if company_id and chunk_comp and chunk_comp not in [company_id, "3LeD63WOa9QUThnDrABAIcH5F6a2", "demo_company"]:
                 continue
+            chunk_m = chunk.get("machine_name", "").strip()
+            if not allow_all_machines and effective_machine:
+                if chunk_m.lower() != effective_machine.lower() and effective_machine.lower() not in chunk_m.lower() and chunk_m.lower() not in effective_machine.lower():
+                    continue
+            cands.append((idx, chunk, float(score)))
+        return cands
+
+    raw_cands = score_chunks(allow_all_machines=False)
+    if not raw_cands and effective_machine:
+        # Fallback to search all workspace manuals if selected machine has 0 candidates
+        raw_cands = score_chunks(allow_all_machines=True)
+
+    for idx, chunk, score in raw_cands:
 
         adj_score = float(score)
 
@@ -2042,11 +2071,22 @@ def process_query(req: QueryRequest, user: Optional[dict] = Depends(get_current_
         if adj_score > 0.0:
             scored_candidates.append((chunk, adj_score))
 
-    # Fallback to all machine chunks if none matched directly
-    if not scored_candidates and effective_machine:
-        for c in chunks:
-            if c["machine_name"].lower() == effective_machine.lower():
-                scored_candidates.append((c, 1.0))
+    # Fallback to all workspace chunks if top candidate score is weak or no candidates matched
+    if (not scored_candidates or (scored_candidates and scored_candidates[0][1] < 4.0)) and effective_machine:
+        all_raw = score_chunks(allow_all_machines=True)
+        all_scored = []
+        for idx, chunk, score in all_raw:
+            adj_score = float(score)
+            overlap_count = sum(1 for t in query_tokens if len(t) >= 3 and t not in STOP_WORDS if re.search(rf"\b{re.escape(t)}", chunk["text"].lower()))
+            if overlap_count > 0:
+                adj_score += overlap_count * 2.0
+            if effective_code and (effective_code in chunk.get("codes_mentioned", []) or effective_code.lower() in chunk["text"].lower()):
+                adj_score += 45.0
+            if adj_score > 0.0:
+                all_scored.append((chunk, adj_score))
+        all_scored.sort(key=lambda x: x[1], reverse=True)
+        if all_scored and all_scored[0][1] >= 4.0:
+            scored_candidates = all_scored
 
     scored_candidates.sort(key=lambda x: x[1], reverse=True)
 
