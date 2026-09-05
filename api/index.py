@@ -1756,6 +1756,13 @@ async def upload_manual(
         fname,
         machine_name=machine_name,
         session_id=session_id,
+        brand=brand,
+        model_no=model_no,
+        year_of_manufacture=year_of_manufacture,
+        user_id=uid,
+        company_id=comp_id
+    )
+
 @app.post("/api/scan_photo")
 async def scan_error_photo(
     file: Optional[UploadFile] = File(None),
